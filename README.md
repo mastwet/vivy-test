@@ -9,9 +9,36 @@ as the functional reference. Favor a working agent and short iteration cycles.
 
 ## Status
 
-This repository currently contains decisions, source-based findings, and a
-handoff. There is no Rust implementation, recipe compiler, executable, or verified
-gateway integration yet. Source inspection is not runtime verification.
+A recipe builder (`crates/vivy`), the baseline recipe
+(`recipes/coding-agent.yaml`) and two plugin crates: `plugins/vivy-gateway` (the
+model gateway) and `plugins/vivy-basics` (Pi's search tools, prompt templates,
+`/session`, `/copy` and `/export`).
+It reuses Rig's harness and plugins; see [DESIGN.md](docs/DESIGN.md) for the
+route, what has been run, and what is still unverified. It is built and run on
+Linux; Windows has not been tried.
+
+## Use
+
+```sh
+cargo run -p vivy -- build recipes/coding-agent.yaml   # prints the agent binary
+```
+
+Runtime settings are Rig's `RIG_HOME/settings.toml` (default `~/.rig`); the
+gateway reads its table there and its key from the agent secret variable:
+
+```toml
+[gateway]
+base_url = "https://gateway.example/v1"
+model = "model-id-as-the-gateway-names-it"
+```
+
+```sh
+export RIG_SECRET_GATEWAY=...    # never stored in the repository
+.generated/target/debug/coding-agent --model gateway/<model>            # terminal
+.generated/target/debug/coding-agent --model gateway/<model> -p "task"  # one prompt
+```
+
+Change the recipe and rebuild to change what is compiled in.
 
 ## Start here
 

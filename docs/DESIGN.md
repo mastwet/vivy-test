@@ -87,7 +87,7 @@ handles building. Reloading involves rebuilding and restarting; it is not native
 plugin hot-loading. See the pinned [project generator][rig-project] and
 [harness description][rig-harness].
 
-## Proposed minimal experiment
+## Assembly path
 
 ```text
 recipe.yaml
@@ -103,23 +103,32 @@ schema registry, or self-update system. If Rig's generator is reusable, YAML can
 adapt to that path; do not maintain independent hand-edited YAML and TOML sources
 of the same selections. Generated files must be marked and regenerated.
 
-An illustrative recipe, **not a supported schema or runnable command today**:
+The implemented form is [`recipes/coding-agent.yaml`](../recipes/coding-agent.yaml):
+a pinned Rig `git` + `rev`, then an ordered list of components. A component
+names one crate (a Rig crate, or this repository's by `path`), the plugin types
+(`Plugin + Default`) it adds, and the Cargo `features` it needs of any selected
+crate. There is no hidden component catalog: the recipe says which types are
+compiled in. `crates/vivy` (`vivy build <recipe>`) checks the recipe, writes
+`.generated/<name>/Cargo.toml` and `src/main.rs` (marked generated, rewritten
+only when changed), keeps the resolved lock next to the recipe as
+`<name>.Cargo.lock`, and runs `cargo build`. The generated `main.rs` mirrors
+Rig's launcher: the harness plugins, then `rig_harness::load::<T>` per plugin in
+recipe order, then `rig_harness::run`.
 
-```yaml
-name: coding-agent
-components:
-  - gateway
-  - terminal
-  - coding-tools
-  - sessions
-```
+The builder rejects unknown fields (with the line), duplicate components or
+plugin types, empty components, malformed names and type paths, a plugin path
+outside its component's crate, two sources for one crate, and features for an
+unselected crate. Whether a type exists and is a plugin is left to rustc, which
+names the missing type at the generated line. Plugin crates are built with
+`default-features = false`; this matters because `rig-basics` enables
+`rig-tui` through its default `tui` feature.
 
-Concrete component names and constructor types are decided during implementation.
-Keep gateway URL, model ID, and credential environment-variable name in runtime
-settings; these are not new plugin code. First require valid input, known
-selections, no duplicate identities, and the dependencies needed by those actual
-components. Let Rust enforce the types. Add graph machinery only for dependency
-relationships that really exist.
+Runtime settings stay out of the recipe and use Rig's own
+`RIG_HOME/settings.toml`. The gateway takes base URL and model ID there; its key
+is the agent secret `gateway` (`RIG_SECRET_GATEWAY`), not a configurable plain
+environment variable, because the harness withholds `RIG_SECRET_*` variables
+from every process it starts (shell and tools) and would pass any other
+variable on to them.
 
 A Vivy plugin can be a Rust crate with a small typed installation function, or a
 thin wrapper around an existing Rig plugin. Wrap only where selection or product
@@ -158,8 +167,70 @@ The first working slice should establish:
    compilation. Optimize only where measurements justify it.
 
 Use one baseline recipe and a temporary selection variation for this proof; a
-recipe catalog is unnecessary. The current task creates documents only. These
-criteria describe the next implementation task, and none has passed yet.
+recipe catalog is unnecessary. Status of each criterion is in the next section.
+
+## First slice: route, evidence and gaps
+
+Recorded 2026-10-24 on Linux x86_64 (cloud container, 4 vCPU, 15 GB RAM),
+Rust 1.97.1 (`rust-toolchain.toml`, Rig's pin), Rig `55cd481a`, debug profile.
+
+**Route: Rig's harness.** `rig-harness` + `rig-basics` + `rig-tui` already give
+the loop, tools, sessions, compaction, the print/JSON front and the terminal
+view, and Rig's launcher showed the generated shape to copy. Neither a
+`rig-core` + `rig-agent` host nor an own loop was written. Rig's `rig` launcher
+and `plugins.toml` are **not** used: the recipe is the one selection source.
+Rig's login, `/reload` and `/plugins` are left out of the recipe because they
+are a second, runtime selection path or a stored-key path.
+
+**One Vivy plugin: `plugins/vivy-gateway`.** Rig's `--model` accepts only
+catalog models, so a gateway's arbitrary model IDs need a plugin. It follows
+Rig's own pattern (`Connector::provide` on a declared vendor, as in Rig's
+`corpus/base/src/local_models.rs`): `gateway/<model>` is added to the catalog
+and served by Rig's OpenAI wire with the baseline compatible-gateway quirks
+(`Dialect::gateway`), on Chat Completions, at the configured base URL, sending
+the model ID unchanged. Only the user's settings are read, so a cloned
+project's `.rig/settings.toml` cannot redirect the key. The plugin must depend
+on the recipe's Rig revision; a different one would add a second copy of the
+Rig crates.
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| Task, gateway, streaming, file edit + command, continuation | **Offline only** | Against a local scripted Chat Completions server (`scripts/mock_gateway.py`): one `-p` run streamed, called `shell`, wrote `hello.txt`, returned the tool result and exited 0; the request went to `/v1/chat/completions` with the bearer key and the model ID unchanged (`org/model-1`), offering `read`, `edit`, `write`, `shell`. A second process with `RIG_SESSION=<id>` continued the session (both user turns sent, model restored). **No real gateway has been called yet.** |
+| Optional plugin removed by recipe | Passed | Without the `terminal` component, `cargo tree` of the generated package loses `rig-tui` and 62 other crates (ratatui, crossterm, syntect, …): 307 → 245 packages. On a terminal, the variant prints "this build has no front for an interactive terminal"; the baseline opens Rig's terminal view. Removing a `rig-basics` plugin type alone removes no crate. |
+| Errors, cancellation, credentials | Passed offline | Recipe errors above; an unknown plugin type fails in rustc naming it. A gateway 401 is shown with the gateway's message (exit 1); a missing key names `RIG_SECRET_GATEWAY`; an unknown model suggests the configured one. SIGINT during a tool's `sleep 300` exits 130 and the `sleep` is killed. In the shell tool, `env \| grep -c RIG_SECRET_` printed 0; the test key appears in no session or workspace file. |
+| Build times | Measured | Dependency download (`cargo fetch`, 513 packages) 34 s, separate from compiling. Cold compile of the baseline 161 s; warm `vivy build` with nothing changed under 1 s; after a one-line edit in `vivy-gateway` 4 s. Changing the selection (baseline → no `terminal`, sharing the target directory) 82 s, mostly re-compiling crates whose features changed. Target directory 2.9 GB; the debug binary is 613 MB. No optimization was attempted. |
+
+Gaps and differences from Rig's launcher, by evidence so far:
+
+- **Real gateway smoke is pending** the endpoint, model ID and key. Streaming
+  and tool calls on that gateway are unverified until then.
+- **Launcher-only behavior is absent:** `--resume` is the launcher's flag (use
+  `RIG_SESSION=<id>` with the binary, or `/resume` in the terminal view), and
+  build-failure rollback and `/reload` do not exist; change the recipe and run
+  `vivy build` again.
+- **The gateway model has no catalog facts** (context window, prices,
+  reasoning), so compaction thresholds and cost reporting may not apply to it.
+  Add settings for them when a real gateway shows the need.
+- **Windows** has not been built or run; the inspected Rig launcher documents
+  Linux and macOS only.
+
+## Second slice: daily-use core
+
+Recorded 2026-10-24, same machine and toolchain. `plugins/vivy-basics` adds
+five plugin types, selected by three recipe components (`search-tools`,
+`prompt-templates`, `session-commands`); the `terminal` component turns on its
+`tui` feature.
+
+| Pi feature | Here | Evidence (built agent, scripted gateway) |
+| --- | --- | --- |
+| `grep`, `find`, `ls` tools | Rig's existing `search` (contents, or names with `files`; `.gitignore`-aware) and `list` tools, registered per call like Rig's coding tools | Offered on every request; a scripted `search` call returned `notes.txt:1: hi there`. Not ported: Pi's `ignoreCase`/`literal` flags (a regex expresses both), context lines, a settable limit. |
+| Prompt templates | `.md` files directly in the project's `.rig/prompts` and `RIG_HOME/prompts` become `/name`; Pi's frontmatter (`description`, `argument-hint`), argument splitting and substitutions ported with tests | `/review 'the API' a b` sent `Review the API; extra: a b`, titled `template review`; `/help` lists it. Project templates load without Pi's trust step, as Rig's project skills do. |
+| `/session` | Name, ID, directory, model, message and tool-call counts; tokens and cost stay in Rig's `/usage` | Shown for a resumed session. |
+| `/copy` | Last reply: OSC 52 plus system clipboard in the terminal view, system clipboard otherwise | In print mode here it failed clearly ("no clipboard here: it needs wl-copy, xclip, …"), as this container has none. The terminal-view path is unverified. |
+| `/export [path]` | HTML by default (`session-<id>.html` in the agent's directory), JSONL for a `.jsonl` path | Both written for a resumed session; the HTML escapes content (unit-tested). |
+| `/clone`, `/tree` | Rig's `/fork` (at the end, or at a message), `/agents` and rewind | Not added as duplicates; their semantics (forks are agents of one session, not new session files) differ from Pi's tree. |
+
+Adding the crate rebuilt the baseline in 85 s with the shared target directory.
 
 After that, use [PI-BASELINE.md](PI-BASELINE.md) to add capabilities in usable
 slices. Focus research on session semantics, hook behavior, terminal reuse, MCP,

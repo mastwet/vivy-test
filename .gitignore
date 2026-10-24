@@ -1,7 +1,7 @@
 # Reference checkouts and disposable experiment work.
 /.workspace/
 /.generated/
-/target/
+target/
 /data/
 
 # Local credentials and runtime settings.
