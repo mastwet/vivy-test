@@ -9,6 +9,7 @@
 //! gateway, are in `RIG_HOME/settings.toml`.
 
 mod generate;
+mod launch;
 mod recipe;
 
 use std::error::Error;
@@ -20,7 +21,7 @@ use recipe::Recipe;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
-const USAGE: &str = "usage: vivy generate <recipe.yaml> | vivy build <recipe.yaml>";
+const USAGE: &str = "usage: vivy [--resume <id>] [--model <model>] [-p prompt | --json]\n       vivy generate <recipe.yaml> | vivy build <recipe.yaml>";
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -29,7 +30,22 @@ fn main() -> ExitCode {
             .and_then(|agent| agent.generate().map(|()| agent.package)),
         [command, recipe] if command == "build" => Agent::load(Path::new(recipe))
             .and_then(|agent| agent.generate().and_then(|()| agent.build())),
-        _ => Err(USAGE.into()),
+        [flag] if flag == "--help" || flag == "-h" => {
+            println!("{USAGE}");
+            return ExitCode::SUCCESS;
+        }
+        [command, ..] if command == "build" || command == "generate" => Err(USAGE.into()),
+        _ => {
+            let result = Agent::load(&repository_root().join("recipes/coding-agent.yaml"))
+                .and_then(|agent| launch::run(&agent.binary(), &args));
+            return match result {
+                Ok(code) => ExitCode::from(code),
+                Err(error) => {
+                    eprintln!("vivy: {error}");
+                    ExitCode::FAILURE
+                }
+            };
+        }
     };
     match result {
         Ok(path) => {
@@ -66,7 +82,7 @@ impl Agent {
         let generated = repository_root().join(".generated");
         Ok(Self {
             package: generated.join(&recipe.name),
-            target: generated.join("target"),
+            target: target_directory(std::env::var_os("CARGO_TARGET_DIR"))?,
             lock: path.with_extension("Cargo.lock"),
             origin: path.display().to_string(),
             directory: absolute.parent().unwrap_or(Path::new("/")).to_path_buf(),
@@ -85,12 +101,14 @@ impl Agent {
 
     /// Builds the generated package and returns the agent binary.
     fn build(&self) -> Result<PathBuf> {
-        let status = Command::new(std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()))
-            .arg("build")
-            .current_dir(&self.package)
-            .env("CARGO_TARGET_DIR", &self.target)
-            .status()
-            .map_err(|error| format!("cannot start cargo: {error}"))?;
+        let status = cargo_command(
+            std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
+            &self.package,
+            &self.target,
+            std::env::vars_os().map(|(key, _)| key),
+        )
+        .status()
+        .map_err(|error| format!("cannot start cargo: {error}"))?;
         if !status.success() {
             return Err(format!(
                 "cargo build of {} failed ({status}); its output above names the cause",
@@ -101,12 +119,47 @@ impl Agent {
         // Keep the resolved versions with the recipe.
         let lock = fs::read_to_string(self.package.join("Cargo.lock"))?;
         generate::write_if_changed(&self.lock, &lock)?;
-        Ok(self.target.join("debug").join(format!(
+        Ok(self.binary())
+    }
+
+    fn binary(&self) -> PathBuf {
+        self.target.join("debug").join(format!(
             "{}{}",
             self.recipe.name,
             std::env::consts::EXE_SUFFIX
-        )))
+        ))
     }
+}
+
+fn target_directory(override_path: Option<std::ffi::OsString>) -> std::io::Result<PathBuf> {
+    override_path.map_or_else(
+        || Ok(repository_root().join(".generated/target")),
+        std::path::absolute,
+    )
+}
+
+fn cargo_command(
+    cargo: impl AsRef<std::ffi::OsStr>,
+    package: &Path,
+    target: &Path,
+    variables: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
+) -> Command {
+    let mut command = Command::new(cargo);
+    command
+        .arg("build")
+        .current_dir(package)
+        .env("CARGO_TARGET_DIR", target);
+    for name in variables {
+        if name
+            .as_ref()
+            .to_string_lossy()
+            .to_ascii_uppercase()
+            .starts_with("RIG_SECRET_")
+        {
+            command.env_remove(name);
+        }
+    }
+    command
 }
 
 /// This repository's root: `vivy` is run from its own checkout.
@@ -117,4 +170,34 @@ fn repository_root() -> PathBuf {
         .nth(2)
         .unwrap_or(manifest)
         .to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_command_removes_secrets() {
+        let command = cargo_command(
+            "cargo",
+            Path::new("."),
+            Path::new("target"),
+            ["RIG_SECRET_GATEWAY", "PATH"],
+        );
+        assert!(
+            command
+                .get_envs()
+                .any(|(key, value)| key == "RIG_SECRET_GATEWAY" && value.is_none())
+        );
+        assert!(!command.get_envs().any(|(key, _)| key == "PATH"));
+    }
+
+    #[test]
+    fn target_override_is_resolved_before_changing_directory() {
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(
+            target_directory(Some("short-target".into())).unwrap(),
+            cwd.join("short-target")
+        );
+    }
 }

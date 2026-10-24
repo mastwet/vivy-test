@@ -11,4 +11,5 @@
 
 pub mod search;
 pub mod session;
+pub mod shell;
 pub mod templates;

@@ -19,8 +19,8 @@ import json
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-PORT = int(sys.argv[1])
-LOG = sys.argv[2]
+PORT = 18080
+LOG = "mock.log"
 
 
 def text_of(message):
@@ -120,4 +120,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.flush()
 
 
-ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+if __name__ == "__main__":
+    PORT = int(sys.argv[1])
+    LOG = sys.argv[2]
+    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

@@ -2,7 +2,8 @@
 
 Recorded on 2026-10-24. This is an experiment brief, not an implemented API or a
 production compatibility promise. The user's decisions are fixed below; the
-runtime integration choice remains open to a small working spike.
+runtime integration choice was resolved in favor of Rig's harness (see the
+implementation sections below).
 
 ## Accepted decisions
 
@@ -236,6 +237,92 @@ After that, use [PI-BASELINE.md](PI-BASELINE.md) to add capabilities in usable
 slices. Focus research on session semantics, hook behavior, terminal reuse, MCP,
 and JavaScript Code Mode where existing libraries may save substantial effort.
 Rig's Steel/Scheme mode is not Pi's JavaScript Code Mode equivalent.
+
+## Windows coding species and Python workbench
+
+Implemented on Windows x64, Rust 1.97.1, using the same pinned Rig revision.
+This section supersedes earlier Windows and launcher gaps; the dated Linux
+measurements above remain historical evidence.
+
+- `vivy` starts the already-built baseline agent, forwarding its I/O, flags and
+  exit status. It uses Rig's description and session-switch protocol, session
+  locks, saved working directories, and existing store for `/new` and `/resume`.
+  Missing artifacts produce the explicit build command. There is no automatic
+  build, reload, crash restart, installer, or new session index.
+- A fresh agent selects the configured gateway model. An explicit CLI model or
+  restored model wins. The recipe omits Rig's remembered-model DefaultsPlugin
+  so an unrelated stored preference does not override the gateway configuration.
+- The basics plugin's `shell` keeps Rig's arguments, working-directory placement,
+  live output, limits, and spill files. On Windows it discovers Git for Windows
+  or reads `[shell].executable`; it never selects the WSL `bash.exe` alias.
+  Other platforms continue using Rig's shell implementation.
+- `crates/vivy-process` is the shared process-ownership helper needed by shell
+  and Python. On Windows it starts a suspended process, attaches it to a
+  kill-on-close Job Object, then resumes its primary thread. The calling future
+  retains cancellation ownership while I/O runs on another thread. This covers
+  descendants, timeout, cancellation and cleanup without a Rig fork. Commands
+  remove agent-only state and `RIG_SECRET_*`; Cargo also filters those secrets.
+- The independently selectable `vivy-python` crate embeds a stdlib-only CPython
+  worker and exposes `python_repl(code, timeout_secs?)`. Its namespace is owned
+  by one active agent, supports top-level await, and survives normal calls and
+  ordinary Python exceptions. It is not serialized. Timeout (default 60 seconds),
+  cancellation, worker failure, exit, or session switching discards the namespace.
+  Fresh-worker results state that previous process/session variables are absent.
+- The worker captures Python, raw-fd and subprocess stdout/stderr separately
+  from JSONL control messages. It drains earlier output before returning the
+  trailing expression, bounds encoded result frames, and retains Rig's normal
+  tool-result output limits. No automatic package installation, background tasks,
+  subagent API, snapshots, replay or programmatic tool bridge was added.
+
+### Native build and checks
+
+The previous MSVC native-dependency failures were resolved using a short target
+directory and disabling dev debug data, without replacing TLS or Rig:
+
+```powershell
+$env:CARGO_TARGET_DIR = 'C:\vt'
+$env:CARGO_PROFILE_DEV_DEBUG = '0'
+cargo test --workspace --locked
+cargo test --manifest-path plugins/vivy-basics/Cargo.toml --locked
+cargo test --manifest-path plugins/vivy-gateway/Cargo.toml --locked
+cargo test --manifest-path plugins/vivy-python/Cargo.toml --locked
+python -m unittest discover -s plugins/vivy-python/tests
+cargo run -p vivy -- build recipes/coding-agent.yaml
+python scripts/smoke.py C:\vt\debug\vivy.exe
+```
+
+Root workspace tests do not include the separate plugin workspaces. Formatting
+is checked for the root and each plugin manifest. The local smoke uses only a
+scripted loopback Chat Completions server and disposable directories.
+
+Verified behavior:
+
+- Builder tests cover recipe selection, portable generated paths, the target
+  directory override, secret filtering and missing-artifact guidance.
+- Process/shell tests cover exit status, a working directory containing spaces,
+  timeout and termination of a process with descendants. The empty-frontmatter
+  parsing regression is covered with LF and CRLF inputs.
+- Python tests cover state and agent separation, await, exception recovery,
+  timeout/reset, cancellation by dropping the future, raw/subprocess output,
+  printed-output ordering and large Unicode result frames.
+- `scripts/smoke.py` runs the native launcher and assembled species through a
+  streamed shell task, native read/edit calls, saved-session resume, successive Python calls, a fresh
+  Python namespace after process resume, JSON output and a gateway 401. It checks
+  the outbound raw model ID, offered tools and absence of the test key in session
+  files. Print-mode session switching returns 75 without replaying its prompt.
+- A Windows pseudoterminal smoke exercised the actual Rig TUI, a model/tool task,
+  `/session`, `/new`, `/resume <id>` and `/quit`. The harness's own PTY process
+  creation was unavailable, so temporary pywinpty 3.1.0 tooling supplied the test
+  terminal; it is not a product dependency.
+- A temporary recipe without the Python component rebuilt successfully, and
+  `cargo tree` contained no `vivy-python`. `vivy-process` correctly remained for
+  shell execution. Temporary variants are not a second maintained recipe source.
+
+Independent review identified a closed-output timeout branch and two Python
+frame/ordering edge cases; these were corrected and checked. This is functional
+terminal reuse, not a visual Pi clone. A real gateway smoke remains pending an
+authorized endpoint, model and key. There is no claim of complete Pi parity or
+new macOS/Linux validation for this Windows delivery.
 
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md

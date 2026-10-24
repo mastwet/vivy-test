@@ -94,6 +94,23 @@ impl Plugin for GatewayPlugin {
                 connect(&base_url, key.as_deref(), spec, transport)
             },
         );
+        app.add_systems(PostStartup, default_gateway_model);
+    }
+}
+
+fn default_gateway_model(
+    settings: Res<GatewaySettings>,
+    invoked: Option<Res<Invoked>>,
+    agents: Query<Entity, (With<Agent>, Without<ModelChoice>, Without<SpawnedBy>)>,
+    mut commands: Commands,
+) {
+    if invoked.is_some_and(|invoked| invoked.args.model.is_some()) {
+        return;
+    }
+    for agent in &agents {
+        commands
+            .entity(agent)
+            .insert(ModelChoice(format!("gateway/{}", settings.model.trim())));
     }
 }
 
@@ -161,5 +178,32 @@ mod tests {
         let app = app("", &[(SECRET, "test-key")]);
         let models = app.world().resource::<Models>();
         assert!(models.0.catalog().resolve("gateway/org/model-1").is_err());
+    }
+
+    #[test]
+    fn configured_gateway_is_the_default_but_does_not_replace_restored_or_explicit_models() {
+        let mut app = app(SETTINGS, &[(SECRET, "test-key")]);
+        let fresh = app.world_mut().spawn(Agent).id();
+        let restored = app
+            .world_mut()
+            .spawn((Agent, ModelChoice("gateway/remembered".into())))
+            .id();
+        app.update();
+        assert_eq!(
+            app.world().get::<ModelChoice>(fresh).unwrap().0,
+            "gateway/org/model-1"
+        );
+        assert_eq!(
+            app.world().get::<ModelChoice>(restored).unwrap().0,
+            "gateway/remembered"
+        );
+
+        let mut app = super::tests::app(SETTINGS, &[(SECRET, "test-key")]);
+        let mut invoked = Invoked::default();
+        invoked.args.model = Some("gateway/explicit".into());
+        app.insert_resource(invoked);
+        let fresh = app.world_mut().spawn(Agent).id();
+        app.update();
+        assert!(app.world().get::<ModelChoice>(fresh).is_none());
     }
 }

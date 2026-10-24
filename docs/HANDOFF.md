@@ -9,11 +9,11 @@ The latest priority is to run a real coding task early and remove unnecessary
 platform mechanisms.
 
 Repository: `https://github.com/mastwet/vivy-test`.
-Current state: the first slice is implemented (builder, baseline recipe,
-gateway plugin) on Rig's harness and checked offline on Linux; DESIGN's "First
-slice" section lists the evidence and gaps. Next: a real-gateway smoke once the
-owner gives the endpoint, model ID and key; then Windows; then Pi baseline
-slices. Steps 1-4 below are kept as the record of how the slice was approached.
+Current state: the builder, gateway, native Windows launcher, Git Bash process
+adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
+species and Python workbench" section records current evidence. Next: a real
+gateway smoke with an authorized endpoint, model and key, then useful Pi baseline
+slices. The original steps below remain the historical approach, not open work.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 

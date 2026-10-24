@@ -18,6 +18,13 @@ unless stated. Other Rig entries describe source-level reuse opportunities, not
 verified equivalence. Pi document paths
 are relative to `.workspace/pi/packages/coding-agent/` unless stated otherwise.
 
+The subsequent Windows delivery provides the native `vivy` launcher, Git Bash
+process-tree cleanup, actual TUI session switching and an independently optional
+Python workbench. The older slice annotations below are historical; current
+commands and verification are in DESIGN's "Windows coding species and Python
+workbench" section. Python is an auxiliary tool, not Pi JavaScript Code Mode
+parity. Full Pi behavior and a real gateway remain unverified.
+
 | Area | Pi behavior to retain in the coverage map | Rig direction / important gap | Pi source entry |
 | --- | --- | --- | --- |
 | Agent execution | Streaming text/thinking, tool calls, cancellation, retries, usage, sequential/parallel tools, queued steering and follow-ups | Reuse an existing Rig runtime; verify event ordering, queue behavior and failure handling. *Slice 1:* Rig harness loop; one streamed tool round trip, a gateway 401, and SIGINT stopping a running tool | `../agent/src/agent-loop.ts`, `docs/how-pi-works.md` |

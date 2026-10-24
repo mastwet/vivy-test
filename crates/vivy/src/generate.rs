@@ -188,9 +188,13 @@ components:
             "crate: rig-tui\n    path: ../plugins/tui\n",
         );
         let recipe = Recipe::parse(&text).unwrap();
-        assert!(manifest(&recipe, "r", Path::new("/repo/recipes")).contains(
-            "rig-tui = { path = \"/repo/recipes/../plugins/tui\", default-features = false }\n"
-        ));
+        let expected = Path::new("/repo/recipes").join("../plugins/tui");
+        assert!(
+            manifest(&recipe, "r", Path::new("/repo/recipes")).contains(&format!(
+                "rig-tui = {{ path = {}, default-features = false }}\n",
+                quoted(&expected.to_string_lossy())
+            ))
+        );
         assert!(main_rs(&recipe, "r").contains("\"rig-tui\", \"path ../plugins/tui\")"));
     }
 

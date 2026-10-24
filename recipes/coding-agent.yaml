@@ -32,7 +32,6 @@ components:
     crate: rig-basics
     plugins:
       - rig_basics::models::ModelsPlugin
-      - rig_basics::models::defaults::DefaultsPlugin
 
   - name: sessions
     crate: rig-basics
@@ -49,8 +48,13 @@ components:
       - rig_basics::coding_tools::ReadTool
       - rig_basics::coding_tools::EditTool
       - rig_basics::coding_tools::WriteTool
-      - rig_basics::coding_tools::ShellTool
       - rig_basics::coding_tools::AttachPlugin
+
+  - name: shell
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::shell::ShellTool
 
   # Pi's grep/find/ls: Rig's search and list tools.
   - name: search-tools
@@ -74,6 +78,13 @@ components:
       - vivy_basics::session::SessionInfoPlugin
       - vivy_basics::session::CopyPlugin
       - vivy_basics::session::ExportPlugin
+
+  # Auxiliary Python workbench; removing this component excludes its crate.
+  - name: python
+    crate: vivy-python
+    path: ../plugins/vivy-python
+    plugins:
+      - vivy_python::PythonPlugin
 
   - name: commands
     crate: rig-basics

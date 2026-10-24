@@ -162,6 +162,12 @@ fn split(text: &str) -> Result<(Frontmatter, &str), String> {
     else {
         return Ok((Frontmatter::default(), text));
     };
+    if rest == "---" || rest.starts_with("---\n") || rest.starts_with("---\r\n") {
+        return Ok((
+            Frontmatter::default(),
+            rest[3..].trim_start_matches(['\r', '\n']),
+        ));
+    }
     let end = rest
         .match_indices("\n---")
         .find(|(at, _)| {
@@ -378,6 +384,13 @@ mod tests {
         let template = parse("plain".into(), "\n  First line here\nmore").unwrap();
         assert_eq!(template.description, "First line here");
         assert!(parse("bad".into(), "---\ndescription: x\n").is_err());
+    }
+
+    #[test]
+    fn reads_empty_frontmatter() {
+        for text in ["---\n---\nBody", "---\r\n---\r\nBody"] {
+            assert_eq!(parse("empty".into(), text).unwrap().body, "Body");
+        }
     }
 
     #[test]

@@ -1,9 +1,9 @@
 # vivy-test
 
 An independent Rust experiment for YAML-driven, build-time agent assembly.
-Read `docs/DESIGN.md` and `docs/HANDOFF.md` before implementation. The owner has
-authorized the repository bootstrap and documentation; implementation is a
-subsequent task, not a claim made by this scaffold.
+Read `docs/DESIGN.md` and `docs/HANDOFF.md` before implementation. This checkout
+contains the recipe builder, native Windows launcher and optional Python
+workbench; consult the recorded verification before claiming platform support.
 
 ## Working rules
 

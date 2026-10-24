@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/vivy"]
+members = ["crates/vivy", "crates/vivy-process"]
 # Generated agents are their own Cargo workspaces and build the plugins;
 # references are read-only.
 exclude = [".generated", ".workspace", "plugins"]

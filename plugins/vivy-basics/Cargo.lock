@@ -4501,11 +4501,21 @@ version = "0.1.0"
 dependencies = [
  "bevy_ecs",
  "bevy_log",
+ "futures",
  "rig-harness",
  "rig-tui",
  "serde",
  "serde-saphyr",
  "serde_json",
+ "vivy-process",
+]
+
+[[package]]
+name = "vivy-process"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
