@@ -214,6 +214,24 @@ Gaps and differences from Rig's launcher, by evidence so far:
 - **Windows** has not been built or run; the inspected Rig launcher documents
   Linux and macOS only.
 
+## Second slice: daily-use core
+
+Recorded 2026-10-24, same machine and toolchain. `plugins/vivy-basics` adds
+five plugin types, selected by three recipe components (`search-tools`,
+`prompt-templates`, `session-commands`); the `terminal` component turns on its
+`tui` feature.
+
+| Pi feature | Here | Evidence (built agent, scripted gateway) |
+| --- | --- | --- |
+| `grep`, `find`, `ls` tools | Rig's existing `search` (contents, or names with `files`; `.gitignore`-aware) and `list` tools, registered per call like Rig's coding tools | Offered on every request; a scripted `search` call returned `notes.txt:1: hi there`. Not ported: Pi's `ignoreCase`/`literal` flags (a regex expresses both), context lines, a settable limit. |
+| Prompt templates | `.md` files directly in the project's `.rig/prompts` and `RIG_HOME/prompts` become `/name`; Pi's frontmatter (`description`, `argument-hint`), argument splitting and substitutions ported with tests | `/review 'the API' a b` sent `Review the API; extra: a b`, titled `template review`; `/help` lists it. Project templates load without Pi's trust step, as Rig's project skills do. |
+| `/session` | Name, ID, directory, model, message and tool-call counts; tokens and cost stay in Rig's `/usage` | Shown for a resumed session. |
+| `/copy` | Last reply: OSC 52 plus system clipboard in the terminal view, system clipboard otherwise | In print mode here it failed clearly ("no clipboard here: it needs wl-copy, xclip, …"), as this container has none. The terminal-view path is unverified. |
+| `/export [path]` | HTML by default (`session-<id>.html` in the agent's directory), JSONL for a `.jsonl` path | Both written for a resumed session; the HTML escapes content (unit-tested). |
+| `/clone`, `/tree` | Rig's `/fork` (at the end, or at a message), `/agents` and rewind | Not added as duplicates; their semantics (forks are agents of one session, not new session files) differ from Pi's tree. |
+
+Adding the crate rebuilt the baseline in 85 s with the shared target directory.
+
 After that, use [PI-BASELINE.md](PI-BASELINE.md) to add capabilities in usable
 slices. Focus research on session semantics, hook behavior, terminal reuse, MCP,
 and JavaScript Code Mode where existing libraries may save substantial effort.

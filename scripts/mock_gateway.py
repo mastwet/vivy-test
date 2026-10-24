@@ -12,6 +12,7 @@ file given as argv[2]. Replies:
 - after a tool result: text quoting the tool output;
 - a prompt containing SLEEP: a shell call `sleep 300` (cancellation check);
 - a prompt containing FAIL: HTTP 401 (error visibility check);
+- a prompt containing SEARCH: a `search` call for "hi";
 - otherwise: a shell call that writes hello.txt and counts RIG_SECRET_ vars.
 """
 import json
@@ -49,6 +50,7 @@ class Handler(BaseHTTPRequestHandler):
                 "last_role": last.get("role"),
                 "tools": [t.get("function", {}).get("name") for t in body.get("tools", [])],
                 "user_turns": len(users),
+                "prompt_start": prompt[:120],
             }) + "\n")
         if not self.path.endswith("/chat/completions"):
             return self.reply_error(404, "unknown path " + self.path)
@@ -56,6 +58,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply_error(401, "invalid api key")
         if last.get("role") == "tool":
             return self.reply(body, text="Tool output: " + text_of(last)[:300])
+        if "SEARCH" in prompt:
+            return self.reply(body, call={"pattern": "hi"}, tool="search")
         if "SLEEP" in prompt:
             return self.reply(body, call={"command": "sleep 300"})
         if users and len(users) > 1:
@@ -72,12 +76,12 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def reply(self, body, text=None, call=None):
+    def reply(self, body, text=None, call=None, tool="shell"):
         model = body.get("model")
         if call is not None:
             delta = {"role": "assistant", "tool_calls": [{
                 "index": 0, "id": "call_1", "type": "function",
-                "function": {"name": "shell", "arguments": json.dumps(call)},
+                "function": {"name": tool, "arguments": json.dumps(call)},
             }]}
             finish = "tool_calls"
         else:

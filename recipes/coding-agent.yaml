@@ -52,6 +52,29 @@ components:
       - rig_basics::coding_tools::ShellTool
       - rig_basics::coding_tools::AttachPlugin
 
+  # Pi's grep/find/ls: Rig's search and list tools.
+  - name: search-tools
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::search::SearchTools
+
+  # Markdown prompt templates in .rig/prompts and RIG_HOME/prompts as /commands.
+  - name: prompt-templates
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::templates::PromptTemplatesPlugin
+
+  # /session, /copy and /export.
+  - name: session-commands
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::session::SessionInfoPlugin
+      - vivy_basics::session::CopyPlugin
+      - vivy_basics::session::ExportPlugin
+
   - name: commands
     crate: rig-basics
     plugins:
@@ -71,3 +94,4 @@ components:
       - rig_tui::TuiPlugin
     features:
       rig-basics: [tui]
+      vivy-basics: [tui]

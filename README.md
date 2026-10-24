@@ -9,8 +9,10 @@ as the functional reference. Favor a working agent and short iteration cycles.
 
 ## Status
 
-The first slice exists: a recipe builder (`crates/vivy`), the baseline recipe
-(`recipes/coding-agent.yaml`) and one Vivy plugin (`plugins/vivy-gateway`).
+A recipe builder (`crates/vivy`), the baseline recipe
+(`recipes/coding-agent.yaml`) and two plugin crates: `plugins/vivy-gateway` (the
+model gateway) and `plugins/vivy-basics` (Pi's search tools, prompt templates,
+`/session`, `/copy` and `/export`).
 It reuses Rig's harness and plugins; see [DESIGN.md](docs/DESIGN.md) for the
 route, what has been run, and what is still unverified. It is built and run on
 Linux; Windows has not been tried.
