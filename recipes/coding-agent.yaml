@@ -1,0 +1,73 @@
+# The baseline coding agent. `cargo run -p vivy -- build recipes/coding-agent.yaml`
+# generates .generated/coding-agent/ from this file and builds it; changing the
+# selection and rebuilding changes what is compiled in.
+#
+# Each component is a group of plugin types from one crate, added in this
+# order. A Rig crate comes from `rig` below; a crate of this repository has a
+# `path`. Plugin crates build without their default features: a component
+# lists, under `features`, the ones it needs of any selected crate.
+#
+# Left out on purpose: Rig's login (the gateway supplies the model), reload and
+# /plugins (they rebuild from Rig's plugins.toml, a second selection path), and
+# remote hosts. Rig's runtime settings live in RIG_HOME/settings.toml.
+name: coding-agent
+rig:
+  git: https://github.com/0xPlaygrounds/rig
+  rev: 55cd481a2421fd5da468b5bd6afc6ac876883599
+components:
+  - name: prompt
+    crate: rig-basics
+    plugins:
+      - rig_basics::prompt::DefaultPromptPlugin
+      - rig_basics::agents_md::AgentsMdPlugin
+      - rig_basics::skills::SkillsPlugin
+
+  - name: gateway
+    crate: vivy-gateway
+    path: ../plugins/vivy-gateway
+    plugins:
+      - vivy_gateway::GatewayPlugin
+
+  - name: models
+    crate: rig-basics
+    plugins:
+      - rig_basics::models::ModelsPlugin
+      - rig_basics::models::defaults::DefaultsPlugin
+
+  - name: sessions
+    crate: rig-basics
+    plugins:
+      - rig_basics::sessions::SessionsPlugin
+      - rig_basics::sessions::agents::AgentsPlugin
+      - rig_basics::compaction::CompactionPlugin
+      - rig_basics::telemetry::usage::UsagePlugin
+      - rig_basics::activity::ActivityPlugin
+
+  - name: coding-tools
+    crate: rig-basics
+    plugins:
+      - rig_basics::coding_tools::ReadTool
+      - rig_basics::coding_tools::EditTool
+      - rig_basics::coding_tools::WriteTool
+      - rig_basics::coding_tools::ShellTool
+      - rig_basics::coding_tools::AttachPlugin
+
+  - name: commands
+    crate: rig-basics
+    plugins:
+      - rig_basics::BasicCommandsPlugin
+      - rig_basics::welcome::WelcomePlugin
+
+  # -p, piped input and --json: the front of every run without a terminal.
+  - name: print
+    crate: rig-basics
+    plugins:
+      - rig_basics::print::PrintPlugin
+
+  # The terminal view. Without it, rig-tui is not compiled at all.
+  - name: terminal
+    crate: rig-tui
+    plugins:
+      - rig_tui::TuiPlugin
+    features:
+      rig-basics: [tui]

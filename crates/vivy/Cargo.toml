@@ -1,0 +1,11 @@
+[package]
+name = "vivy"
+version = "0.1.0"
+description = "Builds a Rig agent from a YAML recipe: generated Cargo dependencies and static plugin wiring."
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde-saphyr = "2"
