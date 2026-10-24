@@ -32,6 +32,17 @@ installer or automatic rebuild. Keep `CARGO_TARGET_DIR` consistent between build
 and launch. Launching preserves the current working directory; resuming uses
 the session's saved directory. Add the build directory to your PATH if desired.
 
+### One-click Windows start
+
+Double-click `start.cmd` to open the interactive coding terminal in this
+checkout. It uses the existing `C:\vt\debug` build and does not build
+automatically. If `Desktop\keys.txt` or `Desktop\key.txt` exists, it reads
+three non-empty lines (gateway URL, model ID, API key), writes only the URL and
+model to the ignored `.workspace\launch-home\settings.toml`, and passes the
+key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
+`RIG_HOME`. Without a Desktop key file, the launcher uses the existing
+`RIG_HOME\settings.toml` and `RIG_SECRET_GATEWAY` environment variable.
+
 ## Gateway and runtime settings
 
 Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
