@@ -35,10 +35,11 @@ the session's saved directory. Add the build directory to your PATH if desired.
 ### One-click Windows start
 
 Double-click `start.cmd` to open the interactive coding terminal in this
-checkout. It uses the existing `C:\vt\debug` build and does not build
-automatically. If `Desktop\keys.txt` or `Desktop\key.txt` exists, it reads
-three non-empty lines (gateway URL, model ID, API key), writes only the URL and
-model to the ignored `.workspace\launch-home\settings.toml`, and passes the
+checkout with the Windows console set to UTF-8. It uses the existing
+`C:\vt\debug` build and does not build automatically. If `Desktop\keys.txt` or
+`Desktop\key.txt` exists, it reads three non-empty lines (gateway URL, model
+ID, API key). It writes only the URL and model to the ignored
+`.workspace\launch-home\settings.toml`, and passes the
 key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
 `RIG_HOME`. Without a Desktop key file, the launcher uses the existing
 `RIG_HOME\settings.toml` and `RIG_SECRET_GATEWAY` environment variable.
