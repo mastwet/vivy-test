@@ -7,6 +7,7 @@ Exits non-zero naming each check that failed.
 import json
 import os
 import pathlib
+import subprocess
 import sys
 import tempfile
 import threading
@@ -121,9 +122,62 @@ def session(binary, server, fail_summary):
             check("picking it resumes it", terminal.read_for(15, until="answer to alpha", since=mark))
             sessions = list((home / "sessions").iterdir())
             check("two sessions on disk", len(sessions) == 2)
+
+            # /tree shows the branches (Rig's agents); /clone copies the session.
+            mark = terminal.mark()
+            terminal.type("/tree")
+            check("/tree lists the branches", terminal.read_for(6, until="Show an agent", since=mark))
+            terminal.type(b"\x1b", enter=False)
+            time.sleep(0.5)
+            mark = terminal.mark()
+            terminal.type("/clone")
+            check("/clone switches to a copy", terminal.read_for(15, until="answer to alpha", since=mark))
+            check("three sessions after /clone", len(list((home / "sessions").iterdir())) == 3)
+
+            # /export, then /new and /import of that file.
+            mark = terminal.mark()
+            terminal.type("/export saved.jsonl")
+            check("/export writes JSONL", terminal.read_for(6, until="Exported the session", since=mark)
+                  and (work / "saved.jsonl").is_file())
+            mark = terminal.mark()
+            terminal.type("/new")
+            terminal.read_for(8, since=mark)
+            mark = terminal.mark()
+            terminal.type("/import saved.jsonl")
+            check("/import loads it", terminal.read_for(8, until="Imported", since=mark))
+            before = len(server.records)
+            mark = terminal.mark()
+            terminal.type("after import")
+            terminal.read_for(15, until="answer to import", since=mark)
+            sent = json.dumps(server.records[before:])
+            check("imported history reaches the model", "first alpha" in sent and "after import" in sent)
         finally:
             terminal.close()
+        # After the terminal closed: a running session is locked to its process.
+        print_mode(binary, server, home, work, check)
     return failed
+
+
+def print_mode(binary, server, home, work, check):
+    """The launcher's Pi session options, in print mode."""
+    env = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
+
+    def run(*args):
+        return subprocess.run([str(binary), *args], cwd=work, env=env, input="", text=True,
+                              capture_output=True, timeout=60)
+
+    before = set((home / "sessions").iterdir())
+    result = run("--no-session", "-p", "ephemeral one")
+    check("--no-session answers", result.returncode == 0 and "answer to one" in result.stdout)
+    check("--no-session keeps no session", set((home / "sessions").iterdir()) == before)
+    # Ids start with their creation time: the first is the original session.
+    source = sorted(before, key=lambda path: path.name)[0].name
+    result = run("--fork", source, "-p", "forked two")
+    sent = json.dumps(server.records[-1])
+    check("--fork continues a copy", result.returncode == 0 and "first alpha" in sent)
+    check("--fork leaves the original", len(set((home / "sessions").iterdir())) == len(before) + 1)
+    result = run("--session", source, "-p", "again three")
+    check("--session resumes", result.returncode == 0 and "first alpha" in json.dumps(server.records[-1]))
 
 
 def main():

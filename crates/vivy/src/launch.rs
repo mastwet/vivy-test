@@ -6,7 +6,84 @@ use std::fs::{self, OpenOptions};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+/// Pi's session options, which the launcher handles itself: the rest of
+/// the command line goes to the species.
+#[derive(Debug, Default, PartialEq)]
+struct SessionOptions {
+    /// `--no-session`: the sessions this run makes are deleted at its end.
+    ephemeral: bool,
+    /// `--fork <id|path>`: a copy of that session, resumed.
+    fork: Option<String>,
+}
+
+/// Takes `--no-session`, `--fork <id>` and `--session <id|path>` (Pi's
+/// name for `--resume`) out of `args`.
+fn session_options(args: &[String]) -> Result<(Vec<String>, SessionOptions)> {
+    let mut rest = Vec::new();
+    let mut options = SessionOptions::default();
+    let mut resumed = false;
+    let mut args = args.iter();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--no-session" => options.ephemeral = true,
+            "--fork" | "--session" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| format!("{arg} needs a session id or path"))?;
+                let value = session_name(value);
+                if arg == "--fork" {
+                    options.fork = Some(value);
+                } else {
+                    resumed = true;
+                    rest.extend(["--resume".to_owned(), value]);
+                }
+            }
+            "--resume" | "-r" => {
+                resumed = true;
+                rest.push(arg.clone());
+            }
+            _ => rest.push(arg.clone()),
+        }
+    }
+    if options.fork.is_some() && (resumed || options.ephemeral) {
+        return Err("--fork cannot be combined with --resume, --session or --no-session".into());
+    }
+    Ok((rest, options))
+}
+
+/// A session given as a path to its directory is named by that directory.
+fn session_name(value: &str) -> String {
+    let path = Path::new(value);
+    match path.file_name() {
+        Some(name) if path.is_dir() => name.to_string_lossy().into_owned(),
+        _ => value.to_owned(),
+    }
+}
+
+/// Copies the session directory `from` to `to`, without what belongs to
+/// the process running it: locks, a pending switch, its name.
+fn copy_session(from: &Path, to: &Path) -> std::io::Result<()> {
+    const LEFT_OUT: [&str; 5] = [".rig-memory.lock", "lock", "switch", "deleting", "name"];
+    fs::create_dir_all(to)?;
+    for entry in fs::read_dir(from)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if LEFT_OUT.iter().any(|left| name == *left) {
+            continue;
+        }
+        let target = to.join(&name);
+        if entry.file_type()?.is_dir() {
+            copy_session(&entry.path(), &target)?;
+        } else {
+            fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
 pub fn run(binary: &Path, args: &[String]) -> Result<u8> {
+    let (args, options) = session_options(args)?;
+    let args = args.as_slice();
     if !binary.is_file() {
         return Err(format!("the coding species is not built at {}; run `vivy build recipes/coding-agent.yaml` first", binary.display()).into());
     }
@@ -46,13 +123,47 @@ pub fn run(binary: &Path, args: &[String]) -> Result<u8> {
     let invocation = report.invocation(args)?;
     let resume = report.resume(args);
     let mut session = resume.map(|name| home.find(&name)).transpose()?;
-    let mut reason = if session.is_some() {
+    if let Some(original) = &options.fork {
+        let original = home.find(original)?;
+        let copy = SessionId::generate();
+        copy_session(home.session(&original).path(), home.session(&copy).path())?;
+        session = Some(copy);
+    }
+    let mut made = Vec::new();
+    let reason = if session.is_some() {
         StartReason::Resumed
     } else {
         StartReason::New
     };
     // The agent receives console interrupts itself and performs its own cleanup.
     ctrlc::set_handler(|| {})?;
+    let code = run_sessions(
+        binary,
+        &home,
+        &run,
+        &here,
+        &invocation,
+        (session, reason),
+        &mut made,
+    );
+    if options.ephemeral {
+        for id in &made {
+            let _ = fs::remove_dir_all(home.session(id).path());
+        }
+    }
+    code
+}
+
+/// Runs the species in `session`, then in each session it switches to.
+fn run_sessions(
+    binary: &Path,
+    home: &Home,
+    run: &rig_harness_protocol::RunDir,
+    here: &Path,
+    invocation: &rig_harness_protocol::Invocation,
+    (mut session, mut reason): (Option<SessionId>, StartReason),
+    made: &mut Vec<SessionId>,
+) -> Result<u8> {
     loop {
         let id = session.take().unwrap_or_else(SessionId::generate);
         let dir = home.session(&id);
@@ -61,10 +172,11 @@ pub fn run(binary: &Path, args: &[String]) -> Result<u8> {
             dir.working_directory()
                 .ok_or("the resumed session's working directory is unavailable")?
         } else {
-            here.clone()
+            here.to_path_buf()
         };
         if reason == StartReason::New {
             fs::write(dir.directory(), cwd.to_string_lossy().as_bytes())?;
+            made.push(id.clone());
         }
         if dir.switch().is_file() {
             fs::remove_file(dir.switch())?;
@@ -106,5 +218,67 @@ pub fn run(binary: &Path, args: &[String]) -> Result<u8> {
             .code()
             .and_then(|code| u8::try_from(code).ok())
             .unwrap_or(130));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|arg| arg.to_string()).collect()
+    }
+
+    #[test]
+    fn pi_session_options_are_taken_out() {
+        let (rest, options) = session_options(&strings(&["--no-session", "-p", "hi"])).unwrap();
+        assert_eq!(rest, ["-p", "hi"]);
+        assert!(options.ephemeral);
+        let (rest, options) = session_options(&strings(&["--session", "abc", "-p", "hi"])).unwrap();
+        assert_eq!(rest, ["--resume", "abc", "-p", "hi"]);
+        assert_eq!(options, SessionOptions::default());
+        let (rest, options) = session_options(&strings(&["--fork", "abc"])).unwrap();
+        assert!(rest.is_empty());
+        assert_eq!(options.fork.as_deref(), Some("abc"));
+        assert!(session_options(&strings(&["--fork", "a", "--resume", "b"])).is_err());
+        assert!(session_options(&strings(&["--fork"])).is_err());
+    }
+
+    #[test]
+    fn a_copied_session_leaves_the_running_process_behind() {
+        let dir = std::env::temp_dir().join(format!("vivy-copy-{}", std::process::id()));
+        let (from, to) = (dir.join("from"), dir.join("to"));
+        fs::create_dir_all(from.join("logs")).unwrap();
+        for file in [
+            "logs/session.jsonl",
+            "directory",
+            "started",
+            ".rig-memory.lock",
+            "name",
+            "switch",
+        ] {
+            fs::write(from.join(file), file).unwrap();
+        }
+        copy_session(&from, &to).unwrap();
+        let mut copied: Vec<String> = [
+            "logs/session.jsonl",
+            "directory",
+            "started",
+            ".rig-memory.lock",
+            "name",
+            "switch",
+        ]
+        .into_iter()
+        .filter(|file| to.join(file).exists())
+        .map(str::to_owned)
+        .collect();
+        copied.sort();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(copied, ["directory", "logs/session.jsonl", "started"]);
+        assert_eq!(
+            session_name(dir.to_str().unwrap()),
+            dir.to_str().unwrap(),
+            "a path that is gone is a name"
+        );
     }
 }

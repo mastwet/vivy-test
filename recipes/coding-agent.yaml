@@ -87,7 +87,7 @@ components:
     plugins:
       - vivy_basics::templates::PromptTemplatesPlugin
 
-  # /session, /copy and /export.
+  # Pi's /session, /copy, /export, /clone, /import and /tree.
   - name: session-commands
     crate: vivy-basics
     path: ../plugins/vivy-basics
@@ -95,6 +95,9 @@ components:
       - vivy_basics::session::SessionInfoPlugin
       - vivy_basics::session::CopyPlugin
       - vivy_basics::session::ExportPlugin
+      - vivy_basics::session::ClonePlugin
+      - vivy_basics::session::ImportPlugin
+      - vivy_basics::session::TreePlugin
 
   # Auxiliary Python workbench; removing this component excludes its crate.
   - name: python

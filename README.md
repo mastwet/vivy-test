@@ -81,7 +81,11 @@ unchanged. Build and execution children do not inherit `RIG_SECRET_*`.
 mechanisms. A session switch in print mode returns Rig's exit code 75 rather
 than replaying the prompt. Rig's JSON interface is not Pi RPC compatibility.
 
-In the terminal view, `/resume` alone opens the session picker; Alt+Up then
+Pi's session options work too: `--no-session` keeps no session, `--fork <id>`
+continues a copy of one, `--session <id|path>` resumes one; `/clone` copies the
+running session, `/import <file.jsonl>` loads an `/export` file into an empty
+session, and `/tree` shows a session's branches. In the terminal view, `/resume`
+alone opens the session picker; Alt+Up then
 Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
 agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.
