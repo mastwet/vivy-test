@@ -1,19 +1,21 @@
-# Handoff: start an independent assembly experiment
+# Handoff: continue the independent assembly experiment
 
 ## Goal and current state
 
 The owner wants a fast Rust experiment preserving Vivy's useful idea of a species
 assembled from a YAML recipe at compile time. Rig supplies implementation;
 Pi coding-agent supplies the functional reference. Model access is gateway first.
-The latest priority is to run a real coding task early and remove unnecessary
-platform mechanisms.
+The current direction is a Pi-style coding core with direct tools, a Python
+workbench for deferred capabilities, and Prime-anchored automatic evolution with
+a narrow persona addition. Keep the implementation small and independently useful.
 
 Repository: `https://github.com/mastwet/vivy-test`.
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
-species and Python workbench" section records current evidence. Next: a real
-gateway smoke with an authorized endpoint, model and key, then useful Pi baseline
-slices. The original steps below remain the historical approach, not open work.
+species and Python workbench" section records implementation evidence. The owner
+reported a successful manual run; that is not a newly recorded automated gateway
+test. MCP, the correlated event extension and automatic evolution are designed,
+not implemented by this documentation delivery.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
@@ -44,8 +46,7 @@ species hash system. If a revision cannot be fetched, report it; do not silently
 substitute current HEAD and repeat the old findings. Updating the baseline is a
 normal dependency decision after reviewing the relevant changes.
 
-The initial documentation task does not clone references into this new repository;
-the commands above are the receiving agent's setup. No upstream dependencies need
+The commands above are setup instructions when references are missing. No upstream dependencies need
 installation just to read source. Read each reference repository's own
 instructions before running its tooling. Keep product changes in `vivy-test`.
 
@@ -63,30 +64,25 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
-1. Confirm the available target/toolchain and the intended gateway without
-   printing credentials. The inspected Rig revision requires Rust 1.97.1 or
-   newer and documents Linux/macOS launcher support. Current development is on
-   Windows. Identify whether a small native integration works; if choosing WSL
-   or another target, state that limitation explicitly before claiming success.
-2. Try the smallest runnable composition using Rig's existing harness, tools,
-   and terminal where feasible. Compare only the concrete blockers against a
-   `rig-core` + `rig-agent` host. Record the chosen route and reason in DESIGN;
-   do not build both solutions or perform an unbounded architecture study.
-3. Add a small YAML-to-static-assembly path for the selected route. Use existing
-   Rig interfaces and ordinary Cargo dependencies. Prove a baseline recipe and
-   one optional-component removal. Keep runtime gateway settings separate from
-   compiled component selection.
-4. Exercise a real streamed model/tool task in a disposable workspace, continue
-   the conversation, and check failure/cancellation. Record exact commands,
-   outcomes, limitations, and build timings alongside the implemented change.
-5. Expand the Pi baseline in useful slices after the first proof. Prioritize
-   observed daily-use gaps over a large public plugin framework.
+1. Read DESIGN's "Hybrid architecture and first-stage boundary" as the current
+   authority, then use PI-BASELINE's existing table to choose one useful slice.
+   Preserve the implemented Windows launcher and Rig harness/TUI; do not restart
+   the earlier runtime selection study or write a replacement agent loop.
+2. For the first deferred MCP task, extend the existing Python worker. Resolve
+   client lifetime and the smallest host event bridge together. Inspect the pinned
+   Rig session append hook before adding a second log. Do not copy a framework
+   just to gain discovery/call functions.
+3. Verify the selected real task plus cancellation/reset, error reporting and
+   event correlation. Update the existing coverage table with actual evidence;
+   do not declare full Pi parity or hide intentionally unsupported behavior.
+4. Implement Prime-shaped refinement/persona only in its own bounded slice after
+   usable task evidence exists. The research report section 15 pins the upstream
+   formats and source links; no extra reference clone or original-Vivy import is
+   required. External memory and PEN remain outside the implementation scope.
 
-The owner has not specified a gateway endpoint, credentials, model, or a final
-platform choice in this brief. Use existing authorized configuration if present;
-otherwise request only the missing information needed for a real call. Offline
-assembly and focused tests can proceed independently. Do not guess secrets or
-report a mocked endpoint as a successful real-gateway smoke.
+Use existing authorized gateway configuration without printing credentials. If
+essential configuration is unavailable, request only that missing information.
+Do not guess secrets or present a scripted endpoint as a real gateway smoke.
 
 ## Research directions and traps
 
@@ -96,11 +92,9 @@ report a mocked endpoint as a successful real-gateway smoke.
 - **Prove real optionality.** Inspect the resolved dependency graph for each
   generated agent. Shared upstream crates can contain several tools/providers;
   omitting a wrapper does not prove all their source was excluded.
-- **Keep feedback useful.** Tool errors, run results and bounded diagnostics can
-  guide the model's next action. Add those where needed before inventing an
-  autonomous self-repair service. Prime Agent's separate incident CLI and harness
-  refinement are background inspiration, not required infrastructure or an
-  additional reference clone for this task.
+- **Keep feedback useful.** Bounded task evidence feeds the accepted automatic
+  refinement slice. Reuse Prime's state/proposal/history vocabulary; its separate
+  incident CLI, daemon, service catalog and subagent platform are not prerequisites.
 - **Preserve semantics as coverage expands.** Branch-aware state, cancellation,
   extension interception, and tool-result pairing matter more than matching
   command names. Use representative behavior checks.
@@ -110,14 +104,9 @@ report a mocked endpoint as a successful real-gateway smoke.
 
 ## Evidence at handoff
 
-Prior research inspected the pinned Pi and Rig source and the local Vivy assembly
-implementation. Rig workspace metadata resolved with
-`cargo +1.98.0 metadata --no-deps --offline --locked --format-version 1` in the
-previous reference checkout; this was metadata inspection only. No Rig or Pi
-build, integration test, or live model comparison established runtime parity.
-
-The repository bootstrap is documentation-only. Appropriate verification is a
-diff/content/link review and `git diff --check`; Rust CI and a product smoke do
-not exist yet. Success for this deliverable means a successor can understand the
-decisions, obtain the correct reference sources, and start the first proof without
-cloning or consulting the original Vivy project.
+DESIGN's dated implementation sections retain build, scripted-gateway and Windows
+smoke evidence and limitations. They do not verify the new hybrid design. For the
+2026-10-25 documentation delivery, review content/links and run `git diff --check`;
+runtime CI is unnecessary because no executable behavior changed. Later code
+deliveries must use the repository's focused checks and a representative real-path
+smoke. Source availability and a successful manual run do not prove full parity.

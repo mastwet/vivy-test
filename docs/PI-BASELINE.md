@@ -23,7 +23,11 @@ process-tree cleanup, actual TUI session switching and an independently optional
 Python workbench. The older slice annotations below are historical; current
 commands and verification are in DESIGN's "Windows coding species and Python
 workbench" section. Python is an auxiliary tool, not Pi JavaScript Code Mode
-parity. Full Pi behavior and a real gateway remain unverified.
+parity. The owner subsequently reported a successful manual run; it adds no new
+automated evidence to this table. Full Pi behavior remains unverified. DESIGN's
+"Hybrid architecture and first-stage boundary" now defines ownership: native
+hooks/UI stay in Rust, deferred MCP/data composition belongs to Python. Those are
+design decisions, not completed rows.
 
 | Area | Pi behavior to retain in the coverage map | Rig direction / important gap | Pi source entry |
 | --- | --- | --- | --- |
@@ -45,9 +49,9 @@ parity. Full Pi behavior and a real gateway remain unverified.
 | Model behavior | Reasoning settings, usage/cost, prompt caching, model switching, virtual model routing | Establish the gateway's actual support. Reuse routing/capabilities instead of duplicating a catalog | `docs/models.md`, `docs/virtual-models.md` |
 | Specialized model services | Classification and image generation/editing through appropriate services | Later capability, gateway/provider dependent; not implied by chat completion support | `docs/codemode.md`, `docs/custom-provider.md` |
 | Local model workflow | llama.cpp discovery and model management | Later; not a requirement to create a second direct-provider stack initially | `docs/llama-cpp.md` |
-| MCP connections | stdio and Streamable HTTP, configuration, connection lifecycle, OAuth, tool changes/progress | `rig-rmcp` supplies primitives; configuration/auth/exposure UX still needs product work | `docs/mcp.md` |
-| MCP tool/resource use | Namespaces, direct/deferred/Code Mode/hidden tool exposure, resource lists/templates/read, search | Preserve discovery and exposure semantics; remote tools sit behind a compiled MCP component | `docs/mcp.md`, `docs/codemode.md` |
-| JavaScript Code Mode | Model-facing JS tool orchestration, tool discovery, bounded output, cancellation, branch-aware store/load | Separate from TS extension compatibility. Rig Steel is Scheme, so it does not supply JS equivalence | `docs/codemode.md` |
+| MCP connections | stdio and Streamable HTTP, configuration, connection lifecycle, OAuth, tool changes/progress | Planned: official Python MCP SDK in the optional workbench; managed client lifetime, reset and correlated calls. No parallel Rust MCP manager. Broad OAuth/configuration UX remains a gap | `docs/mcp.md` |
+| MCP tool/resource use | Namespaces, direct/deferred/Code Mode/hidden tool exposure, resource lists/templates/read, search | Planned: bounded discovery/call from Python first. Resource UX and all exposure modes remain gaps; a compiled workbench does not imply compiled Python dependencies or complete MCP parity | `docs/mcp.md`, `docs/codemode.md` |
+| JavaScript Code Mode | Model-facing JS tool orchestration, tool discovery, bounded output, cancellation, branch-aware store/load | Accepted Python functional counterpart, no JS/TS runtime compatibility. Current persistent worker is partial; host tool bridge, managed discovery and branch-aware durable store/load remain unimplemented | `docs/codemode.md` |
 | Session utilities | Export/import, HTML output, copy/share, diagnostic/bug-report workflows | Add useful equivalents later; keep sensitive transcript sharing explicit *Slice 2:* `/export` (HTML, JSONL), `/copy`, `/session`; no import, share or bug report. | `docs/cli.md`, `docs/slash-commands.md` |
 | Platforms | Linux/macOS/Windows behavior, shell handling and terminal integration; documented Termux usage | Current host is Windows; inspected Rig launcher supports Linux/macOS. Do not claim portability without a run | `docs/windows.md`, `docs/termux.md`, `docs/terminal-setup.md` |
 

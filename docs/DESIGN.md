@@ -5,6 +5,11 @@ production compatibility promise. The user's decisions are fixed below; the
 runtime integration choice was resolved in favor of Rig's harness (see the
 implementation sections below).
 
+Updated 2026-10-25: **Hybrid architecture and first-stage boundary** below is the
+current design. Dated implementation sections preserve earlier evidence; they
+do not establish the newly designed capabilities. The owner has since reported
+a successful manual test; that report does not supply a new automated test record.
+
 ## Accepted decisions
 
 | Decision | Practical consequence |
@@ -17,12 +22,234 @@ implementation sections below).
 | Gateway-first model access | First integrate one gateway; avoid rebuilding individual provider login, routing, and catalog infrastructure. |
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
+| Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
+| Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
 gate. Gateway-first access intentionally defers Pi's broad direct-provider and
 OAuth surface. Embedding can initially use ordinary Rust library APIs; an
 independently packaged SDK is unnecessary. Do not declare complete Pi parity
 while those or other baseline rows remain incomplete.
+
+## Hybrid architecture and first-stage boundary
+
+This section is the implementation authority for the accepted miniature diagram.
+The [research checkpoint](research/2026-10-25-hybrid-agent-workbench-decisions.md)
+preserves evidence and discussion, including a mirrored copy in agent-vivy; it
+is not another editable specification. The [Pi baseline](PI-BASELINE.md) remains
+the single capability inventory. The original [owner sketch](research/assets/2026-10-25-owner-architecture.png)
+is preserved as input, not a second configuration or literal storage schema.
+
+**Choice:** keep the existing Rig harness and terminal, directly select useful
+upstream plugins, and extend the existing Python worker for deferred external
+capabilities. Rust owns execution and durable state; Python owns its execution
+namespace and MCP clients. A lower-level agent rewrite would duplicate working
+session/terminal behavior; a full Prime port would add unneeded lifecycle and
+subagent machinery. The selected route minimizes owned code while retaining
+recipe-selected compilation and Prime-shaped evolution.
+
+```text
+One YAML recipe -> generated Rust assembly -> one Rig host
+
+Rig host: gateway/model calls, context assembly, TUI/CLI, sessions, cancellation
+  Context <- fixed persona + evolving state + conversation + selected skills
+  Model -> direct read/edit/write/shell/search/list
+        -> python_repl -> MCP clients / Python functions / large-data processing
+                           -> optional external memory or PEN, when specified
+  Host <- correlated execution events and artifact references
+  Task evidence -> automatic refinement -> checked Prime-shaped edits
+                -> authoritative harness state -> future context
+```
+
+### Ownership and reuse
+
+| Concern | Owner and first-stage implementation choice |
+| --- | --- |
+| Main agent loop, gateway, streaming, usage, cancellation | Existing Rust/Rig execution path; do not create a Python agent loop or direct credential path. |
+| Terminal, print/JSON, sessions, compaction, commands and native hooks | Select existing Rig plugins. Add only demonstrated gaps; exact Pi semantics require checks. |
+| Frequent coding tools | Current Rig/Vivy tools remain directly model-visible. Python access, when required, dispatches to the same implementation. |
+| AGENTS.md, prompt templates, Markdown skill discovery/loading | Existing Rig/basics mechanisms; no second discovery catalog. |
+| Python execution, MCP discovery/calls, data composition | Existing vivy-python worker plus the official Python MCP SDK when MCP lands. No parallel rmcp connection stack. |
+| Model calls requested from Python | A bounded request through the host's gateway, usage and cancellation path. Add only for a concrete accepted task, not as a general subagent API. |
+| Evolution scheduling, validation, state/history commits | One host owner, using the normal model-call path. Python may prepare evidence or execute checks; it does not own another refinement scheduler/store. |
+| External memory and PEN | Optional workbench consumers. No provider is selected and no PEN contract is invented in this stage. |
+
+Reuse a plugin directly unless Vivy adds actual selection behavior or a required
+product difference. A concept in this table does not require a separate crate,
+service, registry or abstract interface. Keep current crate boundaries unless
+an implementation demonstrates a concrete need to change them.
+
+### State homes and model-visible context
+
+- Rig's session store owns conversation, branches and admitted tool exchanges.
+  Supplemental execution records reference those identities instead of copying
+  a second transcript. The concrete append hook is selected against the pinned
+  Rig implementation before event code is added.
+- Prime-shaped harness state owns learned prompt notes, memories, skill references
+  and the persona extension. Use its `local`/`global` scope vocabulary; the host
+  selects the owning session/profile directory, never model-supplied identity.
+  The first implementation has one operator profile, not multi-tenancy. Here
+  `local` means session/branch working state; `global` means that operator's
+  cross-session learned state, not a tenant or project registry.
+- ACTMEM is a contextual view of local working-state entries in that harness,
+  not a new ACTMEM database/file or a second editable task board. Conversation
+  compaction summarizes history; it does not independently own current task state.
+- Explicit owner-authored persona/mission constraints have one selected source;
+  evolving observations live in the harness. They cannot override fixed inputs.
+- Markdown skill bodies retain their existing file owner. Harness skill entries
+  reference those files or executable Python artifacts; do not copy a second
+  authoritative skill body into a new registry. Validate references at use time.
+- Large outputs and produced files are artifacts; records contain bounded previews
+  and references with retention/truncation status. Python variables are ephemeral
+  execution state, not automatically serialized durable data.
+- External long-term memory is not a prerequisite for evolution. If later selected,
+  define its data ownership and correction/deletion path first; do not mirror every
+  harness entry into several competing memory authorities.
+
+The host assembles context with a bounded budget and an identifiable state revision.
+Keep stable constraints, relevant learned state, conversation and selected skill
+content distinct. Tool descriptions/bodies load as needed. Record what actually
+entered the model request; data stored only inside Python was not seen by the model.
+Recompute the learned-state projection at the next task boundary. Ordinary reads
+and context assembly do not secretly trigger refinement or network memory jobs.
+
+### Workbench boundary and failure behavior
+
+Retain stdlib CPython with top-level await unless a required behavior needs IPython.
+The Prime-style interface does not by itself require Jupyter or a notebook server.
+Extend the existing framed bridge with only the operations the first MCP task and
+event collector need; do not start with three generic RPC services.
+
+The host must service Python-to-host requests while awaiting a cell result, or
+programmatic tool/model calls can deadlock. Carry parent call identity and the
+same cancellation/deadline through the bridge. Keep protocol frames separate from
+stdout/stderr. Attribute nested MCP calls to their cell even when the model sees
+only a final summary. Direct arbitrary Python I/O remains outside detailed managed
+call tracing; this worker is not a sandbox or complete side-effect audit.
+
+MCP connection tasks need worker-owned lifecycle management. The current worker
+cancels leftover asyncio tasks at cell end, so simply importing the SDK cannot
+establish reusable sessions. Distinguish owned client tasks from unsupported
+detached user work; close clients on reset/exit. The first MCP slice covers stdio
+and Streamable HTTP against selected test servers, explicit configuration and
+credentials, and truthful errors. Broad OAuth, service catalogs, resource UX and
+all Pi MCP exposure modes remain baseline gaps, not hidden completion claims.
+
+Reset namespace and MCP clients when switching sessions or moving to an incompatible
+conversation branch; never leak future-branch variables into an earlier context.
+Use a new kernel-instance ID and a visible reset notice. No automatic cell replay,
+arbitrary object snapshots, daemon survival or detached tasks in this stage.
+
+Local harness entries must also match the active branch. On fork/rewind, inherit
+only a revision known to precede the fork; otherwise start with empty local state
+and show a reset notice. Do not invent a historical snapshot system for the first
+slice. Profile/global learning deliberately persists across conversation rewind;
+undoing it uses explicit refinement rollback. Pending refinement captures its
+session, branch and prior revision; discard results after an incompatible switch.
+
+For newly managed Python/MCP bridge effects, acknowledge recorded intent before
+dispatch and record the observed result. Missing completion means unknown, not
+safely retryable. A recording failure prevents new managed bridge calls and is
+surfaced; an effect already performed remains potentially unknown. This does not
+claim a global admission guarantee for existing native tools or arbitrary Python I/O.
+At the pinned Rig revision, `rig-ecs/src/session_log.rs` keeps `flush` crate-private
+and reports write failure without stopping execution. Registering extra saved
+records alone cannot meet this contract: verify the smallest acknowledged append
+adapter, including failure before dispatch. Supplemental records may own nested
+call evidence, never another copy of the conversation or a second execution engine.
+Preserve artifacts before publishing durable references, and mark unavailable data
+explicitly. Redact credentials in the collection path, including error payloads.
+Do not retain unlimited streams or claim complete replay of unrecorded external state.
+
+### Prime anchor and persona growth
+
+Use Prime `5c898d1b27b109bd2d383c68d60a30536e39cc22`'s `HarnessState`,
+`HarnessEntry`, proposal actions and before/after history as the schema baseline
+(see research section 15 for source links). There is one supported subset, not a
+parallel Vivy evolution format. Subagent/factory kinds do not require implementing
+their runtimes: unsupported executable entries must remain inactive and report that
+status. Unknown kinds must not be silently remapped or erased.
+
+Start persona representation with existing entry kinds and explicit Vivy metadata;
+only introduce a versioned new kind if a demonstrated requirement cannot fit.
+Learned user/persona observations are scoped, sourced and correctable. Fixed owner
+constraints stay outside automatic edits. This is an implementation default, not
+a claim of existing Prime persona support or tested upstream interoperability.
+
+After a task boundary, bounded automatic refinement may emit no change or small
+edits. Exclude refinement outputs from fresh task evidence to avoid self-reinforcing
+loops. Record the considered task/evidence identity in the same refinement
+bookkeeping, including no-change outcomes, so restart or duplicate notifications
+do not consume the same evidence again. Reconcile interrupted attempts with the
+state/history commit; uncertain attempts are not silently retried. Explicit user
+reconsideration may create a new linked attempt. No separate scheduler store is
+needed. Evidence content is data, not authority to change the host's fixed rules.
+Apply checks proportional to the content: sourced notes need scope/conflict checks;
+executable helpers need isolated functional checks; measured-gain claims need actual
+evaluation. Do not require manual approval for every ordinary refinement.
+
+One host writer applies against the expected prior revision, preserving durable
+history and rollback linkage. Use normal version checks, not species hash enforcement.
+Define and verify crash reconciliation between state and history before shipping;
+two successful independent file writes are not an atomic commit. Corrupt state is
+reported and automatic writes stop; do not silently replace it with empty state.
+Do not rewrite live context mid-task. Rollback restores learned state/artifact
+selection, not external side effects or a Python heap. Refinement cannot rewrite
+its evaluator, authority checks or Rust recipe; such changes use the normal build.
+
+### Delivery slices and stopping points
+
+1. **Working Pi-style coding core:** preserve the current recipe/launcher/tools;
+   verify cancellation, session/branch behavior and compaction with actual usage.
+   Keep differences explicit in PI-BASELINE.md; no native-TS compatibility work.
+2. **One useful deferred MCP workflow:** fix client lifetime, implement bounded
+   discovery/call, retain large data in Python, and collect correlated events and
+   artifacts. Deliver these together so a functioning workbench is not opaque.
+3. **Prime-shaped automatic evolution plus persona:** reuse the same model path,
+   persist small state edits, make subsequent context use them, and prove rollback.
+   External memory, PEN implementation and model training are not prerequisites.
+
+Before claiming each slice, demonstrate its real path and a representative failure:
+cancel/reset without orphan clients; missing tool/auth failure without a fake success;
+branch reset without state bleed; a nested call linked to the visible summary;
+and a refinement applied on the next task, conflict rejected, and previous state
+restored after restart. Also check recording failure before MCP dispatch and that
+completed/no-change evidence is not automatically consumed twice after resume.
+A bounded recorded input/mock server can cover destructive
+or nondeterministic failures; it does not replace the chosen real gateway/MCP smoke.
+
+No full Prime daemon, RLM swarm, marketplace, automatic dependency installer,
+multi-backend memory framework or new custom TUI enters these slices. If Python
+third-party dependencies are needed, pin an explicit environment and report missing
+packages; removing the workbench component must remove its startup/dependency
+requirement. This adds no claim that Python packages compile into the Rust binary.
+
+### Architecture review record (2026-10-25)
+
+The review targets this design and its direct implementation seams, not the health
+of original Vivy's whole repository. Prevented design risks: duplicate transcript
+and ACTMEM ownership; a second Python model loop; MCP tasks cancelled after each
+cell; branch state bleed; deadlocked host callbacks; non-atomic state/history
+updates; uncontrolled context growth; and importing dormant Prime/DIVA features.
+These boundaries are design decisions, not fixes already implemented in runtime.
+
+A fresh read-only reviewer identified two additional gaps now resolved here:
+local harness state must follow branch ownership, and refinement must remember
+consumed evidence even when it makes no edit. Source inspection also confirmed
+that Rig's existing log notices do not provide bridge-effect admission; that
+guarantee remains a focused implementation requirement, not an upstream claim.
+
+Each new owned layer must name the delivered user behavior and explain why direct
+Rig/SDK use is insufficient. Use before/after owned-code and dependency changes as
+review evidence, not an LOC quota. Delete a superseded owner in the same delivery;
+do not keep two mechanisms synchronized by convention. The acceptance task above
+is the stop condition: unrequested infrastructure is not extra progress.
+
+The exact Rig persistence hook, smallest framed bridge messages and state/history
+commit procedure remain bounded implementation choices to verify against actual
+APIs. PEN and an external memory provider remain unspecified and excluded. This
+review cannot prove the absence of all architecture defects without implementation
+and real-path tests.
 
 ## What Vivy's assembly idea contributes
 
