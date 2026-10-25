@@ -710,6 +710,10 @@ Date: 2026-10-25. Status: accepted architecture direction for a minimal experime
 not an implemented subagent capability or a completed implementation plan. The
 owner explicitly requested the same decision record in both repositories.
 
+Latest scope: section 17.6 supersedes the earlier first-iteration proposal below.
+Python/apixis remains the future direction; the first delivery uses simple native
+Rig delegation without graph orchestration or recursive grandchildren.
+
 ### 17.1 Clarification and decision
 
 The owner corrected an intermediate interpretation: Python should orchestrate
@@ -851,6 +855,43 @@ The implementation authority stays in vivy-test's DESIGN; this identical researc
 snapshot in agent-vivy is for handoff only. Validation for this record consists
 of source/diff review, matching mirror bytes and Git whitespace checks, not
 runtime or product CI.
+
+### 17.6 Owner simplification: Pi-like delegation first
+
+The owner subsequently requested a simpler first iteration: delegation comparable
+to Pi's subagent example, without complex orchestration or making a new gate
+platform a prerequisite. This supersedes the earlier parallel-children/grandchild
+acceptance case in sections 17.2 and 17.5, not the future Python/apixis direction.
+
+The minimal implementation choice is direct reuse of Rig's native subagent plugin:
+assign a self-contained task, run it with independent context, and receive its
+result. Use existing `task`, `message`, `wait` and terminal views. A Python bridge,
+apixis dependency, parallel joins, automatic review/rework, daemon continuity and
+graph restoration are not first-iteration requirements. No new loop or registry.
+
+First acceptance: one foreground read-only research child, visible progress and
+result, a representative failure, and parent cancellation reaching the child.
+Use Rig's existing `SubagentPolicy.max_depth = 1` in the initial recipe to prevent
+grandchild delegation. The one-child acceptance scenario does not imply a new
+global concurrency enforcement mechanism. Select appropriate read-only tools for
+the acceptance case; a prompt alone does not enforce read-only behavior.
+
+Keep existing trust/approval and failure/cancellation behavior. Rig supplies depth
+checks and approval extension points, but their presence is not proof that every
+tool has a configured permission policy. Do not construct a new authorization
+framework to unblock this small slice, and do not claim OS sandboxing. If later
+requirements need stronger admission controls, add the specific missing control.
+
+Pi's pinned subagent extension example supports single, parallel and chain modes,
+with independent Pi subprocesses and streamed progress. Only basic delegation is
+the initial reference; parallel/chain modes and exact process/UI/API compatibility
+are not first-delivery obligations. It is an example extension, not Pi's default
+built-in agent mode. Source: [Pi subagent example](https://github.com/earendil-works/pi/blob/f321e5bdd26b3624bfb2ab182a334d0a5edb698a/packages/coding-agent/examples/extensions/subagent/README.md).
+
+This scope removes Python/Rust bridging and graph lifecycle from the initial
+integration, so the earlier 2,000-5,000-line estimate for the larger slice must not
+be reused as an estimate for this one. Actual implementation remains pending;
+this update changes documentation only and preserves the prior delivery gates.
 
 Pinned source references:
 

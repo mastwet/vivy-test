@@ -23,7 +23,7 @@ a successful manual test; that report does not supply a new automated test recor
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
-| Recursive Rig agents, Python orchestration | Reuse Rig for child execution; use optional apixis flows for parallel work, joins and rework through a small host bridge. Accepted direction, not implemented. |
+| Simple delegation first; optional Python orchestration later | First reuse Rig's native subagent plugin for one delegated task. Preserve Python/apixis as a later composition direction, not a first-iteration gate. Not implemented yet. |
 | Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
@@ -92,38 +92,39 @@ an implementation demonstrates a concrete need to change them.
 
 ### Recursive delegation and optional graph orchestration
 
-Accepted on 2026-10-25; not implemented. Reuse
-`rig_basics::subagents::SubagentsPlugin` and `SpawnSubagent`. Each child runs the
-same selected Rig harness with its own task/context and, when used, Python
-namespace; it can delegate again within host limits. Simple delegation can use
-the bridge directly. apixis is an optional Python orchestrator for parallel work,
-joins and conditional rework, not a prerequisite for recursion.
+Accepted direction, narrowed by the owner on 2026-10-25; not implemented. The
+first iteration is Pi-like delegation: assign one self-contained task, execute
+it in an independent context, and return the result to the parent. Reuse
+`rig_basics::subagents::SubagentsPlugin`, its native `task`/`message`/`wait` behavior,
+and existing TUI views. Start through the native Rig interface; Python bridging
+and apixis are later work, not prerequisites. No new agent engine or task registry.
 
-Rust owns child identities, execution records and lifecycle; graph state carries
-references and bounded results. Native and Python-originated delegation converge
-on the same host path. Surface child activity and errors through existing TUI
-views. Context isolation is not OS sandboxing or a promise of one process per
-agent. The recipe still selects compiled capabilities; a runtime graph composes
-those capabilities and does not replace build-time assembly.
+The first acceptance uses one foreground read-only research child: show its
+progress/result, return a real failure, and verify parent cancellation reaches
+the child. Use Rig's existing depth setting with `max_depth = 1` for the initial
+recipe so children do not recursively delegate. This single-child scenario is
+not a claim of an implemented global concurrency cap. Do not require parallel
+joins, grandchildren, automatic review/rework or persistent background execution.
 
-The first proposed acceptance is foreground, read-only research: two parallel
-children, one grandchild, joined results, visible status, a child failure and
-propagated parent cancellation. Bound depth, concurrency and execution budgets.
-Do not add daemon continuity, durable graph restoration or parallel code-edit
-coordination to that first case, or silently reorder existing delivery gates.
+Do not build a new approval/policy platform for this slice. Preserve existing
+trust and approval behavior and verify inherited tool access; an available
+approval hook does not establish an enforced permission policy. Context isolation
+is not OS sandboxing. Keep ordinary error and cancellation handling. Read-only
+acceptance must select suitable tools rather than assume the task wording is an
+enforcement boundary.
 
-apixis requires Python 3.12+. Its graph abort can leave nodes running, and snapshots
-are copied state owned by the same graph instance; explicitly cancel host children
-and do not promise external-effect rollback. The current worker cancels leftover
-asyncio tasks after each cell, so validate graph/event-task cleanup with an awaited
-foreground flow. The bridge must remain responsive while a cell waits, preserve
-parent/call identity and integrate with the acknowledged recording requirement
-below. Concrete adapter APIs and limits remain for the implementation plan.
+The later direction remains Python/apixis orchestration over the same Rig
+execution path. Each agent owns its context/workbench; Rust owns identities,
+records and lifecycle. Graph state references host tasks. Before that later slice,
+resolve the bidirectional bridge, Python 3.12+ requirement, graph abort propagation
+and worker event-task cleanup described in the research record. Recipe assembly
+continues to select compiled capabilities. Existing delivery gates still apply.
 
 The [mirrored decision record, section 17](research/2026-10-25-hybrid-agent-workbench-decisions.md#17-recursive-rig-agents-with-pythonapixis-orchestration)
-contains pinned Prime/Rig/apixis evidence and the unvalidated effort range. This
-direction uses Prime's Python-to-host delegation split; it does not import Prime's
-entire factory or establish additional Pi parity.
+contains pinned Prime/Rig/apixis evidence. Section 17.6 records the latest scope
+reduction; the earlier full-bridge/graph effort range does not estimate this native
+slice. Pi's subagent example is a behavior reference, not a claim of process,
+permission or TypeScript extension compatibility.
 
 ### State homes and model-visible context
 
