@@ -17,10 +17,13 @@
 //!   project skills.
 //! - [`branch::BranchSummaryPlugin`] summarizes what a rewind leaves behind
 //!   into the fork, as Pi's branch summary does.
+//! - [`plan::PlanPlugin`] adds collaborative Plan guidance and a reviewed exit,
+//!   with terminal state and user feedback, without changing tool permissions.
 
 pub mod branch;
 pub mod context;
 pub mod model;
+pub mod plan;
 pub mod search;
 pub mod session;
 pub mod shell;

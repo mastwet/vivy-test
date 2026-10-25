@@ -18,6 +18,11 @@ test. Gateway model facts (delivery step 1) are implemented and checked against
 the scripted gateway. The owner's 2026-10-25 order in DESIGN's "Delivery slices
 and stopping points" is the current plan: core first, Python for anything
 advanced.
+The later owner-approved collaborative Plan addition is implemented in
+`vivy-basics::plan::PlanPlugin` and selected in the baseline recipe. It includes
+terminal mode markers, explicit plan submission and user review/feedback;
+see DESIGN's "Collaborative Plan mode" and README usage. Goal and automatic
+evolution remain separate work.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
@@ -104,3 +109,57 @@ smoke evidence and limitations. They do not verify the new hybrid design. For th
 runtime CI is unnecessary because no executable behavior changed. Later code
 deliveries must use the repository's focused checks and a representative real-path
 smoke. Source availability and a successful manual run do not prove full parity.
+
+## Collaborative Plan verification (2026-10-25, Windows)
+
+The collaborative Plan delivery supersedes the documentation-only scope above.
+Checks used Rust 1.97.1, `CARGO_TARGET_DIR=C:\vt` and
+`CARGO_PROFILE_DEV_DEBUG=0`:
+
+```powershell
+cargo test --workspace --locked
+cargo test --manifest-path plugins/vivy-basics/Cargo.toml --features tui --locked
+cargo check --manifest-path plugins/vivy-basics/Cargo.toml --lib --no-default-features --locked
+cargo run -p vivy -- build recipes/coding-agent.yaml
+python scripts/smoke.py C:/vt/debug/vivy.exe
+python scripts/plan_tui.py C:/vt/debug/vivy.exe
+cargo fmt --manifest-path plugins/vivy-basics/Cargo.toml -- --check
+git diff --check
+```
+
+Results: 20 workspace tests and 37 basics tests passed, including 14 Plan cases.
+Plan cases cover unchanged tools and writable behavior, exact review/feedback,
+cancellation, missing reviewer, stale approval, modal `/plan off`, running-turn
+transitions, session restore and fork isolation. An unfinished review was also
+reopened to verify it never replays approval. Core feature tests failed before
+implementation; stale-approval and modal-command regressions failed before their
+corrections, then passed.
+
+The real Windows ConPTY terminal passed 16 scripted checkpoints: Plan entry and
+ordinary clarification, mode/review markers, scrolling an 80-step plan, approval
+followed by a real file write, feedback, Esc, manual exit inside the modal,
+re-entry and process/session resume. Captured gateway requests confirmed guidance
+changes and a stable tool catalog. The existing gateway/shell/session/Python/JSON/
+error/secret-filtering/image/reasoning/compaction smoke passed. No live-model or
+new macOS/Linux acceptance is claimed.
+
+The terminal driver uses test-only `pyte==0.8.2`, `wcwidth==0.2.13` and, on
+Windows, `pywinpty==3.1.0`; these are not agent/runtime dependencies. They were
+installed in ignored scratch and exposed through `PYTHONPATH`. The Windows
+driver selects UTF-8 before launch. Its optional evidence output contains only
+synthetic test screens and requests and remains outside Git.
+
+Two disposable recipes were built and exercised: without Plan, the model receives
+no Plan tool/guidance; without the terminal, Plan submission stops with a clear
+missing-reviewer message and `vivy-basics` has no normal `rig-tui` dependency.
+Temporary recipe variants are not maintained configuration sources.
+
+Fresh independent review found the modal command interception; the typed command
+now routes through the same backend command and is covered in both unit and
+terminal tests. Re-review reported no remaining substantiated findings. Debug
+terminal startup also confirmed the explicit phase ordering removed the Plan/
+compaction ambiguity. Existing Windows fixture assumptions in context/trust
+tests and a smoke assertion assuming every JSON `text` field was a string were
+corrected in test code; related product behavior was unchanged.
+Formatting and Git whitespace checks passed. Clippy completed with one existing
+`collapsible_if` suggestion in the Windows shell implementation, outside this change.

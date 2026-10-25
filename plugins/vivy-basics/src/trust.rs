@@ -324,7 +324,12 @@ mod tests {
         std::fs::create_dir_all(work.join(".rig/prompts")).unwrap();
         std::fs::create_dir_all(dir.join(".agents/skills")).unwrap();
         std::fs::write(work.join("AGENTS.md"), "not protected").unwrap();
-        let found = protected(&work);
+        // Ancestors can contain real user skills; assert only our fixture's
+        // resources rather than depending on the machine running the test.
+        let found: Vec<_> = protected(&work)
+            .into_iter()
+            .filter(|path| path.starts_with(&dir))
+            .collect();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(
             found,

@@ -98,6 +98,26 @@ Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
 agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.
 
+### Collaborative Plan mode
+
+Use `/plan` to enter planning, `/plan <task>` to enter with a request, and
+`/plan off` to leave. The terminal shows `PLAN`; a change during a running
+turn takes effect at the next model request or when that turn ends.
+Plan supplies model guidance and keeps the existing tools and permissions.
+It is not a read-only execution mode.
+
+Ordinary answers and clarification do not open a review. When ready, the
+model calls `exit_plan_mode` with the complete Markdown plan. The terminal
+shows `PLAN · REVIEW` and the full plan: Shift+Up/Down scrolls it, Enter
+selects, and typed text supplies feedback. `Approve and execute` leaves
+Plan on the next model request; `Keep planning` retains it. Esc stops the
+turn and keeps Plan; `/plan off` also works when typed inside the review.
+Submitted plans remain readable in session scrollback, without a separate
+plan file. Saved mode resumes with the session; pending review is never
+automatically approved. Without an interactive reviewer, submission stops
+with an explicit message and leaves Plan enabled.
+
+
 ## Optional Python workbench
 
 The recipe's `python` component adds `python_repl(code, timeout_secs?)` alongside

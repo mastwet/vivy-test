@@ -145,7 +145,8 @@ def main():
             assert server.records[mark][1].get("reasoning") == {"effort": "high"}, server.records[mark][1].keys()
             mark = len(server.records)
             events = turns(binary, root, facts_env, [f"LONG {i}" for i in range(7)])
-            assert any("Compacted" in event.get("text", "") for event in events), events[-3:]
+            assert any(isinstance(event.get("text"), str) and "Compacted" in event["text"]
+                       for event in events), events[-3:]
             asked = [body for _, body, _ in server.records[mark:]]
             assert any("Stop here" in text_of(body["messages"][-1]) for body in asked), "no summary request"
             assert all(len(json.dumps(body["messages"])) // 4 < 64000 for body in asked)

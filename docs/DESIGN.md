@@ -10,6 +10,9 @@ current design. Dated implementation sections preserve earlier evidence; they
 do not establish the newly designed capabilities. The owner has since reported
 a successful manual test; that report does not supply a new automated test record.
 
+The later **Collaborative Plan mode** section records the owner-approved Plan
+addition and its verification. This does not expand the parked Goal/evolution work.
+
 ## Accepted decisions
 
 | Decision | Practical consequence |
@@ -620,6 +623,45 @@ frame/ordering edge cases; these were corrected and checked. This is functional
 terminal reuse, not a visual Pi clone. A real gateway smoke remains pending an
 authorized endpoint, model and key. There is no claim of complete Pi parity or
 new macOS/Linux validation for this Windows delivery.
+
+## Collaborative Plan mode (2026-10-25)
+
+The owner selected DSH-style collaboration semantics, adapted through Rig's
+public plugin interfaces. `vivy-basics::plan::PlanPlugin` is selected by the
+recipe, with terminal presentation behind the existing `tui` feature. It adds
+no runtime, database, SDK, Goal scheduler or dependency on a corpus crate.
+It is an explicit addition beyond the Pi baseline, not a claim of Pi parity.
+
+One saved `PlanState` per agent owns the effective mode and transition revision.
+Running-turn selections are transient until the next model request or turn end;
+idle selections apply immediately. Request preparation injects a single planning
+section after other edits and before compaction. The tool catalog stays unchanged,
+and existing permissions remain authoritative. This is advisory collaboration,
+not a read-only sandbox. Mode follows Rig's current saved-component restore/fork
+semantics; transient selections and reviews are not copied or auto-approved.
+
+`exit_plan_mode(plan)` explicitly submits a nonempty Markdown plan with a `#`
+title. Ordinary answers do not submit. Rig's existing `Ask` displays the exact
+submitted content, binds it to the originating call and mode revision, and accepts
+approval or feedback. Approval returns through that same tool call and removes
+guidance on the next model request, without delivering a duplicate task. Feedback
+retains Plan. Dismissal stops the current turn; manual exit withdraws review.
+An expired answer cannot switch mode, and a missing reviewer stops visibly rather
+than repeatedly asking. The terminal's modal free-text `/plan off` answer routes
+through the same command as the ordinary input. Restart requires resubmitting an
+unfinished review, never replaying an approval.
+
+The terminal derives `PLAN`, pending-transition and `PLAN · REVIEW` markers from
+that state and live review. Existing Ask supplies scrolling, selection and free
+text. A small tool renderer hides raw plan JSON during review and shows the plan
+and result as readable scrollback after settlement. The call and Ask records own
+the submitted content; no independent `.rig/plan.md` copy is created.
+
+References inspected: Rig's [Plan example](https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/corpus/shared/src/plan_mode.rs)
+and DSH's [collaborative Plan implementation](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/plan/plan-mode/src/index.ts).
+Rig supplies the loop, effects, saved state, commands, Ask and TUI. DSH is semantic
+reference material only. Verification commands and real terminal results for this
+delivery are recorded in [HANDOFF.md](HANDOFF.md); earlier dated results remain historical.
 
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md
