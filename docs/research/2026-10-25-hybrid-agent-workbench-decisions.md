@@ -2,7 +2,7 @@
 
 Date: 2026-10-25
 
-Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution and Vivy persona extension; no implementation authorized by this report.
+Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution, Vivy persona extension, and recursive Rig delegation orchestrated from Python/apixis; this report authorizes documentation, not runtime implementation.
 
 Scope: Preserve this conversation's findings and latest direction in both repositories.
 
@@ -703,3 +703,163 @@ consistency and local-link checks, original sketch byte comparison, identical
 research copies and `git diff --check`. No runtime code, original-Vivy product
 contract or repair-lane behavior changes. No runtime CI is needed for this
 documentation-only checkpoint; implementation claims still require real-path tests.
+
+## 17. Recursive Rig agents with Python/apixis orchestration
+
+Date: 2026-10-25. Status: accepted architecture direction for a minimal experiment;
+not an implemented subagent capability or a completed implementation plan. The
+owner explicitly requested the same decision record in both repositories.
+
+### 17.1 Clarification and decision
+
+The owner corrected an intermediate interpretation: Python should orchestrate
+Rig subagents, not run a separate Python agent engine. The earlier question about
+where a Python-owned agent loop sends model requests is therefore superseded.
+
+One YAML recipe compiles an agent unit with selected capabilities. A subagent is
+another instance of that same Rig harness, with its own task, conversation and,
+when used, Python execution namespace. It may have a different model or a narrower
+tool selection. Recursive delegation reuses the implementation; it does not clone
+the repository, copy the parent's complete context, or launch another terminal.
+
+```text
+Any Rig agent
+  -> its Python workbench
+       -> simple delegation, or optional apixis flow
+            -> correlated Python-to-host requests
+                 -> Rust/Rig creates, runs, waits for and stops subagents
+                      -> child Rig agent with its own context/workbench
+                           -> may delegate again within host limits
+  <- bounded results, task identities and artifact references
+
+Rust-owned execution state -> existing TUI status and agent views
+```
+
+Recursion and graph orchestration are separate capabilities. Recursive agents can
+delegate without a graph. apixis becomes useful for parallel investigations,
+dependency ordering, joins, review and conditional rework; it is not mandatory
+for every delegation. Treat it as an optional Python library, not a second global
+agent runtime or a replacement for recipe-driven Rust assembly.
+
+RLM additionally treats large context as data in the workbench: code can select,
+transform and delegate bounded pieces. Recursive spawning alone does not establish
+the complete RLM context-processing behavior.
+
+### 17.2 Ownership and implementation boundaries
+
+- Reuse Rig's optional `rig_basics::subagents::SubagentsPlugin` and its
+  `SpawnSubagent` execution path. Native delegation and Python-originated
+  delegation must converge on that same host lifecycle.
+- Rust/Rig owns agent identities, conversations, model/gateway access, credentials,
+  usage, admission limits, cancellation and authoritative execution records.
+  Python owns orchestration code and invocation-local flow state; graph state
+  references host task IDs rather than maintaining a competing task registry.
+- A small bidirectional bridge needs create, wait/collect and cancel behavior.
+  Operation names, wire frames and the exact Rig adapter are not frozen by this
+  record. Service host requests while a Python cell awaits results, preserving
+  parent identity and cancellation; do not block the host event loop or re-enter
+  the same locked Python worker for a child.
+- Separate each agent's workbench state. Keep graph state small: task handles,
+  summaries and artifact references, not copied transcripts, large datasets or
+  live MCP clients. Actual model-visible context and internal Python data remain
+  distinct.
+- Project status from host state into the existing TUI. A Python orchestration
+  interface does not justify an invisible backend-only feature or a second TUI.
+- Bound nesting, concurrent work and execution budgets at the host. Exact limits
+  belong in the later implementation plan; the graph's step counter is not a
+  token, cost or agent-concurrency limit.
+- The initial acceptance case is foreground, read-only research. Process survival,
+  durable graph restoration, arbitrary namespace snapshots and coordinated
+  parallel code edits are not part of that first case. This records a candidate
+  next experiment without silently reordering the existing delivery gates.
+
+Context/tool selection and Python process separation are not an OS sandbox.
+Rig subagents at the inspected pin run within the host; do not claim each has
+Prime's worker-process isolation. Arbitrary Python execution can access resources
+outside a managed tool surface, so a tool allowlist is not a complete permission
+boundary. Original Vivy's repair and Go/Eino contracts remain outside this design.
+
+### 17.3 What Prime actually does
+
+At Prime revision `5c898d1b27b109bd2d383c68d60a30536e39cc22`, Python's
+`rlm.spawn()` sends `host_request("rlm.run", ...)`. Rust's `RlmHostBridge`
+validates and routes the request to the child-session host;
+`SupervisorChildSessions` creates and supervises child workers. Python factory
+code combines `rlm.spawn`, `rlm.collect` and `rlm.delete_subagent` into workflows.
+Thus the accepted split is closely related to Prime's actual architecture:
+Python composes work while the host executes agents.
+
+Prime's factory is its own state-machine/DAG implementation, not apixis. Its
+executor registry lives in kernel memory and does not survive kernel restart;
+supervisor-owned children can survive that kernel restart. Do not copy those
+continuity promises into the first vivy-test experiment. Prime also implements
+daemon continuity, worker supervision, scheduling, messaging, model adapters and
+an extensive terminal product. A small model-visible Python tool surface does
+not remove those product costs.
+
+### 17.4 apixis fit and concrete constraints
+
+Inspected apixis revision: `411c0e22e9f46520e407a8b7fc18116093055a73`.
+Source inspection found Command-driven routing, concurrent batches, ordered
+result merging, conflicting-field checks, node timeouts, streaming, interruption
+hooks and graph/context ownership checks. No integration run or comparative
+performance benchmark was performed; "advanced" is not a verified rating.
+
+- Requires Python 3.12+, whereas the current workbench accepts 3.11+; select an
+  explicit compatible optional environment before integration.
+- `abort` resolves the graph invocation at its checkpoint, but an already-started
+  node may continue running. Stop host-owned subagents explicitly and account for
+  effects already performed; discarding graph results is not cancellation.
+- Snapshots deep-copy state and restoration belongs to the same compiled graph
+  identity. The API does not by itself supply cross-process durable recovery or
+  rollback of external effects.
+- Default snapshots can retain large copied state; store references and bounded
+  summaries. Graph step limits count node batches, including a parallel batch as
+  one step, rather than model or financial budgets.
+- The existing worker cancels outstanding asyncio tasks after each cell. Start
+  with an awaited foreground flow and deliberately handle the event runtime's
+  task lifecycle; do not assume graph/event/MCP background tasks survive cells.
+
+### 17.5 First acceptance case, scale and evidence
+
+Suggested minimal acceptance: a parent uses apixis to run two research subagents
+in parallel; one delegates a smaller task to a grandchild; results join into one
+report. Verify distinct child contexts, visible TUI states, correlated results,
+representative child failure and cancellation of the related work when the parent
+is stopped. Admission at a configured depth/concurrency limit must be observable.
+Use scripted model responses for deterministic checks, then a real-gateway smoke.
+This is a proposed acceptance case, not a claim it has passed.
+
+Inspection counted about 1,770 physical lines in Rig's subagent implementation and
+895 in its dedicated test file, including comments and blanks. Reuse those
+capabilities; do not reproduce them as Vivy-owned infrastructure. The discussion's
+2,000-5,000 additional owned production-line range was an unvalidated planning
+estimate for the bounded foreground integration, excluding tests and scripts. It
+is not a quota, schedule or estimate for complete Pi parity. The bridge, lifecycle
+and acknowledged recording seam need a focused feasibility check before a firm
+implementation estimate.
+
+Pi coverage remains in `vivy-test/docs/PI-BASELINE.md`. Recursive subagents and
+graph orchestration are additions beyond Pi's default coding core at the inspected
+revision; they do not complete its MCP, Code Mode, RPC, terminal-extension or
+session semantics. Gateway-first and Rust functional-equivalence decisions remain.
+
+At recording time, vivy-test main `c7ca8c9` and the separate Plan worktree commit
+`b43d448` did not select `SubagentsPlugin` and had no Python subagent bridge or
+apixis integration. No runtime capability is added by this documentation update.
+The implementation authority stays in vivy-test's DESIGN; this identical research
+snapshot in agent-vivy is for handoff only. Validation for this record consists
+of source/diff review, matching mirror bytes and Git whitespace checks, not
+runtime or product CI.
+
+Pinned source references:
+
+- [Rig subagent plugin](https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/plugins/rig-basics/src/subagents.rs)
+- [Rig spawning and inheritance](https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/plugins/rig-basics/src/subagents/spawn.rs)
+- [Prime Python spawn bridge](https://github.com/PrimeIntellect-ai/prime-agent/blob/5c898d1b27b109bd2d383c68d60a30536e39cc22/prime-agent-runtime/src/rlm/__init__.py)
+- [Prime Rust host dispatch](https://github.com/PrimeIntellect-ai/prime-agent/blob/5c898d1b27b109bd2d383c68d60a30536e39cc22/crates/pa-core/src/session_engine/rlm_host.rs)
+- [Prime child supervisor](https://github.com/PrimeIntellect-ai/prime-agent/blob/5c898d1b27b109bd2d383c68d60a30536e39cc22/crates/pa-daemon/src/rlm_children/host.rs)
+- [Prime factory ownership](https://github.com/PrimeIntellect-ai/prime-agent/blob/5c898d1b27b109bd2d383c68d60a30536e39cc22/prime-agent-runtime/src/rlm/factory.py)
+- [apixis graph lifecycle](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/docs/core/graph/README.md)
+- [apixis state and concurrency](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/docs/core/graph/state.md)
+- [apixis Python requirement](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/pyproject.toml)

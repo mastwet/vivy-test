@@ -23,6 +23,7 @@ a successful manual test; that report does not supply a new automated test recor
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
+| Recursive Rig agents, Python orchestration | Reuse Rig for child execution; use optional apixis flows for parallel work, joins and rework through a small host bridge. Accepted direction, not implemented. |
 | Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
@@ -44,14 +45,16 @@ is preserved as input, not a second configuration or literal storage schema.
 upstream plugins, and extend the existing Python worker for deferred external
 capabilities. Rust owns execution and durable state; Python owns its execution
 namespace and MCP clients. A lower-level agent rewrite would duplicate working
-session/terminal behavior; a full Prime port would add unneeded lifecycle and
-subagent machinery. The selected route minimizes owned code while retaining
+session/terminal behavior; a full Prime port would add unneeded daemon and factory
+machinery. Reuse Rig's subagent lifecycle for the accepted recursive experiment.
+The selected route minimizes owned code while retaining
 recipe-selected compilation and Prime-shaped evolution.
 
 **Core boundary (owner, 2026-10-25):** Rust/Rig owns Pi's coding core: the agent
 loop, coding tools (read, edit, write, shell, search), sessions, compaction and
-the TUI. Python owns everything advanced: MCP, memory backends such as MemPalace
-or memU, and anything experimental. Nothing advanced goes into the core.
+the TUI, including execution of recursively delegated agents. Python owns external
+integration and workflow logic: MCP, optional memory backends and experimental
+composition. Reuse the same Rust execution path when those workflows need agents.
 
 ```text
 One YAML recipe -> generated Rust assembly -> one Rig host
@@ -61,6 +64,8 @@ Rig host: gateway/model calls, context assembly, TUI/CLI, sessions, cancellation
   Model -> direct read/edit/write/shell/search/list
         -> python_repl -> MCP clients / Python functions / large-data processing
                            -> optional external memory or PEN, when specified
+                           -> direct delegation / optional apixis flow
+                                -> host bridge -> child Rig agent (same unit)
   Host <- correlated execution events and artifact references
   Task evidence -> automatic refinement -> checked Prime-shaped edits
                 -> authoritative harness state -> future context
@@ -75,7 +80,8 @@ Rig host: gateway/model calls, context assembly, TUI/CLI, sessions, cancellation
 | Frequent coding tools | Current Rig/Vivy tools remain directly model-visible. Python access, when required, dispatches to the same implementation. |
 | AGENTS.md, prompt templates, Markdown skill discovery/loading | Existing Rig/basics mechanisms; no second discovery catalog. |
 | Python execution, MCP discovery/calls, data composition | Existing vivy-python worker. MCP only for servers that are not Python libraries, through the official Python MCP SDK; no MCP in Rust. |
-| Model calls requested from Python | A bounded request through the host's gateway, usage and cancellation path. Add only for a concrete accepted task, not as a general subagent API. |
+| Agent delegation requested from Python | A small bridge to Rig's existing subagent lifecycle; host-owned model/gateway access, usage, limits and cancellation. No Python-owned agent loop or separate provider path. |
+| Model calls requested from Python | A bounded request through the host's gateway, usage and cancellation path for a concrete task, without a second provider stack. |
 | Evolution scheduling, validation, state/history commits | One host owner, using the normal model-call path. Python may prepare evidence or execute checks; it does not own another refinement scheduler/store. |
 | Memory backends | MemPalace or memU, imported directly in the worker (delivery step 4), with one memory owner across forks. PEN is deferred. |
 
@@ -83,6 +89,41 @@ Reuse a plugin directly unless Vivy adds actual selection behavior or a required
 product difference. A concept in this table does not require a separate crate,
 service, registry or abstract interface. Keep current crate boundaries unless
 an implementation demonstrates a concrete need to change them.
+
+### Recursive delegation and optional graph orchestration
+
+Accepted on 2026-10-25; not implemented. Reuse
+`rig_basics::subagents::SubagentsPlugin` and `SpawnSubagent`. Each child runs the
+same selected Rig harness with its own task/context and, when used, Python
+namespace; it can delegate again within host limits. Simple delegation can use
+the bridge directly. apixis is an optional Python orchestrator for parallel work,
+joins and conditional rework, not a prerequisite for recursion.
+
+Rust owns child identities, execution records and lifecycle; graph state carries
+references and bounded results. Native and Python-originated delegation converge
+on the same host path. Surface child activity and errors through existing TUI
+views. Context isolation is not OS sandboxing or a promise of one process per
+agent. The recipe still selects compiled capabilities; a runtime graph composes
+those capabilities and does not replace build-time assembly.
+
+The first proposed acceptance is foreground, read-only research: two parallel
+children, one grandchild, joined results, visible status, a child failure and
+propagated parent cancellation. Bound depth, concurrency and execution budgets.
+Do not add daemon continuity, durable graph restoration or parallel code-edit
+coordination to that first case, or silently reorder existing delivery gates.
+
+apixis requires Python 3.12+. Its graph abort can leave nodes running, and snapshots
+are copied state owned by the same graph instance; explicitly cancel host children
+and do not promise external-effect rollback. The current worker cancels leftover
+asyncio tasks after each cell, so validate graph/event-task cleanup with an awaited
+foreground flow. The bridge must remain responsive while a cell waits, preserve
+parent/call identity and integrate with the acknowledged recording requirement
+below. Concrete adapter APIs and limits remain for the implementation plan.
+
+The [mirrored decision record, section 17](research/2026-10-25-hybrid-agent-workbench-decisions.md#17-recursive-rig-agents-with-pythonapixis-orchestration)
+contains pinned Prime/Rig/apixis evidence and the unvalidated effort range. This
+direction uses Prime's Python-to-host delegation split; it does not import Prime's
+entire factory or establish additional Pi parity.
 
 ### State homes and model-visible context
 

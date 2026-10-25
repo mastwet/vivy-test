@@ -21,6 +21,14 @@ advanced.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
+Latest accepted direction (2026-10-25): Python/apixis orchestrates recursive Rig
+agents; Rig remains the executor. This is not a Python agent-engine replacement.
+See DESIGN's "Recursive delegation and optional graph orchestration" and the
+mirrored research record, section 17. Subagents, the Python host bridge and apixis
+are not integrated yet. The proposed first case is foreground read-only research
+with parallel children, one grandchild, visible status and propagated cancellation;
+it does not silently supersede the delivery gates below.
+
 ## Reference setup
 
 Clone **Pi and Rig themselves**, including source, into this checkout's ignored
