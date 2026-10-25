@@ -31,12 +31,24 @@ class Gateway(Handler):
                 return self.reply_error(401, "scripted rejection")
             return self.reply(body, text="## Goal\nBRANCH-SUMMARY-TEXT")
         last_user = [text_of(m) for m in messages if m["role"] == "user"][-1]
+        if "slow" in last_user:
+            time.sleep(3)
+        if "flaky" in last_user and self.server.flaked < 2:
+            self.server.flaked += 1
+            data = json.dumps({"error": {"message": "scripted overload"}}).encode()
+            self.send_response(503)
+            self.send_header("retry-after", "0")
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
         return self.reply(body, text="answer to " + last_user.split()[-1])
 
 
 def session(binary, server, fail_summary):
     """One terminal session through every check; returns failed check names."""
-    server.records, server.fail_summary = [], fail_summary
+    server.records, server.fail_summary, server.flaked = [], fail_summary, 0
     failed = []
 
     def check(name, ok):
@@ -51,7 +63,8 @@ def session(binary, server, fail_summary):
         work.mkdir()
         (home / "settings.toml").write_text(
             f'[gateway]\nbase_url = "http://127.0.0.1:{server.server_port}/v1"\n'
-            'model = "org/model-1"\ncontext_window = 64000\n', encoding="utf-8")
+            'model = "org/model-1"\nmodels = ["org/model-2"]\ncontext_window = 64000\n'
+            'dialect = "openrouter"\nreasoning = ["low", "high"]\n', encoding="utf-8")
         env = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
         terminal = Terminal([str(binary)], work, env)
         try:
@@ -151,11 +164,43 @@ def session(binary, server, fail_summary):
             terminal.read_for(15, until="answer to import", since=mark)
             sent = json.dumps(server.records[before:])
             check("imported history reaches the model", "first alpha" in sent and "after import" in sent)
+            controls(terminal, server, check)
         finally:
             terminal.close()
         # After the terminal closed: a running session is locked to its process.
         print_mode(binary, server, home, work, check)
     return failed
+
+
+def controls(terminal, server, check):
+    """Steering, automatic retries, /thinking and the cycling keys."""
+    mark = terminal.mark()
+    terminal.type("slow one")
+    time.sleep(1)
+    terminal.type("steer two")
+    terminal.read_for(20, until="answer to two", since=mark)
+    steered = [b for b in server.records if "steer two" in json.dumps(b["messages"])]
+    check("Enter during a turn steers it", bool(steered) and "answer to two" in "".join(terminal.since(mark).split()).replace("answerto", "answer to "))
+    mark = terminal.mark()
+    before = len(server.records)
+    terminal.type("flaky three")
+    check("an overloaded gateway is retried", terminal.read_for(20, until="answer to three", since=mark)
+          and len(server.records) - before == 3)
+    mark = terminal.mark()
+    terminal.type("/thinking high")
+    terminal.read_for(4, since=mark)
+    terminal.type("think four")
+    terminal.read_for(15, until="answer to four", since=mark)
+    check("/thinking high changes the request", server.records[-1].get("reasoning") == {"effort": "high"})
+    mark = terminal.mark()
+    terminal.type(b"\x1b[Z", enter=False)
+    check("Shift+Tab cycles the level", terminal.read_for(6, until="Reasoning:", since=mark))
+    mark = terminal.mark()
+    terminal.type(b"\x1bp", enter=False)
+    check("Alt+P moves to the next model", terminal.read_for(6, until="Model: gateway/org/model-2", since=mark))
+    terminal.type("model five")
+    terminal.read_for(15, until="answer to five", since=mark)
+    check("the next turn goes to that model", server.records[-1].get("model") == "org/model-2")
 
 
 def print_mode(binary, server, home, work, check):
@@ -178,6 +223,10 @@ def print_mode(binary, server, home, work, check):
     check("--fork leaves the original", len(set((home / "sessions").iterdir())) == len(before) + 1)
     result = run("--session", source, "-p", "again three")
     check("--session resumes", result.returncode == 0 and "first alpha" in json.dumps(server.records[-1]))
+    result = run("--no-session", "--thinking", "high", "-p", "thought six")
+    check("--thinking sets the level", result.returncode == 0 and server.records[-1].get("reasoning") == {"effort": "high"})
+    result = run("--export", source, "exported.html")
+    check("--export writes the session", result.returncode == 0 and (work / "exported.html").is_file())
 
 
 def main():

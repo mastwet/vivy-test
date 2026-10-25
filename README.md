@@ -85,7 +85,10 @@ Pi's session options work too: `--no-session` keeps no session, `--fork <id>`
 continues a copy of one, `--session <id|path>` resumes one; `/clone` copies the
 running session, `/import <file.jsonl>` loads an `/export` file into an empty
 session, and `/tree` shows a session's branches. In the terminal view, `/resume`
-alone opens the session picker; Alt+Up then
+alone opens the session picker; `/thinking` and `--thinking <level>` are Pi's
+names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
+(list more ids on the gateway with `models = [...]`), and `--export <id>
+[output]` exports a session from the command line; Alt+Up then
 Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
 agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.

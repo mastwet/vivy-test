@@ -5,7 +5,8 @@
 //! ```toml
 //! [gateway]
 //! base_url = "https://gateway.example/v1"
-//! model = "provider/model-id"   # sent to the gateway unchanged
+//! model = "provider/model-id"   # sent to the gateway unchanged; the default
+//! models = ["provider/other"]    # optional: more ids on the same endpoint
 //! # Optional facts about the model, which Rig acts on:
 //! dialect = "openrouter"         # a Rig OpenAI-compatible dialect: its option mapping
 //! context_window = 131072        # compaction keeps requests inside it
@@ -59,6 +60,9 @@ pub struct GatewaySettings {
     pub base_url: String,
     /// The model id the gateway serves, sent as given.
     pub model: String,
+    /// More model ids on the same endpoint, with the same facts, for
+    /// `/model` and model cycling; `model` stays the default.
+    pub models: Vec<String>,
     /// The Rig OpenAI-compatible dialect whose quirks and option mapping
     /// the gateway takes, such as `openrouter`; none for the generic one.
     pub dialect: Option<String>,
@@ -115,7 +119,24 @@ const EFFORTS: [Effort; 6] = [
 /// The catalog row of the gateway's model: `settings`' facts on Rig's
 /// defaults (text in, tools, nothing else known).
 pub fn spec(vendor: ProviderId, settings: &GatewaySettings) -> ModelSpec {
-    let mut spec = ModelSpec::new(vendor, settings.model.trim()).with_tools(true);
+    spec_of(vendor, settings.model.trim(), settings)
+}
+
+/// The catalog rows of every model the settings list: `model`, then `models`.
+pub fn specs(vendor: ProviderId, settings: &GatewaySettings) -> Vec<ModelSpec> {
+    let mut ids: Vec<&str> = vec![settings.model.trim()];
+    for id in settings.models.iter().map(|id| id.trim()) {
+        if !id.is_empty() && !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    ids.into_iter()
+        .map(|id| spec_of(vendor, id, settings))
+        .collect()
+}
+
+fn spec_of(vendor: ProviderId, id: &str, settings: &GatewaySettings) -> ModelSpec {
+    let mut spec = ModelSpec::new(vendor, id).with_tools(true);
     spec.context_window = settings.context_window;
     spec.max_output_tokens = settings.max_output_tokens;
     spec.input.image = settings.image_input;
@@ -186,7 +207,9 @@ impl Plugin for GatewayPlugin {
             &DIALECT
         });
         let mut models = app.world_mut().get_resource_or_init::<Models>();
-        models.0.catalog_mut().insert(spec(vendor, &settings));
+        for spec in specs(vendor, &settings) {
+            models.0.catalog_mut().insert(spec);
+        }
         let base_url = settings.base_url.trim().to_owned();
         models.0.provide(
             vendor,
@@ -320,6 +343,20 @@ mod tests {
             spec(ProviderId::declare(VENDOR).unwrap(), &settings(&text)).pricing,
             None
         );
+    }
+
+    #[test]
+    fn more_models_share_the_endpoint_and_facts() {
+        let text = format!(
+            "{SETTINGS}models = [\"org/model-2\", \"org/model-1\", \" \"]\ncontext_window = 4000\n"
+        );
+        let rows = specs(ProviderId::declare(VENDOR).unwrap(), &settings(&text));
+        let ids: Vec<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, ["org/model-1", "org/model-2"]);
+        assert!(rows.iter().all(|row| row.context_window == Some(4000)));
+        let app = app(&text, &[(SECRET, "test-key")]);
+        let models = app.world().resource::<Models>();
+        assert!(models.connect("gateway/org/model-2").is_ok());
     }
 
     #[test]

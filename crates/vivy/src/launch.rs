@@ -16,8 +16,9 @@ struct SessionOptions {
     fork: Option<String>,
 }
 
-/// Takes `--no-session`, `--fork <id>` and `--session <id|path>` (Pi's
-/// name for `--resume`) out of `args`.
+/// Takes `--no-session`, `--fork <id>`, `--session <id|path>` (Pi's name
+/// for `--resume`) and `--export <id> [output]` (that session's `/export`,
+/// in print mode) out of `args`.
 fn session_options(args: &[String]) -> Result<(Vec<String>, SessionOptions)> {
     let mut rest = Vec::new();
     let mut options = SessionOptions::default();
@@ -37,6 +38,21 @@ fn session_options(args: &[String]) -> Result<(Vec<String>, SessionOptions)> {
                     resumed = true;
                     rest.extend(["--resume".to_owned(), value]);
                 }
+            }
+            "--export" => {
+                let session = args.next().ok_or("--export needs a session id or path")?;
+                let mut line = "/export".to_owned();
+                if let Some(output) = args.clone().next().filter(|next| !next.starts_with('-')) {
+                    line = format!("/export {output}");
+                    args.next();
+                }
+                resumed = true;
+                rest.extend([
+                    "--resume".to_owned(),
+                    session_name(session),
+                    "-p".to_owned(),
+                    line,
+                ]);
             }
             "--resume" | "-r" => {
                 resumed = true;
@@ -242,6 +258,10 @@ mod tests {
         assert_eq!(options.fork.as_deref(), Some("abc"));
         assert!(session_options(&strings(&["--fork", "a", "--resume", "b"])).is_err());
         assert!(session_options(&strings(&["--fork"])).is_err());
+        let (rest, _) = session_options(&strings(&["--export", "abc", "out.html"])).unwrap();
+        assert_eq!(rest, ["--resume", "abc", "-p", "/export out.html"]);
+        let (rest, _) = session_options(&strings(&["--export", "abc"])).unwrap();
+        assert_eq!(rest, ["--resume", "abc", "-p", "/export"]);
     }
 
     #[test]

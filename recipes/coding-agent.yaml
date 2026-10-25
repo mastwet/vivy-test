@@ -41,6 +41,14 @@ components:
     plugins:
       - rig_basics::models::ModelsPlugin
 
+  # Pi's /thinking and --thinking, and model and reasoning cycling (Alt+P,
+  # Shift+Tab), on Rig's /model and /effort.
+  - name: model-controls
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::model::PiModelControlsPlugin
+
   - name: sessions
     crate: rig-basics
     plugins:

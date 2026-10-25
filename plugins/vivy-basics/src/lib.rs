@@ -10,11 +10,14 @@
 //! - [`session::ExportPlugin`] adds `/export [path]`, as HTML or JSONL.
 //! - [`context::ContextFilesPlugin`] reads AGENTS.md/CLAUDE.md and the
 //!   SYSTEM.md/APPEND_SYSTEM.md prompt files as Pi does.
+//! - [`model::PiModelControlsPlugin`] adds Pi's `/thinking`, `--thinking`
+//!   and model and reasoning cycling.
 //! - [`branch::BranchSummaryPlugin`] summarizes what a rewind leaves behind
 //!   into the fork, as Pi's branch summary does.
 
 pub mod branch;
 pub mod context;
+pub mod model;
 pub mod search;
 pub mod session;
 pub mod shell;
