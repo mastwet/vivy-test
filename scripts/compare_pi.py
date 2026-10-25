@@ -11,9 +11,6 @@ non-zero naming any scenario that could not run.
 import json
 import os
 import pathlib
-import pty
-import re
-import select
 import shutil
 import signal
 import subprocess
@@ -27,6 +24,7 @@ from http.server import ThreadingHTTPServer
 
 from mock_gateway import Handler, text_of
 from smoke import turns
+from tui import Terminal
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OUT = ROOT / ".generated" / "compare"
@@ -281,52 +279,14 @@ def scenario_run(agent, scenario):
 def tui_round_trip(agent):
     """Types a prompt into the agent's terminal view on a pseudo-terminal and
     waits for the scripted reply on screen."""
-    pid, fd = pty.fork()
-    if pid == 0:
-        os.chdir(agent.work)
-        argv = agent.argv()
-        os.execvpe(argv[0], argv, agent.env())
-    import fcntl
-    import termios
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
-    screen = b""
-
-    def read_for(seconds, until=None):
-        nonlocal screen
-        end = time.time() + seconds
-        while time.time() < end:
-            ready, _, _ = select.select([fd], [], [], 0.2)
-            if ready:
-                try:
-                    screen += os.read(fd, 65536)
-                except OSError:
-                    return False
-            # Terminal views position the cursor instead of printing spaces.
-            if until and until.replace(" ", "") in plain(screen).replace(" ", ""):
-                return True
-        return False
-
-    read_for(4)
-    os.write(fd, b"hello tui")
-    time.sleep(0.5)
-    os.write(fd, b"\r")
-    shown = read_for(20, until="ok tui")
-    for key in (b"\x03", b"\x03", b"\x04"):
-        os.write(fd, key)
-        time.sleep(0.5)
+    terminal = Terminal(agent.argv(), agent.work, agent.env())
     try:
-        os.kill(pid, signal.SIGTERM)
-    except ProcessLookupError:
-        pass
-    os.waitpid(pid, 0)
-    os.close(fd)
-    return {"reply_on_screen": shown}
-
-
-def plain(raw):
-    text = raw.decode("utf-8", "replace")
-    text = re.sub(r"\x1b\[[0-9;?<>=]*[a-zA-Z~]|\x1b\][^\x07\x1b]*(\x07|\x1b\\)|\x1b[()=>][A-Z0-9]?", "", text)
-    return re.sub(r"\s+", " ", text)
+        terminal.read_for(4)
+        mark = terminal.mark()
+        terminal.type("hello tui")
+        return {"reply_on_screen": terminal.read_for(20, until="ok tui", since=mark)}
+    finally:
+        terminal.close()
 
 
 def records(path):

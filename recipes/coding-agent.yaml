@@ -36,11 +36,20 @@ components:
   - name: sessions
     crate: rig-basics
     plugins:
+      # The session list /resume opens; SessionsPlugin would add it, named here.
+      - rig_basics::session_picker::SessionPickerPlugin
       - rig_basics::sessions::SessionsPlugin
       - rig_basics::sessions::agents::AgentsPlugin
       - rig_basics::compaction::CompactionPlugin
       - rig_basics::telemetry::usage::UsagePlugin
       - rig_basics::activity::ActivityPlugin
+
+  # Pi's branch summary: what a rewind leaves behind, summarized into the fork.
+  - name: branch-summary
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::branch::BranchSummaryPlugin
 
   - name: coding-tools
     crate: rig-basics

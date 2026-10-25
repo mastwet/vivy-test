@@ -247,6 +247,25 @@ scripts/compare_pi.py target/debug/vivy` runs ten scenarios on Pi (pinned
 revision, from source) and vivy against one scripted gateway; PI-BASELINE's
 Result column records the outcome for every core row.
 
+**Step 3 evidence (2026-10-25, Linux, scripted gateway; `scripts/sessions_tui.py`):**
+the recipe names `rig_basics::session_picker::SessionPickerPlugin` (Rig's
+sessions plugins would add it anyway; the recipe now says so) and a new
+`branch-summary` component, `vivy_basics::branch::BranchSummaryPlugin`. Rig's
+rewind forks an agent just before a message and keeps the old one; nothing
+summarized what it left behind. The plugin takes the messages the fork did not
+copy, asks Rig's summarizer for a checkpoint of them as a request of its own
+(as Pi does), in a turn of the fork's own, and adds the answer to the fork as a
+user message in Pi's words ("The following is a summary of a branch that this
+conversation came back from"). Driven on a pseudo-terminal: two turns, Alt+Up
+twice and Enter forked before the second message, the summary request carried
+exactly the two messages left behind, the summary and a notice showed in the
+fork, and the fork's next turn sent the summary before the recalled message;
+`/fork` and `/agents` listed three agents; `/new`, then the `/resume` picker,
+listed and resumed the earlier session. With the summary request refused, the
+failure was reported, nothing was inserted and the fork went on. Differences
+from Pi: it always summarizes (Pi asks), and Rig's branches are agents of one
+session rather than one tree file.
+
 Before claiming each slice, demonstrate its real path and a representative failure:
 cancel/reset without orphan clients; missing tool/auth failure without a fake success;
 branch reset without state bleed; a nested call linked to the visible summary;

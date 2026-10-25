@@ -8,7 +8,10 @@
 //! - [`session::SessionInfoPlugin`] adds `/session`.
 //! - [`session::CopyPlugin`] adds `/copy`, the last reply to the clipboard.
 //! - [`session::ExportPlugin`] adds `/export [path]`, as HTML or JSONL.
+//! - [`branch::BranchSummaryPlugin`] summarizes what a rewind leaves behind
+//!   into the fork, as Pi's branch summary does.
 
+pub mod branch;
 pub mod search;
 pub mod session;
 pub mod shell;
