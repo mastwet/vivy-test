@@ -17,6 +17,8 @@
 //!   project skills.
 //! - [`branch::BranchSummaryPlugin`] summarizes what a rewind leaves behind
 //!   into the fork, as Pi's branch summary does.
+//! - [`subagents::VivySubagentsPlugin`] selects native Rig delegation with roles,
+//!   bounded parallel work, sequential chains and terminal feedback.
 
 pub mod branch;
 pub mod context;
@@ -25,5 +27,6 @@ pub mod search;
 pub mod session;
 pub mod shell;
 pub mod skills;
+pub mod subagents;
 pub mod templates;
 pub mod trust;

@@ -57,6 +57,19 @@ parity.
 | Session utilities | Export/import, HTML output, copy/share, diagnostic/bug-report workflows | Add useful equivalents later; keep sensitive transcript sharing explicit. | `docs/cli.md`, `docs/slash-commands.md` | Not core. Implemented in vivy: `/export` (HTML, JSONL), `/copy`, `/session`; `--export <id> [output]` exports a session without opening it, as Pi's; `/import` loads vivy's own `/export` JSONL; no share or bug report. |
 | Platforms | Linux/macOS/Windows behavior, shell handling and terminal integration; documented Termux usage | Current host is Windows; inspected Rig launcher supports Linux/macOS. Do not claim portability without a run. | `docs/windows.md`, `docs/termux.md`, `docs/terminal-setup.md` | Linux: everything above. Windows: the owner's manual run only; not compared. |
 
+## Native delegation addition (2026-10-25)
+
+The `feat/subagents` delivery uses Pi's `examples/extensions/subagent/` as a
+functional reference, not a new default-core parity claim. Vivy's selected Rig
+wrapper implements single tasks/follow-up, named roles, parallel batches and
+chains, per-child cwd, bounded inline results, cancellation, native persistence,
+usage and terminal views. Unlike Pi's example it uses the same host process;
+cwd stays within one project and shares project context. No TypeScript extension
+runtime, separate worker process or OS sandbox is claimed. Offline tests,
+actual species and Windows terminal checks are recorded in
+[delivery evidence](logs/2026-10-25-subagents.md). Earlier Linux comparisons above
+remain dated evidence and were not rerun against Pi for this addition.
+
 ## Findings that prevent misleading scope claims
 
 - This Pi revision includes MCP and JavaScript Code Mode. Older descriptions of

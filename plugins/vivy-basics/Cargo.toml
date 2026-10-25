@@ -8,7 +8,7 @@ publish = false
 
 [features]
 # /copy through the terminal view (OSC 52 as well as the system clipboard).
-tui = ["dep:rig-tui"]
+tui = ["dep:rig-tui", "rig-basics/tui"]
 
 [dependencies]
 # Must be the recipe's Rig revision: the agent holds one copy of each Rig crate.
@@ -19,6 +19,8 @@ rig-tui = { git = "https://github.com/0xPlaygrounds/rig", rev = "55cd481a2421fd5
 # Named by the derives and the log macros; Rig's exact versions.
 bevy_ecs = { version = "=0.20.0", default-features = false, features = ["std"] }
 bevy_log = "=0.20.0"
+bevy_reflect = "=0.20.0"
+schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # A template's frontmatter.
@@ -27,3 +29,5 @@ vivy-process = { path = "../../crates/vivy-process" }
 
 [dev-dependencies]
 futures = "0.3"
+rig-core = { git = "https://github.com/0xPlaygrounds/rig", rev = "55cd481a2421fd5da468b5bd6afc6ac876883599", features = ["test-utils"] }
+rig-harness-test-support = { git = "https://github.com/0xPlaygrounds/rig", rev = "55cd481a2421fd5da468b5bd6afc6ac876883599" }

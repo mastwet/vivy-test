@@ -1,6 +1,6 @@
 //! Project trust as Pi has it: a working folder's own resources load only
 //! once the user trusts it. Protected here: the project's `.rig/prompts`,
-//! `.rig/skills`, `.agents/skills` (in the working directory or above),
+//! `.rig/skills`, `.rig/agents`, `.agents/skills` (in the working directory or above),
 //! `.rig/SYSTEM.md` and `.rig/APPEND_SYSTEM.md`. Context files (AGENTS.md,
 //! CLAUDE.md) load regardless, as in Pi.
 //!
@@ -50,6 +50,15 @@ pub struct ProjectTrust {
 }
 
 impl ProjectTrust {
+    fn from_decision(decided: Option<bool>, protected: Vec<PathBuf>) -> Self {
+        Self {
+            // Empty discovery is not permission to load resources created later.
+            trusted: decided.unwrap_or(false),
+            undecided: decided.is_none() && !protected.is_empty(),
+            protected,
+        }
+    }
+
     /// Whether `path`, a resource a plugin would load, may be loaded: one
     /// that is not a protected resource always may.
     pub fn allows(&self, path: &Path) -> bool {
@@ -126,22 +135,24 @@ impl Plugin for TrustPlugin {
                 }
             }
         };
-        world.insert_resource(ProjectTrust {
-            trusted: decided.unwrap_or(false) || protected.is_empty(),
-            undecided: decided.is_none() && !protected.is_empty(),
-            protected,
-        });
+        world.insert_resource(ProjectTrust::from_decision(decided, protected));
     }
 }
 
 /// The project's protected resources that exist: in `root`'s `.rig`, and
 /// `.agents/skills` in `root` or a directory above it.
 pub fn protected(root: &Path) -> Vec<PathBuf> {
-    let mut found: Vec<PathBuf> = ["prompts", "skills", "SYSTEM.md", "APPEND_SYSTEM.md"]
-        .iter()
-        .map(|name| root.join(".rig").join(name))
-        .filter(|path| path.exists())
-        .collect();
+    let mut found: Vec<PathBuf> = [
+        "prompts",
+        "skills",
+        "agents",
+        "SYSTEM.md",
+        "APPEND_SYSTEM.md",
+    ]
+    .iter()
+    .map(|name| root.join(".rig").join(name))
+    .filter(|path| path.exists())
+    .collect();
     found.extend(
         root.ancestors()
             .map(|dir| dir.join(".agents/skills"))
@@ -300,6 +311,19 @@ mod tests {
     use super::*;
 
     #[test]
+    fn empty_resources_do_not_grant_trust_to_future_resources() {
+        for decided in [None, Some(false)] {
+            let trust = ProjectTrust::from_decision(decided, vec![]);
+            assert!(
+                !trust.trusted,
+                "Empty discovery must not grant trust: {decided:?}"
+            );
+            assert!(!trust.undecided, "Nothing to approve at startup");
+        }
+        assert!(ProjectTrust::from_decision(Some(true), vec![]).trusted);
+    }
+
+    #[test]
     fn the_nearest_saved_decision_applies() {
         let dir = std::env::temp_dir().join(format!("vivy-trust-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -324,7 +348,11 @@ mod tests {
         std::fs::create_dir_all(work.join(".rig/prompts")).unwrap();
         std::fs::create_dir_all(dir.join(".agents/skills")).unwrap();
         std::fs::write(work.join("AGENTS.md"), "not protected").unwrap();
-        let found = protected(&work);
+        // Limit the assertion to this fixture; real ancestor skills are valid.
+        let found: Vec<_> = protected(&work)
+            .into_iter()
+            .filter(|path| path.starts_with(&dir))
+            .collect();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(
             found,

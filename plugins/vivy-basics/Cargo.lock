@@ -3111,6 +3111,7 @@ dependencies = [
  "rig-memory",
  "rig-reqwest",
  "rig-tools",
+ "rig-tui",
  "schemars",
  "serde",
  "serde_json",
@@ -3158,6 +3159,7 @@ dependencies = [
  "sha2",
  "thiserror 2.0.18",
  "tracing",
+ "tracing-subscriber",
  "url",
  "uuid",
  "web-time",
@@ -3227,6 +3229,21 @@ dependencies = [
 name = "rig-harness-protocol"
 version = "0.46.0-rc.1"
 source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+
+[[package]]
+name = "rig-harness-test-support"
+version = "0.0.0"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+dependencies = [
+ "bevy_ecs",
+ "bevy_time",
+ "rig-core",
+ "rig-ecs",
+ "rig-harness",
+ "rig-memory",
+ "rig-tui",
+ "serde_json",
+]
 
 [[package]]
 name = "rig-http"
@@ -4558,10 +4575,14 @@ version = "0.1.0"
 dependencies = [
  "bevy_ecs",
  "bevy_log",
+ "bevy_reflect",
  "futures",
  "rig-basics",
+ "rig-core",
  "rig-harness",
+ "rig-harness-test-support",
  "rig-tui",
+ "schemars",
  "serde",
  "serde-saphyr",
  "serde_json",

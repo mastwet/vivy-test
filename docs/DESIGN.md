@@ -23,7 +23,7 @@ a successful manual test; that report does not supply a new automated test recor
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
-| Simple delegation first; optional Python orchestration later | First reuse Rig's native subagent plugin for one delegated task. Preserve Python/apixis as a later composition direction, not a first-iteration gate. Not implemented yet. |
+| Native delegation; optional Python orchestration later | Recipe-selected Rig wrapper provides single tasks, bounded parallel batches and chains. Python/apixis remains a later composition direction. See the dated subagent delivery record. |
 | Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
@@ -92,26 +92,37 @@ an implementation demonstrates a concrete need to change them.
 
 ### Recursive delegation and optional graph orchestration
 
-Accepted direction, narrowed by the owner on 2026-10-25; not implemented. The
-first iteration is Pi-like delegation: assign one self-contained task, execute
-it in an independent context, and return the result to the parent. Reuse
-`rig_basics::subagents::SubagentsPlugin`, its native `task`/`message`/`wait` behavior,
-and existing TUI views. Start through the native Rig interface; Python bridging
-and apixis are later work, not prerequisites. No new agent engine or task registry.
+Implemented in the independent subagent branch on 2026-10-25 following the owner's
+expanded Pi-example scope. `vivy_basics::subagents::VivySubagentsPlugin` wraps
+`rig_basics::subagents::SubagentsPlugin`; native `task`, `message`, `wait`,
+`SpawnSubagent`, reports, usage and session storage remain the execution path.
+`task_parallel` aggregates at most eight tasks with four running children per
+session, including follow-up turns. `task_chain` substitutes `{previous}` and stops
+on the first unsuccessful step. Workflow reports are claimed before parent inbox
+acceptance; the parent receives one aggregate. Full transcripts stay in Rig;
+inline child answers are limited to 50 KiB with references to their child views.
 
-The first acceptance uses one foreground read-only research child: show its
-progress/result, return a real failure, and verify parent cancellation reaches
-the child. Use Rig's existing depth setting with `max_depth = 1` for the initial
-recipe so children do not recursively delegate. This single-child scenario is
-not a claim of an implemented global concurrency cap. Do not require parallel
-joins, grandchildren, automatic review/rework or persistent background execution.
+Built-in scout/planner/reviewer/worker roles are overridden by home `agents/*.md`,
+then trusted project `.rig/agents/*.md`. Invalid overrides disable the role.
+Roles refresh on delegation; active and restored children keep their saved role
+prompt. Tool selections cannot exceed parent access or the selected role.
+Optional model/effort reuse native gateway resolution. Default depth is one;
+explicit native `[subagents].max_depth` settings still work. Admission at capacity
+queues root requests; nested spawns at capacity are refused to avoid deadlocks.
 
-Do not build a new approval/policy platform for this slice. Preserve existing
-trust and approval behavior and verify inherited tool access; an available
-approval hook does not establish an enforced permission policy. Context isolation
-is not OS sandboxing. Keep ordinary error and cancellation handling. Read-only
-acceptance must select suitable tools rather than assume the task wording is an
-enforcement boundary.
+Children have independent conversations in the host process. Their optional
+`cwd` is canonicalized inside the current project and applied through WorkDir,
+without changing process cwd; project instructions, skills and trust stay shared.
+No worker process, OS sandbox, cross-project context reload or automatic worktree
+is implied. Scout/planner select read/search/list. Reviewer also has shell and
+therefore can write; worker inherits parent tools. Existing trust is preserved;
+no new approval or permission platform is introduced.
+
+Native cancellation stops running children; pending launches and follow-ups are
+cancelled too. Interrupted workflows are not replayed on resume. Completed child
+conversations, roles and directories support native follow-up after resume. The
+TUI exposes roles, progress, readable answers, child views and native usage;
+unknown pricing remains unknown. See [delivery evidence](logs/2026-10-25-subagents.md).
 
 The later direction remains Python/apixis orchestration over the same Rig
 execution path. Each agent owns its context/workbench; Rust owns identities,
@@ -121,8 +132,8 @@ and worker event-task cleanup described in the research record. Recipe assembly
 continues to select compiled capabilities. Existing delivery gates still apply.
 
 The [mirrored decision record, section 17](research/2026-10-25-hybrid-agent-workbench-decisions.md#17-recursive-rig-agents-with-pythonapixis-orchestration)
-contains pinned Prime/Rig/apixis evidence. Section 17.6 records the latest scope
-reduction; the earlier full-bridge/graph effort range does not estimate this native
+contains pinned Prime/Rig/apixis evidence. Section 17.7 records the latest scope;
+the earlier full-bridge/graph effort range does not estimate this native
 slice. Pi's subagent example is a behavior reference, not a claim of process,
 permission or TypeScript extension compatibility.
 

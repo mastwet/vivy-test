@@ -9,6 +9,9 @@ prompt templates, and an optional auxiliary Python workbench. Current model
 integration checks use a scripted loopback gateway; a real-provider smoke is
 still pending.
 
+The subagent branch adds a recipe-selected Vivy wrapper over Rig's native
+delegation. See [verification and limits](docs/logs/2026-10-25-subagents.md).
+
 ## Build and run on Windows
 
 Prerequisites: Rust 1.97.1 and MSVC C++ build tools, Git for Windows, and Python
@@ -85,7 +88,7 @@ Pi's session options work too: `--no-session` keeps no session, `--fork <id>`
 continues a copy of one, `--session <id|path>` resumes one; `/clone` copies the
 running session, `/import <file.jsonl>` loads an `/export` file into an empty
 session, and `/tree` shows a session's branches. Project trust works as in Pi: the project's own skills, prompt templates and
-`.rig/SYSTEM.md`/`APPEND_SYSTEM.md` load only once it is trusted (`--approve`
+`.rig/agents`, `.rig/SYSTEM.md`/`APPEND_SYSTEM.md` load only once it is trusted (`--approve`
 for one run, `/trust` or the start question to remember; `[trust] default` in
 `settings.toml` is `ask`, `always` or `never`).
 
@@ -97,6 +100,38 @@ names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
 Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
 agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.
+
+## Native subagents
+
+The recipe's `subagents` component adds `task`, `message`, `wait`,
+`task_parallel(tasks)` and `task_chain(steps)`. Ask the model to delegate, for
+example: "Use two scout subagents to investigate the parser and the launcher,
+then summarize both results." Tasks accept `description`, `prompt` and optional
+`profile`, `model`, `effort`, `tools`, `cwd`, `environment`.
+
+`/roles` lists scout/planner/reviewer/worker and Markdown roles from
+`RIG_HOME/agents/*.md`, followed by trusted project `.rig/agents/*.md`. Optional
+YAML frontmatter supports `name` (matching the filename), `description`, `model`,
+`effort`, `tools` (array or comma-separated string); the body is the role prompt.
+Files refresh on delegation; existing children retain their role snapshot.
+
+Parallel calls accept 1–8 tasks; at most four children run per session, including
+follow-ups. Chains pass the previous bounded answer through `{previous}` and
+stop on failure. `/agents` opens child conversations and `/usage` includes their
+model calls. In the terminal, Esc stops the turn and its active/queued children.
+Resume retains completed child conversations; interrupted work is not replayed.
+
+Default nesting depth is one (`[subagents] max_depth = 1`). Tool selection stays
+within parent/role access. Scout and planner select read/search/list; reviewer
+also has shell; worker inherits parent tools. Children share the process and
+project context; `cwd` stays inside the project. These are not OS sandboxes or
+separate Git worktrees. Give parallel writers distinct files. Remove the component
+and rebuild to remove delegation; remove `terminal` for a headless agent.
+
+This branch was built separately with `CARGO_TARGET_DIR=C:\vt-subagents` to
+protect the existing `C:\vt` build. Run `C:\vt-subagents\debug\vivy.exe` with
+that target setting and your gateway environment to test this branch; `start.cmd`
+still launches the existing `C:\vt` build.
 
 ## Optional Python workbench
 

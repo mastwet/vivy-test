@@ -21,15 +21,14 @@ advanced.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
-Latest scope reduction (2026-10-25): first deliver simple Pi-like delegation using
-Rig's native subagent plugin: one foreground child with independent context,
-visible progress/result, truthful failure and propagated cancellation. Set the
-initial nesting depth to one; no graph, grandchild or Python bridge is required.
-Python/apixis remains a later composition direction over that same Rig executor.
-See DESIGN's "Recursive delegation and optional graph orchestration" and mirrored
-research section 17.6. No new approval platform is a prerequisite; do not claim
-unverified permission enforcement. None of these subagent features is integrated
-yet, and the existing delivery gates below still apply.
+Latest delivery (2026-10-25, `feat/subagents`): the recipe selects a Vivy wrapper
+around Rig's native delegation. It provides roles, task/message/wait, bounded
+parallel batches, chains, saved child follow-up and terminal progress/usage.
+Children share the host process and project context; cwd stays within the project.
+Default depth is one, with four active children per session. No Python bridge,
+apixis, sandbox or automatic worktree was added. See DESIGN and
+[delivery evidence](logs/2026-10-25-subagents.md); mirrored research section 17.7
+supersedes the previous single-child scope. This branch is not merged or pushed.
 
 ## Reference setup
 

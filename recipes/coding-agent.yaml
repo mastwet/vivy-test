@@ -97,6 +97,13 @@ components:
     plugins:
       - vivy_basics::search::SearchTools
 
+  # Native Rig execution with Vivy roles, bounded parallel tasks and chains.
+  - name: subagents
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::subagents::VivySubagentsPlugin
+
   # Markdown prompt templates in .rig/prompts and RIG_HOME/prompts as /commands.
   - name: prompt-templates
     crate: vivy-basics

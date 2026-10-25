@@ -242,17 +242,17 @@ mod tests {
         std::fs::write(dir.join("repo/sub/AGENTS.md"), "sub agents").unwrap();
         std::fs::write(dir.join("repo/sub/AGENTS.override.md"), "sub override").unwrap();
         let files = context_files(&dir.join("repo/sub"), &dir.join("home"));
-        let names: Vec<String> = files
+        let names: Vec<PathBuf> = files
             .iter()
-            .map(|f| f.strip_prefix(&dir).unwrap().display().to_string())
+            .map(|f| f.strip_prefix(&dir).unwrap().to_path_buf())
             .collect();
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(
             names,
             [
-                "home/AGENTS.md",
-                "repo/CLAUDE.md",
-                "repo/sub/AGENTS.override.md"
+                PathBuf::from("home/AGENTS.md"),
+                PathBuf::from("repo/CLAUDE.md"),
+                PathBuf::from("repo/sub/AGENTS.override.md")
             ]
         );
     }

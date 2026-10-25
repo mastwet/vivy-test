@@ -134,7 +134,7 @@ pub fn load(file: &Path) -> Result<Template, String> {
 
 /// The template `name` whose file holds `text`.
 pub fn parse(name: String, text: &str) -> Result<Template, String> {
-    let (frontmatter, body) = split(text)?;
+    let (frontmatter, body) = split::<Frontmatter>(text)?;
     let description = frontmatter
         .description
         .filter(|description| !description.trim().is_empty())
@@ -158,18 +158,17 @@ pub fn parse(name: String, text: &str) -> Result<Template, String> {
 }
 
 /// The frontmatter, when the text starts with `---`, and the body.
-fn split(text: &str) -> Result<(Frontmatter, &str), String> {
+pub(crate) fn split<T: serde::de::DeserializeOwned + Default>(
+    text: &str,
+) -> Result<(T, &str), String> {
     let Some(rest) = text
         .strip_prefix("---\n")
         .or_else(|| text.strip_prefix("---\r\n"))
     else {
-        return Ok((Frontmatter::default(), text));
+        return Ok((T::default(), text));
     };
     if rest == "---" || rest.starts_with("---\n") || rest.starts_with("---\r\n") {
-        return Ok((
-            Frontmatter::default(),
-            rest[3..].trim_start_matches(['\r', '\n']),
-        ));
+        return Ok((T::default(), rest[3..].trim_start_matches(['\r', '\n'])));
     }
     let end = rest
         .match_indices("\n---")
@@ -182,7 +181,7 @@ fn split(text: &str) -> Result<(Frontmatter, &str), String> {
     let yaml = &rest[..end];
     let body = rest[end + 4..].trim_start_matches(['\r', '\n']);
     let frontmatter = if yaml.trim().is_empty() {
-        Frontmatter::default()
+        T::default()
     } else {
         serde_saphyr::from_str(yaml).map_err(|error| format!("frontmatter: {error}"))?
     };

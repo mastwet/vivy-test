@@ -2,7 +2,7 @@
 
 Date: 2026-10-25
 
-Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution, Vivy persona extension, and recursive Rig delegation orchestrated from Python/apixis; this report authorizes documentation, not runtime implementation.
+Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution and Vivy persona extension. Section 17.7 records the separately authorized native Rig subagent implementation in vivy-test; Python/apixis remains future work. This mirror does not authorize original Vivy runtime changes.
 
 Scope: Preserve this conversation's findings and latest direction in both repositories.
 
@@ -710,9 +710,9 @@ Date: 2026-10-25. Status: accepted architecture direction for a minimal experime
 not an implemented subagent capability or a completed implementation plan. The
 owner explicitly requested the same decision record in both repositories.
 
-Latest scope: section 17.6 supersedes the earlier first-iteration proposal below.
-Python/apixis remains the future direction; the first delivery uses simple native
-Rig delegation without graph orchestration or recursive grandchildren.
+Latest scope: section 17.7 supersedes section 17.6's single-child acceptance.
+Python/apixis remains the future direction; the native delivery adds Pi-example
+roles, batches and chains, with default depth one and no graph dependency.
 
 ### 17.1 Clarification and decision
 
@@ -904,3 +904,72 @@ Pinned source references:
 - [apixis graph lifecycle](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/docs/core/graph/README.md)
 - [apixis state and concurrency](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/docs/core/graph/state.md)
 - [apixis Python requirement](https://github.com/JJJJSTIYYYY/apixis/blob/411c0e22e9f46520e407a8b7fc18116093055a73/pyproject.toml)
+
+### 17.7 Owner-approved native delegation delivery
+
+The owner expanded the initial slice to Pi-example-level delegation, approved a
+Rig-native Vivy plugin, and explicitly requested implementation. Independent
+`vivy-test` branch `feat/subagents`, based on `5477eee`, owns this runtime change;
+`agent-vivy` receives only this matching archive. No merge or push is part of this
+delivery, and the separate Plan branch remains untouched.
+
+Simplest viable choice: wrap Rig's pinned SubagentsPlugin and SpawnSubagent in a
+recipe-selected component, retaining its task/message/wait, conversations,
+reports, usage and persistence. Add only role snapshots, agent-local cwd,
+bounded admission and finite parallel/chain adapters. Python orchestration would
+require a bidirectional bridge and abort ownership; separate worker processes
+would add transport and lifecycle machinery. Neither is needed for the approved
+same-process, same-project experiment. The cost is shared process failure scope
+and shared workspace writes; these are explicit experiment boundaries.
+
+Approved and implemented scope:
+
+- Built-in scout, planner, reviewer and worker; home agents/*.md, then trusted
+  project .rig/agents/*.md. YAML role metadata reuses the existing parser.
+  Roles refresh on delegation; active/restored children keep frozen prompts.
+  Invalid overrides disable the role; an optional name must match its filename.
+- Native single delegation and follow-up, task_parallel with 1-8 tasks, and
+  task_chain with {previous} substitution and stop-on-failure. Four children
+  run per session, including follow-up turns; root launches queue. Nested spawn
+  at full capacity is refused to avoid ancestors blocking all descendant slots.
+- Default max_depth one, preserving explicit native configuration. Role/request
+  tools cannot widen parent/role access. Reviewer has shell, so it is not a
+  read-only sandbox; worker inherits parent tools.
+- Independent conversations in the same process. Optional cwd is canonicalized
+  within the current project and applied through native WorkDir. Instructions,
+  skills and trust remain the host project's context; no host chdir, cross-project
+  context reload, automatic Git worktree or OS isolation is implied.
+- Workflow-owned reports are claimed before parent acceptance and produce one
+  aggregate. Parallel success survives another child's failure. Child previews
+  are at most 50 KiB including truncation/reference text; full native child
+  transcripts remain available. There is no second transcript store.
+- Parent stop cancels active children and pending launches/follow-ups. Resume
+  does not replay interrupted effects; completed children retain conversations,
+  role and cwd for follow-up. No persistent background daemon was added.
+- /roles, native /agents and /usage, readable result cards, live progress,
+  child tool activity, status and token/cost information. Unknown pricing stays
+  unknown. Esc is Rig's terminal stop key; Ctrl+C clears the input.
+
+Evidence: 46 tui-enabled basics tests and 20 root workspace tests passed. Actual
+Windows species checks exercised file reads, worker file writes, reviewer reads,
+single/parallel/chain outcomes, partial HTTP failure, role trust, child access,
+terminal cards/views/usage, and four real shell descendants terminated on Esc
+without starting the two queued tasks. Headless delegation passed with no rig-tui
+in the normal dependency graph; removing the subagent component removed all five
+delegation tools. Existing headless smoke passed shell, sessions, Python state,
+JSON, errors, credentials and model facts. The older sessions_tui.py is labelled
+Unix-only and failed its Windows run; it is not claimed as Windows evidence.
+The new targeted ConPTY smoke provides this delivery's terminal evidence.
+
+Independent review found and corrected premature workflow completion while a
+child awaited a descendant, and automatic trust of late-created roles when initial
+resource discovery was empty. Failing regression tests became green; workflow
+completion now follows the correlated native report, and trust requires an
+affirmative decision. The actual executable also rejects late untrusted role
+injection. Headless question/admission ordering uses native PrintSystems.
+
+Real gateway attempts failed at the initial HTTP request with zero model calls;
+there is no verified real-provider delegation. Details and final review outcomes
+belong in vivy-test's dated delivery record. Scripted tests are not real-provider evidence. No Pi TypeScript
+extension compatibility, complete Pi parity, Python bridge, apixis integration,
+new permission platform or original Vivy runtime modification is claimed.
