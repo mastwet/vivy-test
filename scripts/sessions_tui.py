@@ -203,6 +203,58 @@ def controls(terminal, server, check):
     check("the next turn goes to that model", server.records[-1].get("model") == "org/model-2")
 
 
+def trust(binary, server, check):
+    """Pi's project trust: asked at start, remembered, or declined."""
+    with tempfile.TemporaryDirectory(prefix="vivy trust ") as scratch:
+        root = pathlib.Path(scratch)
+        home = root / "home"
+        home.mkdir()
+        (home / "settings.toml").write_text(
+            f'[gateway]\nbase_url = "http://127.0.0.1:{server.server_port}/v1"\nmodel = "org/model-1"\n',
+            encoding="utf-8")
+        env = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
+
+        def workspace(name):
+            work = root / name
+            (work / ".rig/prompts").mkdir(parents=True)
+            (work / ".rig/prompts/review.md").write_text("MARKER-TEMPLATE review $1\n", encoding="utf-8")
+            return work
+
+        def template_works(terminal):
+            before = len(server.records)
+            mark = terminal.mark()
+            terminal.type("/review api")
+            terminal.read_for(10, until="answer to api", since=mark)
+            return "MARKER-TEMPLATE review api" in json.dumps(server.records[before:])
+
+        trusted = workspace("trusted")
+        for start in ("first", "second"):
+            terminal = Terminal([str(binary)], trusted, env)
+            try:
+                asked = terminal.read_for(6, until="Trust this project?")
+                if start == "first":
+                    check("the start asks about trust", asked)
+                    terminal.type(ENTER, enter=False)
+                    terminal.read_for(8)
+                    check("trusting remembers it", (home / "trust.json").is_file())
+                else:
+                    check("a remembered decision is not asked again", not asked)
+                check(f"the project template loads ({start} start)", template_works(terminal))
+            finally:
+                terminal.close()
+        declined = workspace("declined")
+        terminal = Terminal([str(binary)], declined, env)
+        try:
+            terminal.read_for(6, until="Trust this project?")
+            terminal.type(b"\x1b[B", enter=False)
+            time.sleep(0.3)
+            terminal.type(ENTER, enter=False)
+            terminal.read_for(3)
+            check("declining leaves the template unloaded", not template_works(terminal))
+        finally:
+            terminal.close()
+
+
 def print_mode(binary, server, home, work, check):
     """The launcher's Pi session options, in print mode."""
     env = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
@@ -239,6 +291,17 @@ def main():
         failed += session(binary, server, fail_summary=False)
         print("== with the summary request refused")
         failed += [f"refused: {name}" for name in session(binary, server, fail_summary=True)]
+        print("== project trust")
+        trust_failed = []
+
+        def check(name, ok):
+            print(("PASS " if ok else "FAIL ") + name)
+            if not ok:
+                trust_failed.append(name)
+
+        server.records, server.fail_summary, server.flaked = [], False, 0
+        trust(binary, server, check)
+        failed += [f"trust: {name}" for name in trust_failed]
     finally:
         server.shutdown()
         server.server_close()

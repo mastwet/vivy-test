@@ -194,13 +194,13 @@ class Vivy(Agent):
         return sessions[-1].name
 
     config_dir = ".rig"
-    trust_args = []
+    trust_args = ["--approve"]
 
     def continue_args(self):
         return ["--resume", self.newest_session()]
 
     def resource_runs(self):
-        return [("default", [])]
+        return [("default trust", []), ("--approve", ["--approve"])]
 
     def multi_turn(self, texts):
         turns(self.binary, self.work, self.env(), texts)

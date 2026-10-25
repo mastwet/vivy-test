@@ -237,6 +237,10 @@ system-prompt files, (B) session flags and commands (`--no-session`,
 and settings/themes are decided after these. PI-BASELINE's Result column
 records each slice.
 
+Status: slices A-D are implemented and checked offline (`compare_pi.py`,
+`sessions_tui.py`); E is this record. The real-gateway smoke is still blocked
+by the network policy.
+
 **Step 1 evidence (2026-10-25, Linux, scripted gateway; `scripts/smoke.py`):**
 the settings map onto Rig's `ModelSpec` (`context_window`, `max_output_tokens`,
 `input.image`, `reasoning` as `Listed` levels, `pricing`). An `@pic.png` message

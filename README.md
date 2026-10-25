@@ -84,7 +84,12 @@ than replaying the prompt. Rig's JSON interface is not Pi RPC compatibility.
 Pi's session options work too: `--no-session` keeps no session, `--fork <id>`
 continues a copy of one, `--session <id|path>` resumes one; `/clone` copies the
 running session, `/import <file.jsonl>` loads an `/export` file into an empty
-session, and `/tree` shows a session's branches. In the terminal view, `/resume`
+session, and `/tree` shows a session's branches. Project trust works as in Pi: the project's own skills, prompt templates and
+`.rig/SYSTEM.md`/`APPEND_SYSTEM.md` load only once it is trusted (`--approve`
+for one run, `/trust` or the start question to remember; `[trust] default` in
+`settings.toml` is `ask`, `always` or `never`).
+
+In the terminal view, `/resume`
 alone opens the session picker; `/thinking` and `--thinking <level>` are Pi's
 names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
 (list more ids on the gateway with `models = [...]`), and `--export <id>

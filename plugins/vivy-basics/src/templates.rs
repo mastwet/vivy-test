@@ -46,7 +46,10 @@ impl Plugin for PromptTemplatesPlugin {
         let world = app.world_mut();
         let home = RigHome::of(world);
         let project = world.resource::<ProjectRoot>().0.clone();
-        let roots = [project.join(".rig/prompts"), home.root().join("prompts")];
+        let roots: Vec<PathBuf> = [project.join(".rig/prompts"), home.root().join("prompts")]
+            .into_iter()
+            .filter(|root| crate::trust::allowed(world, root))
+            .collect();
         let (templates, problems) = discover(&roots);
         for problem in problems {
             warn!("prompt templates: {problem}");

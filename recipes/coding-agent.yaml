@@ -19,7 +19,16 @@ components:
     crate: rig-basics
     plugins:
       - rig_basics::prompt::DefaultPromptPlugin
-      - rig_basics::skills::SkillsPlugin
+
+  # Pi's project trust: the project's own skills, prompt templates and
+  # system-prompt files load once the user trusts it (--approve, /trust, or
+  # the start question). Rig's skills, without untrusted project skills.
+  - name: trust
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::trust::TrustPlugin
+      - vivy_basics::skills::TrustedSkillsPlugin
 
   # Pi's context files (AGENTS.override.md, AGENTS.md, CLAUDE.md in every
   # directory up from the working one) and SYSTEM.md / APPEND_SYSTEM.md, in

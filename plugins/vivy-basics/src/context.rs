@@ -77,6 +77,8 @@ impl Plugin for ContextFilesPlugin {
                 .filter_map(|(_, value)| value.as_deref().map(|value| text_or_file(value, &root)))
                 .collect()
         };
+        let trust = world.get_resource::<crate::trust::ProjectTrust>().cloned();
+        let allowed = |path: &Path| trust.as_ref().is_none_or(|trust| trust.allows(path));
         let files = context_files(&root, &home);
         world.spawn((
             Name::new("prompt:project_instructions"),
@@ -88,12 +90,12 @@ impl Plugin for ContextFilesPlugin {
         ));
         let system = given(SYSTEM_FLAG)
             .pop()
-            .or_else(|| prompt_file(&root, &home, "SYSTEM.md"));
+            .or_else(|| prompt_file_if(&root, &home, "SYSTEM.md", allowed));
         world.insert_resource(ReplacedPrompt(system));
         // As Pi: the flags, when given, stand in for the file.
         let mut appended = given(APPEND_FLAG);
         if appended.is_empty() {
-            appended.extend(prompt_file(&root, &home, "APPEND_SYSTEM.md"));
+            appended.extend(prompt_file_if(&root, &home, "APPEND_SYSTEM.md", allowed));
         }
         world.spawn((
             Name::new("prompt:append_system"),
@@ -135,9 +137,19 @@ pub fn context_files(dir: &Path, home: &Path) -> Vec<PathBuf> {
 /// The project's `.rig/<name>`, else `home`'s `<name>`, read; none when
 /// neither is there or readable.
 pub fn prompt_file(root: &Path, home: &Path, name: &str) -> Option<String> {
+    prompt_file_if(root, home, name, |_| true)
+}
+
+/// [`prompt_file`] of the files `allowed` lets load.
+pub fn prompt_file_if(
+    root: &Path,
+    home: &Path,
+    name: &str,
+    allowed: impl Fn(&Path) -> bool,
+) -> Option<String> {
     [root.join(".rig").join(name), home.join(name)]
         .into_iter()
-        .find(|file| file.is_file())
+        .find(|file| file.is_file() && allowed(file))
         .and_then(|file| match std::fs::read_to_string(&file) {
             Ok(text) => Some(text.trim().to_owned()),
             Err(error) => {
