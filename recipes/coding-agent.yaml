@@ -19,8 +19,16 @@ components:
     crate: rig-basics
     plugins:
       - rig_basics::prompt::DefaultPromptPlugin
-      - rig_basics::agents_md::AgentsMdPlugin
       - rig_basics::skills::SkillsPlugin
+
+  # Pi's context files (AGENTS.override.md, AGENTS.md, CLAUDE.md in every
+  # directory up from the working one) and SYSTEM.md / APPEND_SYSTEM.md, in
+  # place of Rig's AGENTS.md-only plugin.
+  - name: context-files
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::context::ContextFilesPlugin
 
   - name: gateway
     crate: vivy-gateway

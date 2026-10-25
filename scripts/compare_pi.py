@@ -155,6 +155,9 @@ class Pi(Agent):
         return dict(os.environ, PI_CODING_AGENT_DIR=str(self.home), PI_OFFLINE="1",
                     PI_SKIP_VERSION_CHECK="1", PI_TELEMETRY="0")
 
+    config_dir = ".pi"
+    trust_args = ["--approve"]
+
     def continue_args(self):
         return ["-c"]
 
@@ -189,6 +192,9 @@ class Vivy(Agent):
     def newest_session(self):
         sessions = sorted((self.home / "sessions").iterdir(), key=lambda p: p.stat().st_mtime)
         return sessions[-1].name
+
+    config_dir = ".rig"
+    trust_args = []
 
     def continue_args(self):
         return ["--resume", self.newest_session()]
@@ -249,6 +255,19 @@ def scenario_run(agent, scenario):
             (agent.work / folder / "review.md").write_text(TEMPLATE, encoding="utf-8")
         seen["runs"] = {label: agent.run(*args, "-p", "/review the API")[0]
                         for label, args in agent.resource_runs()}
+    elif scenario == "context":
+        markers = {"home": agent.home / "AGENTS.md", "parent": agent.root / "CLAUDE.md",
+                   "agents": agent.work / "AGENTS.md", "override": agent.work / "AGENTS.override.md",
+                   "system": agent.work / agent.config_dir / "SYSTEM.md",
+                   "append": agent.work / agent.config_dir / "APPEND_SYSTEM.md"}
+        for name, path in markers.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(f"MARKER-{name.upper()} context file\n", encoding="utf-8")
+        try:
+            seen["exit"] = agent.run(*agent.trust_args, "--append-system-prompt", "MARKER-FLAG", "-p", "hello")[0]
+        finally:
+            for path in (markers["home"], markers["parent"]):
+                path.unlink()
     elif scenario == "tui":
         seen.update(tui_round_trip(agent))
     elif scenario == "failure":
@@ -342,6 +361,12 @@ def summarize(name, agent_records, seen):
             user = text_of([m for m in msgs if m["role"] == "user"][-1])
             lines.append(f"  - request {i}: skill listed {'MARKER-SKILL' in system}; "
                          f"template expanded {'MARKER-TEMPLATE review the.' in user}; user text {user[:80]!r}")
+    elif name == "context":
+        msgs = first["messages"]
+        system = text_of(msgs[0]) if msgs[0]["role"] in ("system", "developer") else ""
+        found = [m for m in ("HOME", "PARENT", "AGENTS", "OVERRIDE", "SYSTEM", "APPEND", "FLAG")
+                 if f"MARKER-{m}" in system]
+        lines.append(f"- in the system prompt: {found}; starts {system[:70]!r}")
     elif name == "image":
         user = [m for m in last["messages"] if m["role"] == "user"][-1]
         lines.append(f"- user content shape: {shape(user.get('content'))}")
@@ -360,7 +385,7 @@ def summarize(name, agent_records, seen):
     return lines
 
 
-SCENARIOS = ["text", "tools", "continue", "image", "thinking", "compaction", "resources", "tui",
+SCENARIOS = ["text", "tools", "continue", "image", "thinking", "compaction", "resources", "context", "tui",
              "failure", "cancel"]
 
 

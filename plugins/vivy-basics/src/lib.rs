@@ -8,10 +8,13 @@
 //! - [`session::SessionInfoPlugin`] adds `/session`.
 //! - [`session::CopyPlugin`] adds `/copy`, the last reply to the clipboard.
 //! - [`session::ExportPlugin`] adds `/export [path]`, as HTML or JSONL.
+//! - [`context::ContextFilesPlugin`] reads AGENTS.md/CLAUDE.md and the
+//!   SYSTEM.md/APPEND_SYSTEM.md prompt files as Pi does.
 //! - [`branch::BranchSummaryPlugin`] summarizes what a rewind leaves behind
 //!   into the fork, as Pi's branch summary does.
 
 pub mod branch;
+pub mod context;
 pub mod search;
 pub mod session;
 pub mod shell;

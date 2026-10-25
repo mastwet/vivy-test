@@ -228,6 +228,15 @@ Do these in order; each is done only when its check passes.
 **Not now:** Prime evolution, persona, PEN, MCP in Rust, or more design
 documents. Pick them up only after step 4 works.
 
+**Owner update (2026-10-25): only Pi's spec.** Step 4 (MemPalace/memU memory)
+is parked: Pi has no memory backend. After step 3 the work closes the gaps
+between vivy and Pi's built-in coding-agent core, in slices: (A) context and
+system-prompt files, (B) session flags and commands (`--no-session`,
+`--fork`, `/clone`, `/import`, `/tree`), (C) CLI and model (`/thinking`,
+`--export`, several gateway models), (D) project trust. MCP, Code Mode, RPC
+and settings/themes are decided after these. PI-BASELINE's Result column
+records each slice.
+
 **Step 1 evidence (2026-10-25, Linux, scripted gateway; `scripts/smoke.py`):**
 the settings map onto Rig's `ModelSpec` (`context_window`, `max_output_tokens`,
 `input.image`, `reasoning` as `Listed` levels, `pricing`). An `@pic.png` message
