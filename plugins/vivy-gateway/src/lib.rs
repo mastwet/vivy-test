@@ -5,8 +5,22 @@
 //! ```toml
 //! [gateway]
 //! base_url = "https://gateway.example/v1"
-//! model = "provider/model-id"   # sent to the gateway unchanged
+//! model = "provider/model-id"   # sent to the gateway unchanged; the default
+//! models = ["provider/other"]    # optional: more ids on the same endpoint
+//! # Optional facts about the model, which Rig acts on:
+//! dialect = "openrouter"         # a Rig OpenAI-compatible dialect: its option mapping
+//! context_window = 131072        # compaction keeps requests inside it
+//! max_output_tokens = 8192
+//! image_input = true             # images in messages and `read` reach the model
+//! reasoning = ["low", "medium", "high"]  # `/effort` levels, with a `dialect`
+//! input_price = 0.5              # USD per million tokens, both or neither
+//! output_price = 1.5
 //! ```
+//!
+//! Without `dialect`, request options such as the reasoning level are
+//! refused, because Rig maps them per dialect and knows none for an
+//! unnamed gateway; the gateway's own dialect name (such as `openrouter`)
+//! selects Rig's mapping for it.
 //!
 //! The key is the agent's secret `gateway`, the variable
 //! `RIG_SECRET_GATEWAY`. The harness passes secrets to no process it starts,
@@ -20,9 +34,10 @@
 use bevy_log::warn;
 use rig_harness::prelude::*;
 use rig_harness::rig_core::{
-    catalog::{Catalog, ModelFacts, ModelSpec, Transport},
+    catalog::{Catalog, ModelFacts, ModelSpec, Pricing, ReasoningSupport, Transport},
+    completion::Effort,
     operation::Completion,
-    providers::openai::{OpenAIConfig, Route, wire::Dialect},
+    providers::openai::{OpenAIConfig, Route, wire},
     providers::registry::{ConnectError, ProviderConfig, ProviderId},
     serve::{ErasedHandler, adapters::ModelAdapter},
 };
@@ -35,7 +50,7 @@ pub const SECRET: &str = "gateway";
 
 /// OpenAI's wire with the quirks every compatible gateway shares; the base
 /// URL and key come from the settings and the secret.
-static DIALECT: Dialect = Dialect::gateway(VENDOR, "", "");
+static DIALECT: wire::Dialect = wire::Dialect::gateway(VENDOR, "", "");
 
 /// `[gateway]` in `RIG_HOME/settings.toml`.
 #[derive(Resource, Deserialize, Default, Clone, Debug, PartialEq)]
@@ -45,6 +60,26 @@ pub struct GatewaySettings {
     pub base_url: String,
     /// The model id the gateway serves, sent as given.
     pub model: String,
+    /// More model ids on the same endpoint, with the same facts, for
+    /// `/model` and model cycling; `model` stays the default.
+    pub models: Vec<String>,
+    /// The Rig OpenAI-compatible dialect whose quirks and option mapping
+    /// the gateway takes, such as `openrouter`; none for the generic one.
+    pub dialect: Option<String>,
+    /// The most tokens the model reads and writes in one request.
+    pub context_window: Option<u32>,
+    /// The most tokens the model writes in one reply.
+    pub max_output_tokens: Option<u32>,
+    /// Whether the model reads images.
+    pub image_input: bool,
+    /// The reasoning levels the model takes (`minimal`, `low`, `medium`,
+    /// `high`, `xhigh`, `max`, and `off` when reasoning can be turned off),
+    /// which `/effort` offers; empty for a model that does not reason.
+    pub reasoning: Vec<String>,
+    /// USD per million input tokens; used together with `output_price`.
+    pub input_price: Option<f64>,
+    /// USD per million output tokens.
+    pub output_price: Option<f64>,
 }
 
 impl GatewaySettings {
@@ -58,6 +93,89 @@ impl GatewaySettings {
             None
         }
     }
+
+    /// The configured dialect, or why it is not used.
+    fn dialect(&self) -> Result<&'static wire::Dialect, String> {
+        let Some(name) = self.dialect.as_deref().map(str::trim) else {
+            return Ok(&DIALECT);
+        };
+        wire::by_name(name).ok_or_else(|| {
+            let names: Vec<&str> = wire::all().map(|dialect| dialect.name).collect();
+            format!("dialect `{name}` is not one of Rig's: {}", names.join(", "))
+        })
+    }
+}
+
+/// Every effort level, by the name `/effort` takes.
+const EFFORTS: [Effort; 6] = [
+    Effort::Minimal,
+    Effort::Low,
+    Effort::Medium,
+    Effort::High,
+    Effort::XHigh,
+    Effort::Max,
+];
+
+/// The catalog row of the gateway's model: `settings`' facts on Rig's
+/// defaults (text in, tools, nothing else known).
+pub fn spec(vendor: ProviderId, settings: &GatewaySettings) -> ModelSpec {
+    spec_of(vendor, settings.model.trim(), settings)
+}
+
+/// The catalog rows of every model the settings list: `model`, then `models`.
+pub fn specs(vendor: ProviderId, settings: &GatewaySettings) -> Vec<ModelSpec> {
+    let mut ids: Vec<&str> = vec![settings.model.trim()];
+    for id in settings.models.iter().map(|id| id.trim()) {
+        if !id.is_empty() && !ids.contains(&id) {
+            ids.push(id);
+        }
+    }
+    ids.into_iter()
+        .map(|id| spec_of(vendor, id, settings))
+        .collect()
+}
+
+fn spec_of(vendor: ProviderId, id: &str, settings: &GatewaySettings) -> ModelSpec {
+    let mut spec = ModelSpec::new(vendor, id).with_tools(true);
+    spec.context_window = settings.context_window;
+    spec.max_output_tokens = settings.max_output_tokens;
+    spec.input.image = settings.image_input;
+    // Rig sends a reasoning level only through a named dialect's mapping;
+    // without one every call that carries a level would be refused.
+    let mapped = settings
+        .dialect()
+        .is_ok_and(|dialect| dialect.name != VENDOR);
+    if !settings.reasoning.is_empty() && !mapped {
+        warn!("gateway: `reasoning` needs a `dialect` Rig maps it for; /effort is off");
+    } else if !settings.reasoning.is_empty() {
+        let mut levels = Vec::new();
+        let mut can_disable = false;
+        for name in &settings.reasoning {
+            match name.trim() {
+                "off" => can_disable = true,
+                name => match EFFORTS.iter().find(|effort| effort.as_str() == name) {
+                    Some(effort) => levels.push(*effort),
+                    None => warn!(
+                        "gateway: reasoning level `{name}` is not one of off, minimal, low, medium, high, xhigh, max"
+                    ),
+                },
+            }
+        }
+        spec.reasoning = ReasoningSupport::Listed {
+            levels,
+            budget: None,
+            can_disable,
+            default: None,
+        };
+    }
+    match (settings.input_price, settings.output_price) {
+        (Some(input), Some(output)) => spec.pricing = Some(Pricing::new(input, output)),
+        (None, None) => {}
+        _ => {
+            warn!("gateway: set both input_price and output_price, or neither; no prices are used")
+        }
+    }
+    spec
 }
 
 /// Lists the configured model as `gateway/<model>` and reaches it through
@@ -84,14 +202,19 @@ impl Plugin for GatewayPlugin {
             Ok(vendor) => vendor,
             Err(why) => return warn!("gateway: cannot declare the `{VENDOR}` vendor: {why}"),
         };
+        let dialect = settings.dialect().unwrap_or_else(|why| {
+            warn!("gateway: {why}; using the generic dialect");
+            &DIALECT
+        });
         let mut models = app.world_mut().get_resource_or_init::<Models>();
-        let spec = ModelSpec::new(vendor, settings.model.trim()).with_tools(true);
-        models.0.catalog_mut().insert(spec);
+        for spec in specs(vendor, &settings) {
+            models.0.catalog_mut().insert(spec);
+        }
         let base_url = settings.base_url.trim().to_owned();
         models.0.provide(
             vendor,
             move |spec: &ModelSpec, _: &Catalog, transport: &Transport| {
-                connect(&base_url, key.as_deref(), spec, transport)
+                connect(dialect, &base_url, key.as_deref(), spec, transport)
             },
         );
         app.add_systems(PostStartup, default_gateway_model);
@@ -116,6 +239,7 @@ fn default_gateway_model(
 
 /// `spec` on the gateway at `base_url`, or why it cannot be reached.
 fn connect(
+    dialect: &'static wire::Dialect,
     base_url: &str,
     key: Option<&str>,
     spec: &ModelSpec,
@@ -126,7 +250,7 @@ fn connect(
         tried: vec![rig_harness::harness_protocol::secret_variable(SECRET).into()],
     })?;
     let http = transport.shared().ok_or(ConnectError::NoHttpClient)?;
-    let config = OpenAIConfig::with_key(&DIALECT, key)
+    let config = OpenAIConfig::with_key(dialect, key)
         .with_base_url(base_url)
         .with_route(Route::Chat);
     let model = ProviderConfig::OpenAi(config).completion_model(
@@ -171,6 +295,87 @@ mod tests {
             panic!("connected without a key");
         };
         assert!(why.contains("RIG_SECRET_GATEWAY"), "{why}");
+    }
+
+    fn settings(text: &str) -> GatewaySettings {
+        let mut app = App::new();
+        app.insert_resource(Settings::from_toml(text));
+        app.add_setting::<GatewaySettings>("gateway");
+        app.world().resource::<GatewaySettings>().clone()
+    }
+
+    #[test]
+    fn facts_reach_the_catalog_row() {
+        let text = format!(
+            "{SETTINGS}context_window = 4000\nmax_output_tokens = 500\nimage_input = true\n\
+             dialect = \"openrouter\"\nreasoning = [\"off\", \"low\", \"high\", \"bogus\"]\ninput_price = 0.5\noutput_price = 1.5\n"
+        );
+        let settings = settings(&text);
+        let row = spec(ProviderId::declare(VENDOR).unwrap(), &settings);
+        assert_eq!(row.context_window, Some(4000));
+        assert_eq!(row.max_output_tokens, Some(500));
+        assert!(row.input.image && row.input.text && row.tools);
+        assert_eq!(
+            row.reasoning,
+            ReasoningSupport::Listed {
+                levels: vec![Effort::Low, Effort::High],
+                budget: None,
+                can_disable: true,
+                default: None,
+            }
+        );
+        let names: Vec<_> = row.reasoning.choices().iter().map(|c| c.name).collect();
+        assert_eq!(names, ["default", "off", "low", "high"]);
+        assert_eq!(row.pricing, Some(Pricing::new(0.5, 1.5)));
+    }
+
+    #[test]
+    fn without_facts_the_row_is_rigs_default() {
+        let row = spec(ProviderId::declare(VENDOR).unwrap(), &settings(SETTINGS));
+        assert_eq!((row.context_window, row.max_output_tokens), (None, None));
+        assert!(!row.input.image);
+        assert_eq!(row.reasoning, ReasoningSupport::None);
+        let text = format!("{SETTINGS}reasoning = [\"high\"]\n");
+        let row = spec(ProviderId::declare(VENDOR).unwrap(), &settings(&text));
+        assert_eq!(row.reasoning, ReasoningSupport::None, "no dialect maps it");
+        let text = format!("{SETTINGS}input_price = 0.5\n");
+        assert_eq!(
+            spec(ProviderId::declare(VENDOR).unwrap(), &settings(&text)).pricing,
+            None
+        );
+    }
+
+    #[test]
+    fn more_models_share_the_endpoint_and_facts() {
+        let text = format!(
+            "{SETTINGS}models = [\"org/model-2\", \"org/model-1\", \" \"]\ncontext_window = 4000\n"
+        );
+        let rows = specs(ProviderId::declare(VENDOR).unwrap(), &settings(&text));
+        let ids: Vec<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+        assert_eq!(ids, ["org/model-1", "org/model-2"]);
+        assert!(rows.iter().all(|row| row.context_window == Some(4000)));
+        let app = app(&text, &[(SECRET, "test-key")]);
+        let models = app.world().resource::<Models>();
+        assert!(models.connect("gateway/org/model-2").is_ok());
+    }
+
+    #[test]
+    fn dialect_names_a_rig_dialect() {
+        assert_eq!(settings(SETTINGS).dialect().unwrap().name, VENDOR);
+        let named = settings(&format!("{SETTINGS}dialect = \"openrouter\"\n"));
+        assert_eq!(named.dialect().unwrap().name, "openrouter");
+        let wrong = settings(&format!("{SETTINGS}dialect = \"nope\"\n"));
+        let why = wrong.dialect().unwrap_err();
+        assert!(
+            why.contains("`nope`") && why.contains("openrouter"),
+            "{why}"
+        );
+    }
+
+    #[test]
+    fn a_misspelled_key_is_not_a_silent_default() {
+        let text = format!("{SETTINGS}context_windw = 4000\n");
+        assert_eq!(settings(&text), GatewaySettings::default());
     }
 
     #[test]

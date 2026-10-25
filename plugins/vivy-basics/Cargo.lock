@@ -3093,6 +3093,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "rig-basics"
+version = "0.46.0-rc.1"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+dependencies = [
+ "async-channel",
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_log",
+ "bevy_reflect",
+ "bevy_tasks",
+ "crossbeam-channel",
+ "rig-cassette",
+ "rig-core",
+ "rig-ecs",
+ "rig-harness",
+ "rig-memory",
+ "rig-reqwest",
+ "rig-tools",
+ "schemars",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+]
+
+[[package]]
+name = "rig-cassette"
+version = "0.46.0-rc.1"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+dependencies = [
+ "base64",
+ "futures",
+ "rig-core",
+ "rig-memory",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "rig-core"
 version = "0.46.0-rc.1"
 source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
@@ -3605,6 +3643,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "serde_yaml"
+version = "0.9.34+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
 ]
 
 [[package]]
@@ -4420,6 +4471,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
+
+[[package]]
 name = "unsynn"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4502,6 +4559,7 @@ dependencies = [
  "bevy_ecs",
  "bevy_log",
  "futures",
+ "rig-basics",
  "rig-harness",
  "rig-tui",
  "serde",

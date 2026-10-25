@@ -6,13 +6,14 @@
 use std::fmt::Write as _;
 use std::path::Path;
 
+use rig_harness::harness_protocol::SessionId;
 use rig_harness::host::cli::Cli;
 use rig_harness::prelude::*;
 use rig_harness::rig_core::completion::message::{
     AssistantContent, Message, ToolResultContent, UserContent,
 };
 use rig_harness::rig_core::conversation::{self, AuthorKind, EntryRef};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// `/session`: the session's name, id and directory, the agent's model, and
 /// how many messages and tool calls its conversation holds.
@@ -51,6 +52,198 @@ impl Plugin for ExportPlugin {
             "Save the conversation as HTML, or JSONL for a .jsonl path: /export [path]",
             export,
         );
+    }
+}
+
+/// `/clone`: this session copied into a new one, which the agent switches
+/// to, as Pi's `/clone` duplicates the session at its current position.
+#[derive(Default)]
+pub struct ClonePlugin;
+
+impl Plugin for ClonePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_command(
+            "clone",
+            "Copy this session into a new one and switch to it",
+            clone,
+        );
+    }
+}
+
+/// `/import <file.jsonl>`: the messages of an `/export` JSONL file into
+/// this session's shown agent, which must have none yet (`/new` first).
+#[derive(Default)]
+pub struct ImportPlugin;
+
+impl Plugin for ImportPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_command(
+            "import",
+            "Load an /export JSONL file into this empty session: /import <file.jsonl>",
+            import,
+        );
+    }
+}
+
+/// `/tree`: Pi's session tree is Rig's agents of this session (each fork
+/// and rewind makes one), so it opens `/agents`.
+#[derive(Default)]
+pub struct TreePlugin;
+
+impl Plugin for TreePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_command(
+            "tree",
+            "Show the branches of this session (its agents)",
+            tree,
+        );
+    }
+}
+
+fn tree(In(args): In<CommandArgs>, mut commands: Commands) {
+    commands.trigger(RunCommand::new(
+        args.agent,
+        format!("agents {}", args.args).trim_end(),
+    ));
+}
+
+/// Copies the session directory `from` to `to`, without what belongs to
+/// the process running it: locks, a pending switch, its name.
+pub fn copy_session(from: &Path, to: &Path) -> std::io::Result<()> {
+    const LEFT_OUT: [&str; 5] = [".rig-memory.lock", "lock", "switch", "deleting", "name"];
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if LEFT_OUT.iter().any(|left| name == *left) {
+            continue;
+        }
+        let target = to.join(&name);
+        if entry.file_type()?.is_dir() {
+            copy_session(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), target)?;
+        }
+    }
+    Ok(())
+}
+
+fn clone(
+    In(args): In<CommandArgs>,
+    turns: Query<(), With<TurnOf>>,
+    paths: Option<Res<SessionPaths>>,
+    home: Res<RigHome>,
+    mut commands: Commands,
+    mut notices: MessageWriter<Notice>,
+) {
+    if !turns.is_empty() {
+        notices.write(Notice::info(
+            args.agent,
+            "A turn is running. Press Esc to stop it first.",
+        ));
+        return;
+    }
+    let Some(paths) = paths else {
+        notices.write(Notice::error(
+            args.agent,
+            "This run keeps no session to clone.",
+        ));
+        return;
+    };
+    let copy = SessionId::generate();
+    let to = home.0.session(&copy);
+    match copy_session(paths.0.path(), to.path()) {
+        Ok(()) => {
+            notices.write(Notice::info(
+                args.agent,
+                format!("Cloned into session {copy}."),
+            ));
+            commands.trigger(Exit(ExitReason::Switch(Some(copy))));
+        }
+        Err(why) => {
+            let _ = std::fs::remove_dir_all(to.path());
+            notices.write(Notice::error(
+                args.agent,
+                format!("Could not clone the session: {why}."),
+            ));
+        }
+    }
+}
+
+/// One line of an `/export` JSONL file, as [`jsonl`] writes it.
+#[derive(Deserialize)]
+struct ImportedLine {
+    #[serde(default)]
+    author: Option<conversation::Author>,
+    message: Message,
+}
+
+/// The messages of an `/export` JSONL `text`, or the line that does not read.
+pub fn read_jsonl(text: &str) -> Result<Vec<conversation::Entry>, String> {
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| !line.trim().is_empty())
+        .map(|(at, line)| {
+            let line: ImportedLine =
+                serde_json::from_str(line).map_err(|why| format!("line {}: {why}", at + 1))?;
+            let entry = conversation::Entry::new(line.message);
+            Ok(match line.author {
+                Some(author) => entry.by(author),
+                None => entry,
+            })
+        })
+        .collect()
+}
+
+fn import(
+    In(args): In<CommandArgs>,
+    mut agents: Query<(&mut Conversation, Option<&WorkDir>)>,
+    root: Option<Res<ProjectRoot>>,
+    mut notices: MessageWriter<Notice>,
+) {
+    let Ok((mut conversation, workdir)) = agents.get_mut(args.agent) else {
+        return;
+    };
+    let given = args.args.trim();
+    if given.is_empty() {
+        notices.write(Notice::error(
+            args.agent,
+            "/import needs a file: /import <file.jsonl>",
+        ));
+        return;
+    }
+    if conversation.entries().len() > 0 {
+        notices.write(Notice::error(
+            args.agent,
+            "/import goes into an empty session: run /new first.",
+        ));
+        return;
+    }
+    let base = workdir
+        .map(|dir| dir.0.clone())
+        .or_else(|| root.map(|root| root.0.clone()))
+        .unwrap_or_default();
+    let path = base.join(given);
+    let entries = std::fs::read_to_string(&path)
+        .map_err(|why| why.to_string())
+        .and_then(|text| read_jsonl(&text));
+    match entries {
+        Ok(entries) => {
+            let count = entries.len();
+            for entry in entries {
+                conversation.push(entry);
+            }
+            notices.write(Notice::info(
+                args.agent,
+                format!("Imported {count} messages from {}.", path.display()),
+            ));
+        }
+        Err(why) => {
+            notices.write(Notice::error(
+                args.agent,
+                format!("Could not import {}: {why}.", path.display()),
+            ));
+        }
     }
 }
 
@@ -394,6 +587,27 @@ mod tests {
         assert!(page.contains("Done: it&#39;s &lt;ok&gt;."));
         assert!(page.contains("gateway/m&lt;x&gt;"));
         assert!(!page.contains("<b>hello"));
+    }
+
+    #[test]
+    fn an_export_imports_back() {
+        let text = jsonl(&conversation()).unwrap();
+        let entries = read_jsonl(&text).unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(
+            entries[1].author.as_ref().and_then(|a| a.title.as_deref()),
+            Some("template t")
+        );
+        let mut back = conversation::Conversation::default();
+        for entry in entries {
+            back.push(entry);
+        }
+        assert_eq!(jsonl(&back).unwrap().lines().count(), 3);
+        assert!(
+            read_jsonl("{\"message\": 3}")
+                .unwrap_err()
+                .starts_with("line 1")
+        );
     }
 
     #[test]

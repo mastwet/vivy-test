@@ -52,6 +52,14 @@ Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
 [gateway]
 base_url = "https://gateway.example/v1"
 model = "model-id-as-the-gateway-names-it"
+# Optional model facts, which Rig acts on:
+dialect = "openrouter"            # Rig's option mapping for this gateway (needed for /effort)
+context_window = 131072           # compaction keeps requests inside it
+max_output_tokens = 8192
+image_input = true                # images reach the model
+reasoning = ["low", "medium", "high"]   # /effort levels; add "off" if it can stop
+input_price = 0.5                 # USD per million tokens, both or neither
+output_price = 1.5
 
 # Optional overrides; defaults discover Git for Windows and use `python`.
 # [shell]
@@ -72,6 +80,23 @@ unchanged. Build and execution children do not inherit `RIG_SECRET_*`.
 `/new`, `/resume <id>`, `/session`, and `/quit` use Rig's terminal and session
 mechanisms. A session switch in print mode returns Rig's exit code 75 rather
 than replaying the prompt. Rig's JSON interface is not Pi RPC compatibility.
+
+Pi's session options work too: `--no-session` keeps no session, `--fork <id>`
+continues a copy of one, `--session <id|path>` resumes one; `/clone` copies the
+running session, `/import <file.jsonl>` loads an `/export` file into an empty
+session, and `/tree` shows a session's branches. Project trust works as in Pi: the project's own skills, prompt templates and
+`.rig/SYSTEM.md`/`APPEND_SYSTEM.md` load only once it is trusted (`--approve`
+for one run, `/trust` or the start question to remember; `[trust] default` in
+`settings.toml` is `ask`, `always` or `never`).
+
+In the terminal view, `/resume`
+alone opens the session picker; `/thinking` and `--thinking <level>` are Pi's
+names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
+(list more ids on the gateway with `models = [...]`), and `--export <id>
+[output]` exports a session from the command line; Alt+Up then
+Enter rewinds to an earlier message, and the branch left behind is summarized
+into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
+agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.
 
 ## Optional Python workbench
 

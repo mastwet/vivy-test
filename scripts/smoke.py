@@ -23,6 +23,12 @@ class Gateway(Handler):
         last = messages[-1]
         if "FAIL" in prompt:
             return self.reply_error(401, "scripted rejection")
+        if "Stop here" in text_of(last):
+            return self.reply(body, text="SUMMARY of the conversation so far.")
+        if "LONG" in prompt:
+            return self.reply(body, text=" ".join("word%d" % (i % 97) for i in range(5000)))
+        if "EFFORT" in prompt or "IMAGE" in prompt:
+            return self.reply(body, text="seen")
         if "PYRESET" in prompt:
             if last["role"] == "tool":
                 return self.reply(body, text="PYRESET " + text_of(last))
@@ -49,6 +55,29 @@ class Gateway(Handler):
         return self.reply(body, call={"command": command})
 
 
+def turns(binary, root, env, texts):
+    """Sends each text to one `--json` agent after the previous turn ends;
+    returns every event."""
+    agent = subprocess.Popen([str(binary), "--json"], cwd=root, env=env, stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, encoding="utf-8")
+    events = []
+    try:
+        for text in texts:
+            agent.stdin.write(json.dumps({"v": 1, "type": "send", "text": text}) + "\n")
+            agent.stdin.flush()
+            for line in agent.stdout:
+                events.append(json.loads(line))
+                if events[-1]["type"] == "turn_end":
+                    assert events[-1]["outcome"] == "answered", events[-1]
+                    break
+        agent.stdin.close()
+        assert agent.wait(timeout=30) == 0
+    finally:
+        if agent.poll() is None:
+            agent.kill()
+    return events
+
+
 def main():
     binary = pathlib.Path(sys.argv[1]).resolve()
     server = ThreadingHTTPServer(("127.0.0.1", 0), Gateway)
@@ -65,9 +94,9 @@ def main():
             )
             environment = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
 
-            def run(*args, expected=0):
-                result = subprocess.run([str(binary), *args], cwd=root, env=environment,
-                    input="", text=True, encoding="utf-8", capture_output=True, timeout=25)
+            def run(*args, expected=0, env=None, input="", timeout=25):
+                result = subprocess.run([str(binary), *args], cwd=root, env=env or environment,
+                    input=input, text=True, encoding="utf-8", capture_output=True, timeout=timeout)
                 assert result.returncode == expected, (args, result.returncode, result.stdout, result.stderr)
                 return result.stdout
 
@@ -93,10 +122,37 @@ def main():
                 assert authorization == "Bearer test-key"
             offered = {t["function"]["name"] for t in server.records[0][1]["tools"]}
             assert {"read", "edit", "write", "shell", "python_repl", "search", "list"} <= offered, offered
+            # Model facts from [gateway]: an image reaches the model, /effort
+            # changes the request, and compaction comes before the window.
+            facts = root / "facts"
+            facts.mkdir()
+            (facts / "settings.toml").write_text(
+                f'[gateway]\nbase_url = "http://127.0.0.1:{server.server_port}/v1"\nmodel = "org/model-1"\n'
+                'dialect = "openrouter"\nreasoning = ["low", "high"]\nimage_input = true\n'
+                'context_window = 64000\nmax_output_tokens = 8000\n', encoding="utf-8")
+            facts_env = dict(environment, RIG_HOME=str(facts))
+            (root / "pic.png").write_bytes(bytes.fromhex(
+                "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d"
+                "49444154789c63f8cfc0f01f0005000201a5f6450e0000000049454e44ae426082"))
+            mark = len(server.records)
+            run("-p", "IMAGE @pic.png", env=facts_env)
+            parts = server.records[mark][1]["messages"][-1]["content"]
+            assert any(p.get("type") == "image_url" for p in parts), parts
+            session = next((facts / "sessions").iterdir()).name
+            run("--resume", session, "-p", "/effort high", env=facts_env)
+            mark = len(server.records)
+            run("--resume", session, "-p", "EFFORT", env=facts_env)
+            assert server.records[mark][1].get("reasoning") == {"effort": "high"}, server.records[mark][1].keys()
+            mark = len(server.records)
+            events = turns(binary, root, facts_env, [f"LONG {i}" for i in range(7)])
+            assert any("Compacted" in event.get("text", "") for event in events), events[-3:]
+            asked = [body for _, body, _ in server.records[mark:]]
+            assert any("Stop here" in text_of(body["messages"][-1]) for body in asked), "no summary request"
+            assert all(len(json.dumps(body["messages"])) // 4 < 64000 for body in asked)
             for path in home.rglob("*"):
                 if path.is_file():
                     assert b"test-key" not in path.read_bytes(), path
-            print("PASS: gateway/model, native shell, sessions, Python state/reset, JSON events, error exit, secret filtering")
+            print("PASS: gateway/model, native shell, sessions, Python state/reset, JSON events, error exit, secret filtering, model facts (image, effort, compaction)")
     finally:
         server.shutdown()
         server.server_close()
