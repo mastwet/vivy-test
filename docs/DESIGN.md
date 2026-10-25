@@ -241,6 +241,12 @@ dialect, so `reasoning` without a `dialect` is ignored with a warning and
 the limit `max_tokens` is clamped to the room left. The real gateway is still
 unverified: this environment's network policy denies `openrouter.ai`.
 
+**Step 2 status (2026-10-25):** the real-gateway smoke is still blocked by the
+same network policy. The Pi comparison is done offline: `python3
+scripts/compare_pi.py target/debug/vivy` runs ten scenarios on Pi (pinned
+revision, from source) and vivy against one scripted gateway; PI-BASELINE's
+Result column records the outcome for every core row.
+
 Before claiming each slice, demonstrate its real path and a representative failure:
 cancel/reset without orphan clients; missing tool/auth failure without a fake success;
 branch reset without state bleed; a nested call linked to the visible summary;
