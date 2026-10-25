@@ -52,6 +52,14 @@ Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
 [gateway]
 base_url = "https://gateway.example/v1"
 model = "model-id-as-the-gateway-names-it"
+# Optional model facts, which Rig acts on:
+dialect = "openrouter"            # Rig's option mapping for this gateway (needed for /effort)
+context_window = 131072           # compaction keeps requests inside it
+max_output_tokens = 8192
+image_input = true                # images reach the model
+reasoning = ["low", "medium", "high"]   # /effort levels; add "off" if it can stop
+input_price = 0.5                 # USD per million tokens, both or neither
+output_price = 1.5
 
 # Optional overrides; defaults discover Git for Windows and use `python`.
 # [shell]

@@ -48,6 +48,11 @@ session/terminal behavior; a full Prime port would add unneeded lifecycle and
 subagent machinery. The selected route minimizes owned code while retaining
 recipe-selected compilation and Prime-shaped evolution.
 
+**Core boundary (owner, 2026-10-25):** Rust/Rig owns Pi's coding core: the agent
+loop, coding tools (read, edit, write, shell, search), sessions, compaction and
+the TUI. Python owns everything advanced: MCP, memory backends such as MemPalace
+or memU, and anything experimental. Nothing advanced goes into the core.
+
 ```text
 One YAML recipe -> generated Rust assembly -> one Rig host
 
@@ -69,10 +74,10 @@ Rig host: gateway/model calls, context assembly, TUI/CLI, sessions, cancellation
 | Terminal, print/JSON, sessions, compaction, commands and native hooks | Select existing Rig plugins. Add only demonstrated gaps; exact Pi semantics require checks. |
 | Frequent coding tools | Current Rig/Vivy tools remain directly model-visible. Python access, when required, dispatches to the same implementation. |
 | AGENTS.md, prompt templates, Markdown skill discovery/loading | Existing Rig/basics mechanisms; no second discovery catalog. |
-| Python execution, MCP discovery/calls, data composition | Existing vivy-python worker plus the official Python MCP SDK when MCP lands. No parallel rmcp connection stack. |
+| Python execution, MCP discovery/calls, data composition | Existing vivy-python worker. MCP only for servers that are not Python libraries, through the official Python MCP SDK; no MCP in Rust. |
 | Model calls requested from Python | A bounded request through the host's gateway, usage and cancellation path. Add only for a concrete accepted task, not as a general subagent API. |
 | Evolution scheduling, validation, state/history commits | One host owner, using the normal model-call path. Python may prepare evidence or execute checks; it does not own another refinement scheduler/store. |
-| External memory and PEN | Optional workbench consumers. No provider is selected and no PEN contract is invented in this stage. |
+| Memory backends | MemPalace or memU, imported directly in the worker (delivery step 4), with one memory owner across forks. PEN is deferred. |
 
 Reuse a plugin directly unless Vivy adds actual selection behavior or a required
 product difference. A concept in this table does not require a separate crate,
@@ -199,15 +204,42 @@ its evaluator, authority checks or Rust recipe; such changes use the normal buil
 
 ### Delivery slices and stopping points
 
-1. **Working Pi-style coding core:** preserve the current recipe/launcher/tools;
-   verify cancellation, session/branch behavior and compaction with actual usage.
-   Keep differences explicit in PI-BASELINE.md; no native-TS compatibility work.
-2. **One useful deferred MCP workflow:** fix client lifetime, implement bounded
-   discovery/call, retain large data in Python, and collect correlated events and
-   artifacts. Deliver these together so a functioning workbench is not opaque.
-3. **Prime-shaped automatic evolution plus persona:** reuse the same model path,
-   persist small state edits, make subsequent context use them, and prove rollback.
-   External memory, PEN implementation and model training are not prerequisites.
+Owner decision, 2026-10-25: finish Pi's coding core before adding anything new.
+Do these in order; each is done only when its check passes.
+
+1. **Real model facts for the gateway model.** Optional `[gateway]` settings for
+   context window, max output, image input, reasoning levels and prices, plus
+   the Rig dialect whose option mapping the gateway takes. Done when automatic
+   compaction triggers before the limit, an image reaches the model, and
+   `/effort` changes the request.
+2. **Proof on real paths.** One real-gateway smoke; then Pi and vivy pointed at
+   the same mock gateway, comparing what each sends: prompt, tool schemas, tool
+   results and compaction requests. Done when every PI-BASELINE core row has a
+   recorded result instead of a description.
+3. **Session gaps closed with Rig plugins.** `session_picker` in the recipe for
+   `/resume`, and a branch summary on rewind. Done when resume, fork, rewind and
+   summary all work in the TUI.
+4. **Python workbench for memory.** Import MemPalace or memU directly in the
+   worker; MCP only for servers that are not Python. Clients live in a
+   worker-level registry that survives the end of a cell; one JSONL debug log
+   per worker; a pinned venv; one memory owner across forks. Done when memory is
+   saved, a worker reset recovers it, and the log shows every call.
+
+**Not now:** Prime evolution, persona, PEN, MCP in Rust, or more design
+documents. Pick them up only after step 4 works.
+
+**Step 1 evidence (2026-10-25, Linux, scripted gateway; `scripts/smoke.py`):**
+the settings map onto Rig's `ModelSpec` (`context_window`, `max_output_tokens`,
+`input.image`, `reasoning` as `Listed` levels, `pricing`). An `@pic.png` message
+carried an `image_url` part; without `image_input` it carried text only. With
+`dialect = "openrouter"`, `/effort high` made the next request carry
+`reasoning: {"effort": "high"}`; Rig refuses every request option for an unnamed
+dialect, so `reasoning` without a `dialect` is ignored with a warning and
+`/effort` refuses up front instead of failing each call. In a 64k window with
+~10k-token replies, the seventh turn sent Rig's in-place summary request first
+("Compacted 9 messages … kept the newest 4"), then a shorter turn request; near
+the limit `max_tokens` is clamped to the room left. The real gateway is still
+unverified: this environment's network policy denies `openrouter.ai`.
 
 Before claiming each slice, demonstrate its real path and a representative failure:
 cancel/reset without orphan clients; missing tool/auth failure without a fake success;
@@ -436,9 +468,9 @@ Gaps and differences from Rig's launcher, by evidence so far:
   `RIG_SESSION=<id>` with the binary, or `/resume` in the terminal view), and
   build-failure rollback and `/reload` do not exist; change the recipe and run
   `vivy build` again.
-- **The gateway model has no catalog facts** (context window, prices,
-  reasoning), so compaction thresholds and cost reporting may not apply to it.
-  Add settings for them when a real gateway shows the need.
+- **Gateway model facts** are optional `[gateway]` settings (README); without
+  them the model has no context window, so compaction never triggers, images
+  are not sent, and `/effort` has no levels. Delivery step 1 records the checks.
 - **Windows** has not been built or run; the inspected Rig launcher documents
   Linux and macOS only.
 

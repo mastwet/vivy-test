@@ -14,8 +14,10 @@ Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner
 reported a successful manual run; that is not a newly recorded automated gateway
-test. MCP, the correlated event extension and automatic evolution are designed,
-not implemented by this documentation delivery.
+test. Gateway model facts (delivery step 1) are implemented and checked against
+the scripted gateway. The owner's 2026-10-25 order in DESIGN's "Delivery slices
+and stopping points" is the current plan: core first, Python for anything
+advanced.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
@@ -64,21 +66,13 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
-1. Read DESIGN's "Hybrid architecture and first-stage boundary" as the current
-   authority, then use PI-BASELINE's existing table to choose one useful slice.
-   Preserve the implemented Windows launcher and Rig harness/TUI; do not restart
-   the earlier runtime selection study or write a replacement agent loop.
-2. For the first deferred MCP task, extend the existing Python worker. Resolve
-   client lifetime and the smallest host event bridge together. Inspect the pinned
-   Rig session append hook before adding a second log. Do not copy a framework
-   just to gain discovery/call functions.
-3. Verify the selected real task plus cancellation/reset, error reporting and
-   event correlation. Update the existing coverage table with actual evidence;
-   do not declare full Pi parity or hide intentionally unsupported behavior.
-4. Implement Prime-shaped refinement/persona only in its own bounded slice after
-   usable task evidence exists. The research report section 15 pins the upstream
-   formats and source links; no extra reference clone or original-Vivy import is
-   required. External memory and PEN remain outside the implementation scope.
+Follow DESIGN's "Delivery slices and stopping points" in order; do not start a
+later step before the earlier one's check passes. Step 1 (gateway model facts)
+is done offline. Next is step 2: one real-gateway smoke, then Pi and vivy
+against the same mock gateway, recording a result in every PI-BASELINE core
+row. Preserve the Windows launcher and Rig harness/TUI; do not write a
+replacement agent loop. Prime evolution, persona, PEN, MCP in Rust and new
+design documents wait until step 4 works.
 
 Use existing authorized gateway configuration without printing credentials. If
 essential configuration is unavailable, request only that missing information.

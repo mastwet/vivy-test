@@ -87,7 +87,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             delta = {"role": "assistant", "content": text}
             finish = "stop"
-        usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+        # About what the request and reply hold, so compaction sees real sizes.
+        prompt_tokens = len(json.dumps(body.get("messages", []))) // 4
+        completion_tokens = len(json.dumps(delta)) // 4
+        usage = {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                 "total_tokens": prompt_tokens + completion_tokens}
         if not body.get("stream"):
             message = {"role": "assistant", "content": delta.get("content")}
             if call is not None:
