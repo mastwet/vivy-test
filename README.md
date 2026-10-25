@@ -9,7 +9,7 @@ prompt templates, and an optional auxiliary Python workbench. Current model
 integration checks use a scripted loopback gateway; a real-provider smoke is
 still pending.
 
-The subagent branch adds a recipe-selected Vivy wrapper over Rig's native
+The coding species includes a recipe-selected Vivy wrapper over Rig's native
 delegation. See [verification and limits](docs/logs/2026-10-25-subagents.md).
 
 ## Build and run on Windows
@@ -128,10 +128,10 @@ project context; `cwd` stays inside the project. These are not OS sandboxes or
 separate Git worktrees. Give parallel writers distinct files. Remove the component
 and rebuild to remove delegation; remove `terminal` for a headless agent.
 
-This branch was built separately with `CARGO_TARGET_DIR=C:\vt-subagents` to
-protect the existing `C:\vt` build. Run `C:\vt-subagents\debug\vivy.exe` with
-that target setting and your gateway environment to test this branch; `start.cmd`
-still launches the existing `C:\vt` build.
+The feature was verified separately with `CARGO_TARGET_DIR=C:\vt-subagents`.
+After integration into local `main`, rebuild using `CARGO_TARGET_DIR=C:\vt`
+as above; `start.cmd` uses that build and the Desktop gateway settings. The
+separate collaborative Plan branch is not part of this integration.
 
 ## Optional Python workbench
 

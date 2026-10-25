@@ -2,7 +2,9 @@
 
 Date: 2026-10-25. Repository: vivy-test. Branch: feat/subagents, base 5477eee.
 Scope: owner-approved [implementation plan](../plans/2026-10-25-subagents.md).
-This branch is not merged or pushed; the separate Plan branch is unchanged.
+Implementation commit c94f87f was fast-forward merged into local main on
+2026-10-25 with owner approval. No push was performed; the separate Plan branch
+is unchanged and unmerged.
 
 ## Implementation
 
@@ -73,6 +75,12 @@ root and basics manifests; Git whitespace checks passed. Clippy completed, with
 style warnings for existing shell nesting, ECS query types and function arity;
 it is not a warning-free lint claim.
 
+Local-main integration checks: workspace tests (20) and tui-enabled basics tests
+(46) passed again with CARGO_TARGET_DIR=C:/vt and CARGO_PROFILE_DEV_DEBUG=0.
+The baseline recipe rebuilt successfully from the main checkout. Both
+scripts/subagents_smoke.py and scripts/smoke.py passed against C:/vt/debug/vivy.exe.
+The existing start.cmd now launches that integrated build; it was not modified.
+
 ## Independent review and corrections
 
 One fresh-context whole-branch review found two Important defects, both reproduced
@@ -102,8 +110,9 @@ unverified. These are disclosed limits, not new implementation prerequisites.
 
 ## Manual acceptance
 
-Keep CARGO_TARGET_DIR=C:/vt-subagents and launch its debug/vivy.exe with your
-gateway environment. start.cmd still targets the existing C:/vt build.
+For local main, use CARGO_TARGET_DIR=C:/vt and rebuild the baseline recipe;
+start.cmd uses that build and loads the existing Desktop gateway configuration.
+The earlier isolated C:/vt-subagents build remains separate.
 
 1. Run /roles, then ask for two scout investigations in parallel. Open /agents
    to inspect a child and return to the parent; /usage includes both children.

@@ -28,7 +28,9 @@ Children share the host process and project context; cwd stays within the projec
 Default depth is one, with four active children per session. No Python bridge,
 apixis, sandbox or automatic worktree was added. See DESIGN and
 [delivery evidence](logs/2026-10-25-subagents.md); mirrored research section 17.7
-supersedes the previous single-child scope. This branch is not merged or pushed.
+supersedes the previous single-child scope. Commit c94f87f was fast-forward merged
+into local main on 2026-10-25; it has not been pushed. The separate collaborative
+Plan branch remains unchanged and unmerged.
 
 ## Reference setup
 
