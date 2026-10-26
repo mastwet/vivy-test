@@ -59,6 +59,14 @@ but are not selected. Autonomous Goal remains unwired. See DESIGN's native-memor
 section and research 18.7; do not reuse the earlier broad estimate as a quote
 for copying old features.
 
+The owner requested a broad feature-by-feature reconciliation, including A2A.
+[The Vivy feature inventory](research/2026-10-27-vivy-feature-inventory.md)
+separates owner scope decisions from actual target implementation, covers all
+16 remake lanes plus A2A/ACP/SSH and lists unresolved product choices. A2A has
+accepted server source/evidence on its Go feature branch but is not selected in
+vivy-test; its server and an outbound A2A client are separate capabilities.
+Use that inventory rather than treating older suggestions to defer as decisions.
+
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner
