@@ -88,10 +88,12 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 The owner also requested provider-management research on 2026-10-26. See
 [provider management and plugin boundaries](research/2026-10-26-provider-management.md)
 for Pi/DSH/Rig evidence and a proposed extension of the gateway-first surface.
-The follow-up narrows the first provider categories to built-in and user-defined,
-reusing Rig's preset/Connector pipeline; it records the custom-ID registration
+The owner fixes provider scope to OpenAI-compatible and Anthropic-compatible
+protocols only, with built-in presets and user-defined instances derived from
+them. Subscription login/OAuth/token refresh and other native protocols are
+excluded. DESIGN records this scope; the research records Rig's registration
 boundary and an offline API-construction probe, with no live-provider claim.
-That proposal does not approve implementation or change the delivery order below.
+Provider management is not implemented; the delivery order below is unchanged.
 
 Follow DESIGN's "Delivery slices and stopping points" in order; do not start a
 later step before the earlier one's check passes. Step 1 (gateway model facts)

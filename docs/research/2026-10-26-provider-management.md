@@ -1,12 +1,16 @@
 # Provider management and plugin boundaries
 
-Research checkpoint, 2026-10-26. This is an implementation recommendation for
-owner review, not a replacement for DESIGN's gateway-first decision or a claim
-that the proposed management commands exist. Provider management expands the
-previously deferred direct-provider surface explicitly requested for research.
+Research checkpoint, 2026-10-26. The owner has fixed the protocol/authentication
+scope below; the management commands and proposed configuration are not yet
+implemented. DESIGN records the accepted boundary. Historical reference findings
+below do not expand that scope.
 
-Owner refinement, 2026-10-26: first distinguish built-in providers from
-user-defined providers, and reuse Rig's prefabricated provider pipeline.
+Owner refinement, 2026-10-26: support exactly two provider protocol families,
+OpenAI-compatible and Anthropic-compatible. Built-in providers are presets and
+user-defined providers are configured instances derived from those families.
+Subscription login, OAuth, device/browser login and token refresh are excluded.
+Native Gemini and cloud-specific protocols are excluded; a service exposing one
+of the two supported formats can be configured through that format.
 Keep Rig's execution path. Add management of configured provider instances,
 their credentials and model catalogs over its existing Connector. Reuse native
 presets and compatible protocols already present in Rig; a vendor does not need
@@ -83,8 +87,9 @@ demonstrated by this repository's assembly and scripted-gateway checks.
 
 The upstream [LoginPlugin][rig-login] includes provider API-key entry and
 ChatGPT browser/device login with token refresh. The recipe deliberately omitted
-it. Re-enabling it can recover useful built-in management, but does not create a
-complete editor for multiple custom instances or arbitrary subscription logins.
+it. Under the final scope, do not enable the whole plugin: reuse the relevant
+API-key storage/UI pieces without installing its subscription login commands.
+It does not provide a complete editor for multiple custom instances.
 Its saved-key helper does not replace a connector already registered by another
 plugin, which also matters when preserving GatewayPlugin.
 
@@ -104,8 +109,8 @@ are the missing layer.
 
 | User-facing category | Rig reuse | Owned work |
 | --- | --- | --- |
-| Built-in provider, such as DeepSeek, OpenAI, Anthropic or Gemini | Catalog rows, native presets/dialects, `ConnectOptions`, Connector and existing login/model controls | Select exposed presets; manage instance/default/credential settings and the provider-first picker |
-| User-defined provider using a known vendor or compatible protocol | `ProviderId::declare`, `Catalog::insert(ModelSpec)`, `Connector::provide`, and an existing `ProviderConfig` | Validate endpoint, credential reference and per-model facts; register each configured instance |
+| Built-in provider over OpenAI or Anthropic format | Catalog rows, native presets/dialects, `ConnectOptions`, Connector and API-key/model controls | Expose only supported presets; manage instance/default/credential settings and the provider-first picker |
+| User-defined provider over OpenAI or Anthropic format | `ProviderId::declare`, `Catalog::insert(ModelSpec)`, `Connector::provide`, and the corresponding existing `ProviderConfig` | Validate endpoint, credential reference and per-model facts; register each configured instance |
 
 For a built-in identity, `ConnectOptions::new().api_key(...).base_url(...)`
 overrides credentials and endpoint while retaining the vendor's dialect. With
@@ -118,9 +123,9 @@ such as `company` can reuse `ProviderId::catalog("deepseek").config(...)` with
 its endpoint changed, or a generic OpenAI-compatible config. Insert its own
 ModelSpec rows and register a closure calling
 `config.completion_handler(spec.reference(), spec.id, http, ModelFacts::new(...))`.
-The same seam works with Rig's Anthropic and Gemini config variants. OpenAI Chat
-Completions versus Responses is a route choice on OpenAIConfig, not a fourth
-protocol family. Keep request dialects explicit: a compatible endpoint alone
+The same seam works with Rig's Anthropic config variant. OpenAI Chat
+Completions versus Responses is a route choice on OpenAIConfig within the
+OpenAI family. Keep request dialects explicit: a compatible endpoint alone
 does not establish vendor-specific reasoning or tool behavior.
 
 One important [API boundary][rig-registry]: `ProviderId::declare("company")`
@@ -145,10 +150,12 @@ built-in and custom configuration branches. If the recipe must independently
 select those capabilities, expose two plugin constructors from that crate and
 assemble them over the same Models resource. Initialize the selected catalog
 once, then append registrations. Do not create one wrapper crate per vendor.
-Only a genuinely new wire/auth implementation warrants additional plugin code;
-runtime native-library loading remains outside this scope.
+The two protocol constructors reuse Rig's existing wires. Supporting any third
+wire or subscription authenticator requires an explicit scope change; runtime
+native-library loading remains outside this scope.
 
-An ignored `.workspace/provider-api-probe` was run with `cargo run --offline`
+Before the two-family decision, an ignored `.workspace/provider-api-probe` was
+run with `cargo run --offline`
 against the exact pinned Rig revision, using fake keys and `.invalid` endpoints.
 The standalone probe explicitly enables rig-core's `reqwest` feature: its
 default features alone provide no HTTP client, whereas rig-harness already
@@ -159,6 +166,8 @@ four custom instances over those families, including two instances of DeepSeek
 with the same model ID. It also checked that an explicitly empty, populated
 catalog rejects an unregistered built-in selection. No HTTP was sent: the probe
 does not verify wire serialization, authentication, streaming or tool calls.
+Its Gemini construction result is historical capability evidence, not part of
+the accepted product scope.
 
 ## Recommended ownership
 
@@ -166,7 +175,7 @@ does not verify wire serialization, authentication, streaming or tool calls.
 | --- | --- |
 | Streaming, tools, cancellation, usage, compaction and child model calls | Existing Rig execution path through Models and Connector |
 | Provider instance ID, display name, adapter, endpoint, credential reference and configured models | One small typed configuration collection in user settings |
-| Native protocols and provider request dialects | Rig clients, presets and mappings; add owned protocol code only for an observed unsupported case |
+| Native protocols and provider request dialects | Rig's OpenAI/Anthropic wires and compatible presets; no third protocol in this scope |
 | Model facts | Rig ModelSpec, built-in defaults plus per-model overrides and disclosed discovery facts |
 | Credentials | One host-owned store/resolver; settings contain references, never resolved secrets |
 | Provider/model selectors and status | Projection of registered adapters, configured instances and their actual catalog/status |
@@ -207,7 +216,7 @@ credential_env = "RIG_SECRET_DEEPSEEK"
 
 [providers.company]
 kind = "custom"
-protocol = "openai-chat"
+protocol = "openai"
 base_url = "https://gateway.example/v1"
 credential_env = "RIG_SECRET_COMPANY"
 
@@ -220,7 +229,11 @@ max_output_tokens = 8192
 Built-in instances reuse the preset's catalog and allow per-model overrides;
 custom instances supply models manually first. A custom instance can name a
 known preset instead of a generic protocol when vendor-specific mapping is
-needed. The implementation should validate those mutually exclusive choices.
+needed. The implementation should validate those mutually exclusive choices
+and reject presets outside the two supported families. Custom `protocol` accepts
+only `openai` and `anthropic`. The first OpenAI acceptance path is the existing
+Chat Completions route; adding Responses stays within that family but needs its
+own explicit route and acceptance evidence.
 
 Preserve `[gateway]` as a legacy input during migration, mapping it into the same
 management/execution path. Do not retain two independently editable stores of
@@ -232,8 +245,8 @@ writes `[gateway]`, with that migration rather than breaking existing starts.
 | Extension | Rebuild needed | Suitable mechanism |
 | --- | --- | --- |
 | Another endpoint/model list using an already compiled protocol | No | Add a provider-instance configuration |
-| Another vendor preset over a compiled protocol | No if data-only; yes if it adds code | Configuration or a small recipe-selected preset plugin |
-| A genuinely new wire protocol or special authentication implementation | Yes | Rust plugin crate registering through Rig's existing seams |
+| Another vendor preset over one of the two compiled protocols | No if data-only; yes if it adds code | Configuration or a small recipe-selected preset plugin |
+| A third wire protocol or subscription authentication implementation | Outside agreed scope | Requires an explicit new decision |
 | Independently downloaded native plugin loaded while the program runs | A separate architecture | Stable FFI, WASM or a process boundary and explicit lifecycle contracts |
 
 The last row is technically possible, but is not the current recipe model. The
@@ -263,9 +276,10 @@ registered capabilities; it does not strengthen the source-exclusion guarantee.
    configuration generation per operation; reconnect affected idle agents or
    apply the change at the next model-request boundary. In-flight work keeps its
    original endpoint, credential and metadata.
-2. Explicit credential references must fail when missing. Login, logout, API-key
-   fallback and subscription authentication need one defined policy. Account
-   token rejection must not delete a newer login or silently switch billing.
+2. Explicit credential references must fail when missing. API-key entry/removal,
+   stored-key versus environment precedence and explicit keyless mode need one
+   defined policy. Login/logout, if those command names are retained, mean only
+   saving/removing an API key; they never start a subscription authentication flow.
 3. The current builder and shell/Python process helper filter RIG_SECRET_*
    variables. Standard names such as ANTHROPIC_API_KEY are not covered by that
    filter. Supporting those names requires filtering the resolved credential
@@ -282,17 +296,13 @@ registered capabilities; it does not strengthen the source-exclusion guarantee.
 
 ## Suggested delivery order and acceptance
 
-First deliver API-key and keyless-compatible instances, the provider-first TUI,
+First deliver OpenAI-compatible and Anthropic-compatible API-key and
+keyless-compatible instances, the provider-first TUI,
 per-model facts, management persistence, migration from `[gateway]`, and reuse
-of the required Rig protocols. Keep custom providers editable even while their
-credentials are missing so they can be repaired. This is a recommended first
-slice; the owner's OAuth scope preference remains to be settled.
-
-Then add subscription authentication as provider-specific plugins, reusing
-upstream implementations where they actually match. Verify browser/device
-cancellation, refresh locking, stale-token rejection, logout and resumed calls
-on native Windows. Other providers' OAuth support cannot be inferred from the
-presence of one working ChatGPT authenticator.
+of the two Rig protocols. Keep custom providers editable even while their
+credentials are missing so they can be repaired. The recommended first UI uses
+configuration-file editing for custom providers, followed by a TUI editor.
+Subscription authentication is excluded, not a scheduled follow-up phase.
 
 Model discovery and metadata refresh can follow once manual configuration works;
 preserve usable local data during network failure. A provider catalog alone is
@@ -303,6 +313,8 @@ fake credentials, unchanged wire IDs, add/edit/remove and invalid configuration,
 per-model reasoning/context differences, persistence and session restore,
 configuration changes during streaming, tool calls and cancellation, failed
 discovery, and absence of fake credentials in child environments and logs.
+Cover both supported wire formats and reject unsupported protocols/presets
+through configuration, TUI and CLI rather than merely hiding them in a picker.
 Recipe variants must demonstrate removal of an owned adapter dependency and
 registration at its actual crate boundary. Actual selected gateways/providers
 still need separate streaming/tool-call verification before compatibility claims.

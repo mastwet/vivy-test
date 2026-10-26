@@ -753,5 +753,37 @@ and its Cargo feature; omitting it excludes rig-tui without a runtime enable
 flag. The underlying .rig paths, protocol names and environment variables stay
 compatible. The same Plan, subagent and session mechanisms remain in use.
 
+## Provider management scope (owner, 2026-10-26)
+
+The owner explicitly narrows provider management to two protocol families:
+**OpenAI-compatible** and **Anthropic-compatible**. All built-in provider presets
+and user-defined provider instances derive from one of these families. Built-in
+versus custom describes the source of defaults, not separate execution engines.
+Reuse Rig's existing wire implementations and Connector; keep one model/agent
+execution path. Subscription login, OAuth, device/browser authorization, token
+refresh and native third-protocol adapters are outside this scope.
+
+The recipe selects the compiled management/protocol capabilities; runtime
+settings supply provider instance IDs, endpoints, credential references and
+per-model facts. Adding an instance of a compiled family needs configuration;
+it does not require rebuilding. Provider-specific dialect defaults may reuse
+Rig's mappings within the chosen family. The initial OpenAI path is the current
+Chat Completions route; Responses is a route within that family and requires
+separate acceptance if added.
+
+Expose only the configured, supported instances through the catalog/Connector,
+including CLI selection. Do not leave Rig's full default catalog as an accidental
+way to select an excluded protocol. This is an availability boundary; Rig's
+monolithic modules retain the compilation limitation already documented above.
+API-key storage and explicit keyless endpoints are sufficient; do not install
+the whole upstream LoginPlugin just to obtain API-key entry.
+
+Preserve the current gateway through migration into the same configuration path.
+The proposed UX is provider selection, model search, explicit startup-default
+saving, and restored-session choices. See the existing
+[research](research/2026-10-26-provider-management.md) for source evidence and
+integration details. This section records agreed scope, not an implementation
+or new live-provider compatibility result.
+
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md
