@@ -5,6 +5,8 @@ plan, a new acceptance gate, or an authorization to remove features. The owner
 requested the Go product, feature branches and remake donors to be checked
 against the current vivy-test direction. The earlier migration assessment did
 not list A2A and several other surfaces; this inventory corrects that omission.
+Owner decisions in the 2026-10-27 refinement supersede the earlier tentative
+dispositions; the rows below are updated, and the reference findings are in §8.
 
 ## How to read the matrix
 
@@ -14,8 +16,9 @@ The **scope** column describes decisions actually made for the new Vivy:
   functional direction. Exact parity, sequencing and UI are not implied.
 - **Decide**: this capability has not been explicitly retained or dropped. An
   earlier suggestion to defer a product is not treated as an owner decision.
-- **Exclude**: the owner has explicitly chosen not to retain this implementation
-  or compatibility target. The user-visible problem can still have a replacement.
+- **Exclude**: the owner has explicitly omitted this implementation or
+  compatibility target from the current scope. A later phase may make a new
+  choice; the user-visible problem can still have a replacement.
 
 The **target** column describes source/recipe state in vivy-test, not a promise
 of behavior parity: **Yes** = implemented and selected for the stated narrow
@@ -44,7 +47,7 @@ their status into an imaginary single release.
 | G6 | Remote `stable` `0e795b0c600979f606ee90f45600fb01d2981a45`: read-only GitHub tree and 34 commit summaries since locally recorded `83029dc0`, plus the current source inventory under `internal`, `plugins` and `ui`. Those commits include child context/workspace, retry, failed tool continuation and steering corrections. It was not checked out or fully built. |
 | N1 | vivy-test `recipes/coding-agent.yaml`, `plugins/vivy-basics`, `plugins/vivy-gateway`, `plugins/vivy-python`, launcher and README. |
 | N2 | vivy-test DESIGN's 2026-10-27 two-harness and memory decisions; HANDOFF; PI-BASELINE. |
-| N3 | Pinned Rig `55cd481a`: `corpus/base/src/session_goal.rs`, `corpus/sn/src/hook_scripts.rs`, `rig-harness`, basics and TUI. Corpus examples are reference source until selected and tested. |
+| N3 | Pinned Rig `55cd481a`: `corpus/base/src/session_goal.rs`, `corpus/sn/src/hook_scripts.rs`, `corpus/fh/src/lsp_tools.rs`, `corpus/base/src/checkpoint_rewind.rs`, `rig-basics` remote/checkpoint, harness and TUI. Corpus examples are reference source until selected and tested. |
 | N4 | Pinned Pi `f321e5bd`: coding-agent and `packages/durable` as behavior references. |
 | N5 | Prime `c4c238ca`: Python REPL protocol/event loop and MCP lifecycle reference; mysoul source and its pinned MemPalace `f41e8e75` as documented in DESIGN. No Prime/MemPalace/mysoul end-to-end integration is asserted. |
 
@@ -87,15 +90,15 @@ does not establish a selected server in either Go main/stable or vivy-test.
 | Parallel child tasks and sequential chain | G1 orchestration; G2 tool-parallelism | Keep | Yes | Bounded Rig wrappers exist; they share a workspace and do not promise arbitrary DAG execution. |
 | Child recovery, restart, parent/child context isolation | G1 child recovery; G6 | Keep | Partial | Completed child sessions persist; interrupted work is not replayed. Full durable semantics remain. |
 | Agent-authored bounded DAG and dependency execution | G1 workflow/orchestration; G5 #8/#39 | Decide | No | Parallel/chain are not a general DAG; historical Go source status varies by candidate. |
-| Reusable workflow editor, versioned publication and run inspection | G1 INOFY/workflow RPC; G5 #9/#21 | Decide | No | Stored workflow products and a visual editor are separate from bounded subagent chains. |
+| Reusable workflow editor, versioned publication and run inspection | G1 INOFY/workflow RPC; G5 #9/#21 | Decide | No | If selected, implement as a Python component; reuse of INOFY itself is unverified. Bounded subagent chains are a separate feature. |
 | Arbitrary recursive agent hierarchy / Prime RLM | G1 orchestration, N5 | Decide | Partial | Rig recursion is configurable; full recursive-RLM/factory is not a first-loop prerequisite. |
 | Collaborative Plan entry, submit, user review | G1 Plan; G5 #12 | Keep | Yes | `PlanPlugin` is selected; guidance does not change underlying tool permissions. |
 | Goal create/edit/pause/resume/complete/block | G1 Goal RPC; G5 #12 | Keep | Reference | Rig's saved session-goal example is not selected; autonomous lifecycle is not wired. |
 | Bounded automatic Goal progression across rounds | G1 `goal_driver.go` | Keep | No | Requires clear stop, blocker, cancellation and recovery policy; reuse selected task authority. |
 | Persistent todo/task checklist | G1 `tools/todo.go`, todo RPC | Decide | Partial | Plan and task delegation are not equivalent to the Go CRUD checklist. |
-| Cron create/edit/list/trigger/stop and recurring/one-shot schedules | G1 `cron_scheduler.go`, RPC, UI | Decide | No | The owner asked about scheduled tasks; the product surface and missed-run/overlap policy have not been selected. Durable sleep/wake above is retained. |
-| Inbound event/webhook triggers a task | G5 #13 | Decide | No | Lifecycle hooks, webhook ingress and scheduler are different surfaces. Go #13 closed as research, not automatic implementation evidence. |
-| Background process/job output and kill | G1 `tools/jobs.go`, `background/*` | Decide | Partial | Shell process cleanup exists; durable jobs, attach and inspection are not established. |
+| Cron create/edit/list/trigger/stop and recurring/one-shot schedules | G1 `cron_scheduler.go`, RPC, UI | Decide | No | Redesign rather than port the Go scheduler; scope and missed-run/overlap policy are open. Durable sleep/wake above is retained. |
+| Inbound event/webhook triggers a task | G5 #13 | Decide | No | Redesign if selected. Lifecycle hooks, webhook ingress and scheduler remain distinct surfaces. |
+| Background process/job output and kill | G1 `tools/jobs.go`, `background/*` | Decide | Partial | Redesign rather than port Go's architecture. Shell cleanup exists; durable jobs/attach are not established. |
 
 ## 2. Context, persona and memory
 
@@ -113,15 +116,16 @@ does not establish a selected server in either Go main/stable or vivy-test.
 | Memory ingestion, automatic archive and consolidation policies | G1 cognitive/memory; G5 #58/#60 | Decide | No | Exact triggers, dedup, updates and failure handling need an actual end-to-end selection. Recap commit ordering above remains retained. |
 | Memory delete, correction, indexing and provenance | G1 memory management | Keep | No | Preserve upstream engine behavior and distinguish a Recap edit from deletion in long-term memory. |
 | MemPalace optional graph/diary/mesh/etc. product interfaces | N5 | Decide | No | Full package is intended; exposing every optional upstream interface is a separate choice. |
-| Original BML store / provider | G1 `bml/`, G2 bml | Exclude | No | Explicitly retired in favor of MemPalace; historical data migration is a separate decision. |
+| Original BML store / provider | G1 `bml/`, G2 bml | Exclude | No | Retired in favor of MemPalace; old BML data migration is excluded. |
 | Persona masks and session role selection | G1 `plugins/vivy-masks-ui`, G2 persona | Decide | Partial | Rig roles exist for subagents; they are not equivalent to Go persona-subordinate session Masks. |
 | Context inspection / attribution dashboard | G5 #62 | Decide | No | An optional proposal; distinguish estimated tokens, actual model input and admitted memory. |
-| Obsidian/Vault import, subscriptions and sync | G5 #63 | Decide | No | Source ingestion and watcher lifecycle remain distinct from having a memory engine. |
-| Notebook: durable notes, editor and source linking | G1 notebook modules, G2 notebook | Decide | No | Workspace files or Python can meet individual needs; dedicated product parity was not selected. |
-| Scheduled daily/weekly/monthly reports | G1 reports, G2 reports, G5 #5 | Decide | No | Cron plus one report workflow is possible; the original report service/UI is not selected. |
-| AutoDream candidate reflection | G5 #6 | Decide | No | Historical proposal is separate from foundational memory/Recap. |
-| Skill evolution proposals, review and revision | G2 skill-evolution; G5 #64/#72 | Decide | No | Basic skill loading exists; automatic or reviewed mutation is not a first-loop gate. |
-| Persona evolution / EvoMap / strategy composition | G1 cognitive, G5 #7/#72 | Decide | No | Laputa rewrite and ordinary memory do not automatically implement this. |
+| MemPalace + Obsidian capability loop in Python workbench | G5 #63; owner clarification | Keep | No | Direction selected; read/write, sync, authority, UX and automation await detailed design. |
+| Obsidian/Vault import, subscriptions and sync | G5 #63 | Decide | No | The new loop is selected, but its exact source ingestion and watcher semantics are not. |
+| Old Notebook: durable notes, editor and source linking | G1 notebook modules, G2 notebook | Exclude | No | Do not migrate the old product; the new MemPalace/Obsidian direction is separate. |
+| Old scheduled daily/weekly/monthly Reports product | G1 reports, G2 reports, G5 #5 | Exclude | No | Do not migrate the old product; future Python capabilities are not thereby specified. |
+| Old AutoDream candidate reflection | G5 #6 | Exclude | No | Do not migrate it; the new Prime-style evolution chain is outside Vivy and not yet designed. |
+| Old Skill evolution proposals, review and revision | G2 skill-evolution; G5 #64/#72 | Exclude | No | Do not migrate the old evolution path; ordinary Skill discovery/use remains selected. |
+| Persona evolution / EvoMap / strategy composition | G1 cognitive, G5 #7/#72 | Exclude | No | Do not migrate the old evolution stack into Vivy; an independent new chain is a later design. |
 
 ## 3. Tools, Python, MCP and packages
 
@@ -130,7 +134,8 @@ does not establish a selected server in either Go main/stable or vivy-test.
 | File read/write/edit, list and local search | G1 `internal/tools`; N1 | Keep | Yes | Coding recipe selects Rig tools plus search/list. Exact tool schemas and full limits differ. |
 | Shell / terminal command execution | G1 bash/execute/jobs; N1 | Keep | Yes | Git Bash and process cleanup exist on Windows; this is not an OS sandbox. |
 | Multiple edits, patch and shell output spill | G1 `multiedit`, patch, spill | Decide | Partial | Current editing exists; Go-specific multi-edit and recoverable spill behavior not fully checked. |
-| LSP diagnostics, symbol navigation, references and rename | G1 `plugins/coding/lsp`, VC-3 | Decide | No | File editing and search do not provide language-server intelligence. |
+| LSP diagnostics, definition, references, hover and symbols | G1 `plugins/coding/lsp`, VC-3; N3 Rig corpus | Keep | Reference | Optional/non-core; Rig's example is not selected or Windows-validated in vivy-test. |
+| LSP rename | G1 `plugins/coding/lsp`, VC-3 | Decide | No | Rig's inspected five-tool example does not include rename; choose separately if needed. |
 | Task notes, structured scratch and sequential-thinking tool | G1 `notes.go`, `sequential_thinking.go` | Decide | No | Workspace files/Plan are available; these specific Go tools are not selected. |
 | Ask-user questions and structured choices | G1 `askuser.go`, question RPC | Decide | Partial | Rig terminal questions and Plan review exist; old structured question/recovery semantics are not established. |
 | Image/file attachments as model input | G1 attachments/read_image; G6 | Decide | Partial | Image input was exercised in scripted Pi comparison; full terminal/channel UX varies. |
@@ -165,15 +170,16 @@ does not establish a selected server in either Go main/stable or vivy-test.
 | A2A task submission, status, streaming, cancel and continuation | G3 handler/TaskHost | Decide | No | Go branch has a text-first JSON-RPC/SSE subset and maps external work to native Runs. |
 | A2A outbound client / delegation to remote agents | G3 design exclusions | Decide | No | The Go A2A branch is inbound server; do not infer an outbound client. |
 | A2A exact event replay, push, rich attachments and remote approvals | G3 branch | Decide | No | Branch uses snapshot convergence; exact wire replay is unselected, push unsupported, remote approvals excluded. |
-| ACP IDE/editor protocol over stdio | G1 `plugins/acp`, G4, G2 acp, G5 #1 | Decide | No | Source/pilot exists, with restricted capabilities; no new-Vivy ACP compatibility claim. |
-| ACP client-side execution, custom directories or MCP forwarding | G4 `plugins/acp/agent.go` | Decide | No | Pilot rejects some of these; list separately from basic ACP availability. |
-| SSH remote coding workspace / remote tool execution | G4 code-ssh, G5 #15 | Decide | No | The inspected SSH branch is a plan, not a shipped implementation. |
+| ACP IDE/editor protocol over stdio | G1 `plugins/acp`, G4, G2 acp, G5 #1; N5 Prime | Decide | No | Do not continue Go's architecture. Prime's ACP code is a source reference; no ACP implementation was found in the pinned Rig source search. |
+| ACP client-side execution, custom directories or MCP forwarding | G4 `plugins/acp/agent.go`; N5 Prime | Decide | No | The old pilot rejects some of these; select actual behavior separately. |
+| SSH remote coding workspace / remote tool execution | G4 code-ssh, G5 #15; N3 Rig remote | Decide | Reference | Do not continue Go's architecture. Rig's RemoteHostsPlugin is available as an unselected reference. |
 | Long-lived RPC control / embedding protocol | G1 JSON-RPC, codeclient | Decide | Partial | Print/JSON exists; it is not Go control RPC, Pi RPC or ACP parity. |
 | Browser/Web GUI and control plane | G1 `ui/`, routes, RPC | Decide | No | Existing terminal is an entry; old web product is not automatically available. |
 | Native desktop/Wails product | G5 #31; Go feature records | Decide | No | Original product/release work is separate; no assumed reuse of its app shell. |
 | TUI interactive coding and task progress | G1 `sdk/tui`; N1 | Keep | Yes | Current compact Rig TUI exists; detailed old UI/theme/keybinding parity is partial. |
 | Print/JSON/headless modes | G1 face; N1 | Keep | Yes | Existing Rig JSON events are not full legacy wire compatibility. |
-| Telegram, DingTalk, Feishu, QQ, Discord channels | G1 `plugins/*`, channel host | Decide | No | Go has five adapters; channel-specific credentials, delivery and reconnect are independent of A2A. |
+| QQ channel as an initial external channel | G1 `plugins/qq`, channel host | Decide | No | Only first-phase candidate if channels are selected; confirm the exact QQ platform surface before implementation. |
+| Telegram, DingTalk, Feishu, Discord channels | G1 `plugins/*`, channel host | Exclude | No | Outside the proposed first-phase channel scope; no permanent ban on later selection is implied. |
 | Channel image input/output and media handling | G1 COMPLETE CH-MEDIA | Decide | No | Old image/media plumbing does not establish voice/video support. |
 | Channel approvals, notifications and interactive cards | G1 channel/HITL notes | Decide | No | Text notifications and platform-native approval cards have different availability. |
 | WeCom, Weixin, NeuroLink and public webhooks | G1 DEFER/COMPLETE; G5 #2/#13 | Decide | No | Historical proposals/deferrals, not established current product capabilities. |
@@ -212,9 +218,9 @@ does not establish a selected server in either Go main/stable or vivy-test.
 | Logging, error diagnostics and troubleshooting bundle | G1 logging/diagnostics | Keep | Partial | Errors and some terminal diagnostics exist; the old diagnostics UI/export is not selected. |
 | Reliable download / explicit result delivery | G1 `deliverable_*` | Decide | No | Files on disk and durable, tracked, recoverable delivery are different capabilities. |
 | SQLite/PostgreSQL product stores and migrations | G1 `internal/storage` | Decide | Partial | Rig session persistence exists; durable store choice is open, PostgreSQL is not a requirement by default. |
-| Import old sessions, memories, configs or checkpoints | G1 storage/checkpoint | Decide | No | Four separate compatibility problems; no user data was accessed or copied. |
+| Import old sessions, memories, configs or checkpoints | G1 storage/checkpoint | Exclude | No | The owner explicitly excludes legacy-data compatibility; no user data was accessed or copied. |
 | Windows launcher and executable packaging | G1/N1 | Keep | Yes | Native checkout launcher exists; installer/update and production platform coverage are separate. |
-| Linux/macOS support | G1 Docker/CI, N4 | Decide | Partial | Some earlier Linux checks are recorded; do not infer current two-harness cross-platform acceptance. |
+| Legacy multi-platform deployment compatibility | G1 Docker/CI, N4 | Exclude | Partial | Not a compatibility target. Earlier Linux evidence remains historical; a future platform requires its own selection and checks. |
 | Docker / hosted service / multiple clients | G1 Docker, HTTP | Decide | No | A persistent host can be local or external; product deployment is a separate choice. |
 | Self-update, installation and release UI | G1 SDK/Studio | Decide | No | The experiment builds explicitly; old Studio distribution lifecycle is excluded below. |
 | Studio IDE, release/eval/promote/rollback platform | G1 Studio/submodule | Exclude | No | Explicit experiment exclusion; individual user-facing capabilities can be reconsidered independently. |
@@ -247,29 +253,119 @@ to retain each whole lane:
 
 The separate **reusable workflow product** includes editor, definitions,
 publication, versioned invocation, node status and cancellation (G1/G5 #9/#21).
-Its scope is **Decide**, target **No**. The current `task_parallel` and
-`task_chain` are useful but do not implement that reusable workflow product.
+Its scope is **Decide**, target **No**. If selected, it is a Python component;
+the ability to reuse the existing INOFY implementation has not been checked.
+The current `task_parallel` and `task_chain` do not implement that product.
 
-## 8. Decision gaps exposed by the inventory
+## 8. Prime and Rig references for history, context and file rewind
+
+Inspected Prime `c4c238ca025e382d96fb5f37e6328ca77fb82ef3` and Rig
+`55cd481a2421fd5da468b5bd6afc6ac876883599`. These are source observations,
+not tests run against the user's data or proof of integration in vivy-test.
+
+### History search
+
+Prime's `pa-tui/src/agents_view_search.rs` and `agents_view_state.rs` build a
+picker over the displayed session title, durable session ID and working
+directory. They merge live and saved session records; a title may come from the
+first prompt, but the searched title is clipped to the displayed column. Queries
+support fuzzy matching, quoted phrases and bounded `re:` regex. The implementation
+explicitly excludes full transcript text and file paths from its search corpus.
+The daemon supports JSONL session storage, active-branch windows, and paged
+transcript display (`pa-core/src/session/window.rs`,
+`pa-daemon/src/session_store/view.rs`). The inspected picker is not a cross-session
+message full-text or semantic search. No separate full-history search was found
+in the searched source; do not infer that none could exist in another surface.
+
+vivy-test already selects Rig's session picker and resume/tree commands. A
+separately selected search over complete messages would need its own source,
+scope and index/query behavior; full MemPalace retrieval is not automatically
+the authoritative searchable conversation transcript. No search implementation
+or storage decision was made in this investigation.
+
+### Context inspection
+
+Prime's `/context` uses `get_context_tree` in
+`pa-daemon/src/state_getters.rs`: root and child agents report model, status,
+estimated context/window, own and accumulated usage, costs and optional model
+breakdown. Persisted child-session artifacts supplement the live roster; a
+single-flight cache refreshes the disk walk. `/context all` displays the full
+agent tree; `/system-prompt` displays the prompt separately.
+
+`pa-daemon/src/session_stats.rs` estimates current context from the last valid
+assistant usage plus later message estimates; it reports unknown when post-
+compaction usage is not yet reliable. These are useful usage views, not a full
+categorized inspection of every actual request block, injected memory source,
+tool schema and selection reason. Such attribution would need its own measured
+capturing/projection seam if selected for the layered Vivy context. Existing
+vivy-test usage/footer is a partial basis; neither an exact per-layer inspector
+nor a new context store has been implemented.
+
+### File rewind
+
+Prime's `/tree` and `/fork` navigate/copy **conversation branches**; they do not
+by themselves restore workspace files. Its `workspace_snapshot` captures a Git
+worktree delta and optionally its HEAD-tree baseline into manifest/content blobs
+for a future cloud-session artifact, with explicit exclusions, verification and
+bounded sizes. At the inspected revision this is staging/verification plumbing,
+not a user-facing file rollback; capture explicitly refuses non-Unix platforms.
+Python-kernel snapshots, refinement-history rollback and binary update rollback
+also have different purposes. Source search found no selected per-turn workspace
+rollback command in the inspected Prime paths; that is not a claim about every
+possible external extension.
+
+Rig has a stronger direct reference: `corpus/base/src/checkpoint_rewind.rs`.
+Before each root turn it snapshots the Git working tree, including nonignored
+untracked files, under `refs/rig/checkpoints/<session>/<turn>` using a temporary
+index. `/rewind` can restore files and conversation together or separately;
+it asks before overwriting detected user edits. Its restore removes files absent
+from the target tree and checks out changed files. It needs a Git worktree and
+explicitly does not capture ignored files. Current vivy-test selects Rig's
+conversation rewind but **not** this file-rewind corpus plugin. It is a source
+candidate, not proof of Windows support or safe coordination with another
+durable writer. `rig-basics::checkpoint::CheckpointPlugin` is a different
+per-call change-observation facility and is also not selected by the recipe.
+
+### LSP, SSH and ACP references
+
+Rig's `corpus/fh/src/lsp_tools.rs` offers diagnostics, definition, references,
+hover and workspace symbols, starts configured servers on demand, and manages
+server lifecycle. It is in the non-published `corpus-fh` example crate, not a
+selected vivy-test plugin; that crate carries additional dependencies. Its
+source test uses a fake server, and this investigation did not run it or verify
+native Windows behavior. No rename tool is present in that five-tool example.
+
+Rig's `rig-basics/src/coding_tools/remote.rs` contains `RemoteHostsPlugin`:
+configured `HOST:PATH` operations use transports such as SSH. It is not
+selected in the current recipe, which also has a Vivy shell wrapper, so tool
+integration and failure/cancellation semantics need checking before use.
+Search of the pinned Rig source did not find an ACP implementation. Prime does
+contain an ACP stdio/daemon implementation under `pa-daemon/src/acp`; it is a
+source reference, not an already reusable small Rig plugin. Neither ACP nor SSH
+was implemented by this research.
+
+## 9. Remaining decision gaps
 
 These questions are recorded for later owner choice; they are not prerequisites
 to reading the inventory and do not silently change the agreed scope:
 
 1. A2A: inbound only, outbound client too, or neither; and which harnesses may
    accept/submit external tasks. ACP and SSH are independent choices.
-2. Daily companion entrance: local TUI, a Web/desktop surface, or one concrete
-   messaging channel. Voice/robotics are additional integrations.
+2. Daily companion entrance: local TUI, a Web/desktop surface, or the optional
+   QQ channel candidate. Voice/robotics are additional integrations.
 3. Human task approvals, status/recovery visibility, history/search and explicit
    file delivery: which behavior is needed in the first usable product.
-4. Memory management granularity: editable Recap, long-term delete/forget,
-   source subscriptions and optional full-engine MemPalace features.
+4. Memory management granularity: editable Recap, long-term delete/forget and
+   optional full-engine MemPalace features. The Python MemPalace + Obsidian loop
+   is selected as a direction; its detailed flows and sync are not yet decided.
 5. Bundle boundary: supported content types, local versus remote sources,
    enable/disable, update/revocation, and whether a UI is actually needed.
-6. Web search/fetch, LSP, reusable workflows, notebook/reports, masks and
-   evolution: select specific user cases before treating a whole old subsystem
-   as mandatory.
-7. Old data/format compatibility and supported deployment platforms. Existing
-   sessions, Eino checkpoints and old BML cannot be assumed portable.
+6. Web search/fetch, LSP, Python-hosted reusable workflows and masks: select
+   specific user cases. Old Notebook/Reports, Skill evolution and AutoDream
+   are excluded; the new evolution chain is outside Vivy.
+7. For new Cron/webhook/background mechanisms and optional ACP/SSH, decide the
+   actual new behavior. Legacy data and multi-platform deployment compatibility
+   are excluded from the current target.
 
 No Go app or Vivy-test product was built or run for this source inventory. The
 recorded A2A branch tests are historical branch evidence, not tests run here.

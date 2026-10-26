@@ -39,6 +39,34 @@ OAuth surface. Embedding can initially use ordinary Rust library APIs; an
 independently packaged SDK is unnecessary. Do not declare complete Pi parity
 while those or other baseline rows remain incomplete.
 
+### Owner scope refinement: capability inventory (2026-10-27)
+
+- Do not pursue compatibility with old Vivy data or its multi-platform
+  deployment arrangements. Existing platform tests remain evidence of what
+  actually ran; a future platform is a separate product selection.
+- Do not migrate the old Notebook and Reports products. The new direction is a
+  MemPalace + Obsidian capability loop in the Python workbench; its flows,
+  sync direction, interfaces and lifecycle await detailed design.
+- If a reusable INOFY-style workflow is selected, it belongs in a Python
+  component. Whether and how the existing INOFY implementation itself can be
+  reused has not been verified; no old Go runtime dependency is authorized.
+- Do not migrate the old Skill evolution or AutoDream. A new Prime-style
+  evolution chain is planned outside Vivy; its implementation/host is not
+  chosen here. Ordinary Skills remain part of the coding agent.
+- Redesign Cron, webhook and background work instead of porting the old
+  architecture. Durable admission, task identity, abort and wake guarantees
+  remain part of the independently established durable harness.
+- LSP is optional and non-core; select or adapt Rig's LSP example if the feature
+  is taken up. If a channel is selected for the first phase, consider QQ channel
+  only; even that selection and the exact QQ surface remain undecided.
+- ACP and SSH may use available reference implementations, without preserving
+  the old Go architecture. Their selection and integration remain undecided.
+
+Prime and Rig source findings for history search, context inspection and file
+rewind are in the feature inventory's reference section. Those findings do not
+select or implement any additional feature. In particular, Rig's Git-backed
+file rewind is not the already-selected conversation rewind.
+
 ## Separate durable and coding harnesses (owner, 2026-10-27)
 
 The owner separates two product paths, with independent harness work:

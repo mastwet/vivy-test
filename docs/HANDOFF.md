@@ -67,6 +67,16 @@ accepted server source/evidence on its Go feature branch but is not selected in
 vivy-test; its server and an outbound A2A client are separate capabilities.
 Use that inventory rather than treating older suggestions to defer as decisions.
 
+Latest owner decisions narrow the inventory: no legacy data or deployment
+compatibility; no old Notebook/Reports, BML, Skill-evolution or AutoDream
+migration. A new MemPalace + Obsidian loop is intended for the Python workbench
+and awaits design; new Prime-style evolution is outside Vivy. INOFY-style
+workflows, if selected, belong in Python. Cron/webhook/background are redesigned;
+LSP is optional; QQ channel is the only first-phase channel candidate and remains
+undecided. ACP/SSH use references rather than the old Go architecture. The
+inventory also records the Prime and Rig history/context/file-rewind source
+findings; no such additional implementation is implied.
+
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner
