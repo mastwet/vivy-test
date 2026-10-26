@@ -24,6 +24,22 @@ Source checkouts inspected read-only:
 These are pinned local source findings, not new runtime tests. No user sessions,
 databases, credentials, or production data were inspected.
 
+The owner's follow-up correctly notes that **Go Vivy uses SQLite**. The Rig
+file-store row below describes the current **vivy-test experiment**, not the
+older Go product. The earlier source-only inventory also identifies an optional
+PostgreSQL backend. At Go revision `9cd2801f8090723a652d3e835f72d83715b82121`,
+the SQLite backend uses a single database connection, applies migrations on
+open, and has session, message, run, journal, snapshot, lease and other product
+stores. Its journal appends an event batch and applicable user messages in one
+transaction; tool-operation admission stores the operation and its journal event
+in one transaction. See the pinned Go source for
+[SQLite setup](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/sqlite/sqlite.go),
+[sessions](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/sqlite/sessions.go),
+[journal](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/sqlite/journal.go)
+and [tool operations](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/sqlite/tool_operations.go).
+These are useful design references, not a reason to import the Go backend,
+reproduce every product store, or migrate legacy data.
+
 ## What the references actually keep
 
 | System | Authoritative representation | Lifecycle and recovery | Long history and concurrency |
