@@ -21,6 +21,7 @@ addition and its verification. This does not expand the parked Goal/evolution wo
 | Independent Rust test repository | No dependency on the original Vivy repository or its recovery work. |
 | YAML recipe and compile-time composition are the central experiment | The recipe determines selected plugin dependencies and static constructor calls. |
 | Separate coding and durable harnesses | Establish and verify their lifecycle contracts independently before extending them. |
+| Shared workspace and partitioned memory | Both paths use the same workspace; memory is organized by domain/topic, with persona owned by Laputa. |
 | Rig is the current coding implementation foundation | Reuse its existing execution, session and terminal components; the durable implementation choice remains open. |
 | Classic Pi is the coding reference; pi-durable is the durable reference | Coding preserves its interactive task/tool path; durable follows persistent task, checkpoint and wake semantics. |
 | Rust/Vivy extension equivalents | Do not implement compatibility with existing Pi TypeScript extension source. |
@@ -61,15 +62,56 @@ also needs a live timer or a host wakeup to resume work.
 ### Memory placement
 
 The mysoul persistent-companionship experiment informs the durable path. Preserve
-the intended layered context, short-term ACTMEM/Recap and MemPalace recall chain
-there, after establishing its harness foundation. Do not impose mysoul's Recap-only
-new-chat context, permanent conversation, memory maintenance or life scheduler
-on the classic coding path. Any coding memory addition needs its own concrete
-acceptance case.
+the intended layered context and short-term ACTMEM/Recap there after establishing
+its harness foundation. Both harnesses may use the shared, partitioned MemPalace
+recall capability; its admission must fit each path's lifecycle. Do not impose
+mysoul's Recap-only new-chat context, permanent conversation, memory maintenance
+or life scheduler on the classic coding path.
 
 Use the actual mysoul implementation and its later changes when selecting memory
 behavior; its early hierarchical-archive design is not the final context policy.
 No original Vivy source, sessions, credentials or production data are required.
+
+### Shared workspace, memory partitions and Laputa (owner clarification)
+
+Coding and durable use the same workspace. Harness kind describes how work runs,
+not which domain owns its memory: a companion may handle games, coding, household
+work, cooking and embodied-device tasks. Do not create separate authoritative
+long-term memories solely because work passed through different harnesses.
+
+Use MemPalace's palace/wing/room/drawer organization for domain/topic partitions
+and source-backed content. Illustrative wings include coding, games and daily
+life; rooms can represent projects or topics. These examples do not freeze a
+taxonomy. Recall begins in the relevant partition; expanding to other relevant
+partitions is explicit and bounded by the caller's admitted scope and context
+budget. Shared preferences may be recalled across domains without becoming new
+persona authorities. A wing/room filter organizes retrieval; it is not an ACL.
+
+Keep that organizational hierarchy distinct from MemPalace's optional L0-L3
+context stack. At the mysoul-inspected upstream revision
+`f41e8e75ddaadf5588d5127715fa531d79eadb45`, `layers.py` defines L0 as an identity
+file, L1 as a compact recent/important memory view, L2 as scoped retrieval and
+L3 as semantic search. `MemoryStack.wake_up()` renders L0 and L1 together;
+ordinary MCP search/get do not require that wrapper. Layer numbers are not
+palace/wing/room/drawer depths, task checkpoints or ACTMEM versions.
+
+Laputa remains the persona/context authority. Do not inject MemPalace L0 identity
+or maintain a second persona file. Compose admitted memory results with Laputa's
+selected identity and the path's own working context. MemPalace L1 is not a
+replacement for authoritative current task state; adopting its rendering would
+need a concrete benefit beyond the planned ACTMEM/Recap projection. The choice
+of scoped MCP or Python calls does not require modifying the upstream engine.
+
+The mysoul adapter's scope-hash wing and per-evidence room mapping establishes
+source association, not this proposed semantic taxonomy. Reuse its tested
+connection/provenance behavior selectively. If semantic rooms replace per-evidence
+rooms, preserve distinct event/source identities despite upstream content
+deduplication; do not change existing data as part of this design clarification.
+
+A shared workspace does not merge active task identities, Python namespaces or
+checkpoint ownership. Each harness retains those boundaries, and simultaneous
+writes to the same target must be coordinated. These requirements do not imply
+a new multi-agent society, universal permissions platform or shared agent loop.
 
 ### Delivery order and the Prime capability loop
 

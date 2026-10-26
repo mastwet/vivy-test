@@ -8,8 +8,12 @@ implementation. Model access is gateway first. The owner's 2026-10-27 direction
 is two independent harness paths: classic Pi for coding, pi-durable for durable
 execution and persistent companionship. Establish those foundations first, then
 build a trimmed Prime-style Python capability loop against each consuming path.
-Layered context, ACTMEM/Recap and MemPalace belong to the later durable memory
-slice; do not apply mysoul's companionship context policy to coding by default.
+Both paths use the same workspace and may recall the same domain-partitioned
+MemPalace memory. Laputa owns persona; do not inject MemPalace's L0 identity.
+Durable's layered context and ACTMEM/Recap remain a later memory slice; do not
+apply mysoul's companionship context policy to coding by default. Domain wings,
+topic rooms and source drawers are distinct from the optional L0-L3 context
+stack. Preserve per-task state/namespace boundaries within the shared workspace.
 Recursion, factory, a complete Prime daemon and automatic evolution are not
 prerequisites. See DESIGN's **Separate durable and coding harnesses** for the
 current scope. No second harness or new memory implementation is delivered yet.
