@@ -93,7 +93,11 @@ protocols only, with built-in presets and user-defined instances derived from
 them. Subscription login/OAuth/token refresh and other native protocols are
 excluded. DESIGN records this scope; the research records Rig's registration
 boundary and an offline API-construction probe, with no live-provider claim.
-Provider management is not implemented; the delivery order below is unchanged.
+Provider management is implemented on `feat/provider-management` in the sibling
+`vivy-test-providers` worktree. The baseline selects ProvidersPlugin, two protocol
+features and the full TUI editor. README documents commands and configuration;
+the existing research document records verification and review corrections.
+No new live-provider or non-Windows platform claim is made.
 
 Follow DESIGN's "Delivery slices and stopping points" in order; do not start a
 later step before the earlier one's check passes. Step 1 (gateway model facts)

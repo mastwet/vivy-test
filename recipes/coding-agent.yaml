@@ -7,7 +7,7 @@
 # `path`. Plugin crates build without their default features: a component
 # lists, under `features`, the ones it needs of any selected crate.
 #
-# Left out on purpose: Rig's login (the gateway supplies the model), reload and
+# Left out on purpose: Rig's subscription login, reload and
 # /plugins (they rebuild from Rig's plugins.toml, a second selection path), and
 # remote hosts. Rig's runtime settings live in RIG_HOME/settings.toml.
 name: coding-agent
@@ -48,11 +48,13 @@ components:
     plugins:
       - vivy_basics::plan::PlanPlugin
 
-  - name: gateway
+  - name: providers
     crate: vivy-gateway
     path: ../plugins/vivy-gateway
     plugins:
-      - vivy_gateway::GatewayPlugin
+      - vivy_gateway::ProvidersPlugin
+    features:
+      vivy-gateway: [openai, anthropic]
 
   - name: models
     crate: rig-basics
@@ -159,3 +161,4 @@ components:
     features:
       rig-basics: [tui]
       vivy-basics: [tui]
+      vivy-gateway: [tui]

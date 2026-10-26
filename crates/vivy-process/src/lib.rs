@@ -4,9 +4,16 @@ use std::io;
 use std::process::{Child, Command};
 use std::sync::Arc;
 
+mod credentials;
+pub use credentials::{
+    credential_policy_generation, credential_variables, filter_credentials,
+    register_credential_variables, variables_from_file,
+};
+
 /// A command without agent-only state or model credentials.
 pub fn command(program: impl AsRef<std::ffi::OsStr>) -> Command {
     let mut command = Command::new(program);
+    filter_credentials(&mut command, &[]);
     for (name, _) in std::env::vars_os() {
         let key = name.to_string_lossy().to_ascii_uppercase();
         if key.starts_with("RIG_SECRET_")

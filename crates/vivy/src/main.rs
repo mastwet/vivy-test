@@ -101,14 +101,18 @@ impl Agent {
 
     /// Builds the generated package and returns the agent binary.
     fn build(&self) -> Result<PathBuf> {
-        let status = cargo_command(
+        let mut command = cargo_command(
             std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into()),
             &self.package,
             &self.target,
             std::env::vars_os().map(|(key, _)| key),
-        )
-        .status()
-        .map_err(|error| format!("cannot start cargo: {error}"))?;
+        );
+        let names =
+            vivy_process::variables_from_file(&rig_harness_protocol::Home::from_env().settings());
+        vivy_process::filter_credentials(&mut command, &names);
+        let status = command
+            .status()
+            .map_err(|error| format!("cannot start cargo: {error}"))?;
         if !status.success() {
             return Err(format!(
                 "cargo build of {} failed ({status}); its output above names the cause",

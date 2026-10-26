@@ -1,9 +1,9 @@
 # Provider management and plugin boundaries
 
-Research checkpoint, 2026-10-26. The owner has fixed the protocol/authentication
-scope below; the management commands and proposed configuration are not yet
-implemented. DESIGN records the accepted boundary. Historical reference findings
-below do not expand that scope.
+Research and implementation checkpoint, 2026-10-26. DESIGN records the accepted
+protocol/authentication boundary; README describes the implemented configuration
+and commands. The implementation record below supersedes earlier proposals.
+Historical reference findings do not expand that scope.
 
 Owner refinement, 2026-10-26: support exactly two provider protocol families,
 OpenAI-compatible and Anthropic-compatible. Built-in providers are presets and
@@ -300,8 +300,8 @@ First deliver OpenAI-compatible and Anthropic-compatible API-key and
 keyless-compatible instances, the provider-first TUI,
 per-model facts, management persistence, migration from `[gateway]`, and reuse
 of the two Rig protocols. Keep custom providers editable even while their
-credentials are missing so they can be repaired. The recommended first UI uses
-configuration-file editing for custom providers, followed by a TUI editor.
+credentials are missing so they can be repaired. The owner selected complete
+TUI CRUD for the first implementation, alongside configuration-file editing.
 Subscription authentication is excluded, not a scheduled follow-up phase.
 
 Model discovery and metadata refresh can follow once manual configuration works;
@@ -311,13 +311,87 @@ not a reason to add a provider marketplace or automatic package installation.
 Acceptance should cover two instances serving the same model ID with different
 fake credentials, unchanged wire IDs, add/edit/remove and invalid configuration,
 per-model reasoning/context differences, persistence and session restore,
-configuration changes during streaming, tool calls and cancellation, failed
-discovery, and absence of fake credentials in child environments and logs.
+configuration changes during streaming, tool calls and cancellation, malformed
+settings, and absence of fake credentials in child environments and logs.
 Cover both supported wire formats and reject unsupported protocols/presets
 through configuration, TUI and CLI rather than merely hiding them in a picker.
-Recipe variants must demonstrate removal of an owned adapter dependency and
-registration at its actual crate boundary. Actual selected gateways/providers
+Recipe variants must demonstrate protocol-feature selection and removal of
+terminal dependencies at their actual crate boundaries. Rig remains one source
+dependency; this does not claim separate protocol crates. Actual selected gateways/providers
 still need separate streaming/tool-call verification before compatibility claims.
+
+## Implementation and verification (2026-10-26)
+
+The owner approved complete TUI CRUD, all eligible Rig presets offered when
+adding a provider, explicit activation, OpenAI Chat Completions only, and saved
+keys plus conventional/custom credential environment references. Implementation
+is isolated in sibling worktree `vivy-test-providers`, branch
+`feat/provider-management`, based on `3dc38b6`. Reference checkouts are unchanged.
+
+The baseline selects ProvidersPlugin in the existing vivy-gateway crate, both
+protocol features, and provider UI with the terminal. GatewayPlugin delegates to
+the same manager. The manager starts with an empty catalog, then registers the
+configured instances. Native vendor IDs and public instance IDs remain distinct;
+wire facts bind to the actual wire identity. OpenAI reasoning uses an explicit
+known preset, and generic Anthropic respects the model's output cap.
+
+Configuration uses `[providers]` and `[providers.instances.<id>]`, with model
+rows and preset exclusions. Each instance chooses `stored`, `env` or `none`;
+missing sources fail explicitly. Built-in variable names prefill the add wizard.
+Settings remain editable TOML tables. Writes preserve unrelated sections/comments,
+check external edits under a file lock, and roll back key changes if settings
+persistence fails. Provider deletion also retains its configuration when key
+removal fails. Opening a picker reloads saved credentials changed by another
+session. API-key values stay in the user authentication store.
+
+Ruling: the launcher supplies first-run gateway metadata as process hints. The
+host imports it only without a managed/legacy gateway and persists it at actual
+Startup. This preserves existing provider settings and keeps an empty home
+usable. A resource-specific preset such as Azure requires an explicit endpoint;
+dotted native vendor names get a valid default instance ID.
+
+A fresh read-only whole-change review found six substantive issues. Corrections
+have regression coverage: key/settings conflict handling; persistent Python
+worker invalidation when credential filtering expands; rejection/selection of
+OpenAI reasoning mappings; binding facts independently of conflicting native
+instance names; deterministic model-refresh scheduling; and error redaction.
+The HTTP adapter redacts failures before Rig decodes and records them. It reuses
+Rig's SSE framer for in-stream errors, covering JSON escapes and split frames;
+normal event payloads retain their content. Status and error causes are retained.
+Budget-based thinking choices persist their portable named level.
+
+Verification record:
+
+- Baseline before implementation: 20 workspace tests passed.
+- Final offline Rust suites pass 132 tests: workspace 22, providers 32, Python 5
+  and basics 73 (the Python isolation subprocess also reports its child test).
+- Focused tests cover two protocol instances sharing one raw model ID, exclusion
+  of unconfigured/native third protocols, credential modes, invalid limits/URLs,
+  safe IDs, legacy import, defaults, settings conflicts, saved-key conflicts,
+  malformed-file retention and active-parent/idle-child reconnect boundaries.
+- Picker-driven tests perform full CRUD, hidden key entry, explicit defaults,
+  cancel-without-save, removed-preset-model restoration, budget defaults and
+  preset instance IDs. Unit tests remain offline.
+- Cross-protocol loopback smoke passes streaming text, Shell/Python tool calls,
+  environment filtering, independent headers, unchanged model IDs, output caps,
+  resumed choices, HTTP and in-stream authentication failures, error-key
+  redaction for saved/environment keys, credential-free persisted records, and
+  first-run bootstrap without overwriting an existing instance.
+- Real Windows ConPTY at 120x40 and 50x20 passes empty-home setup, both provider
+  forms, hidden API-key input, model selection, persistence, explicit defaults,
+  resume precedence, file-edit reload, deletion, tool execution and cancellation.
+  It also primes Python before adding a credential, then verifies the updated
+  worker cannot see that variable. Terminal scheduling diagnostics are checked.
+- Single-protocol and no-terminal recipe variants build. The no-terminal normal
+  dependency graph excludes rig-tui and ratatui. Initial disposable variants
+  resolved fresh dependencies; verification was repeated offline using the
+  baseline recipe lock as input. Rig's monolithic source boundary is unchanged.
+- Existing scripted gateway, compact terminal, Plan terminal and subagent smoke
+  checks pass. Linkers emit the existing MSVC library/export-file message.
+
+All network acceptance uses synthetic loopback fixtures. Actual provider/gateway
+compatibility and Linux/macOS runtime execution remain unverified. No push or
+merge is part of this delivery.
 
 [pi-models]: https://github.com/earendil-works/pi/blob/d5b3de22d0e24a3e9c38a9410d3329b099717283/packages/coding-agent/docs/models.md
 [pi-custom]: https://github.com/earendil-works/pi/blob/d5b3de22d0e24a3e9c38a9410d3329b099717283/packages/coding-agent/docs/custom-provider.md

@@ -116,6 +116,8 @@ pub fn run(binary: &Path, args: &[String]) -> Result<u8> {
     run_lock.try_lock()?;
     let description_file = run.path().join("description");
     let mut describe = Command::new(binary);
+    let names = vivy_process::variables_from_file(&home.settings());
+    vivy_process::filter_credentials(&mut describe, &names);
     for (name, _) in std::env::vars_os() {
         if name
             .to_string_lossy()

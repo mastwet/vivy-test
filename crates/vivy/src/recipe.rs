@@ -207,6 +207,23 @@ fn is_feature(feature: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn baseline_selects_the_two_provider_families_and_manager() {
+        let recipe =
+            super::Recipe::parse(include_str!("../../../recipes/coding-agent.yaml")).unwrap();
+        let crates = recipe.crates();
+        let gateway = &crates["vivy-gateway"];
+        assert!(
+            gateway.features.contains("openai")
+                && gateway.features.contains("anthropic")
+                && gateway.features.contains("tui")
+        );
+        assert!(recipe.components.iter().any(|c| {
+            c.plugins
+                .iter()
+                .any(|p| p == "vivy_gateway::ProvidersPlugin")
+        }));
+    }
     use super::*;
 
     const BASE: &str = "

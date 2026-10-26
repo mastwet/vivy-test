@@ -779,11 +779,34 @@ API-key storage and explicit keyless endpoints are sufficient; do not install
 the whole upstream LoginPlugin just to obtain API-key entry.
 
 Preserve the current gateway through migration into the same configuration path.
-The proposed UX is provider selection, model search, explicit startup-default
+The implemented UX is provider selection, model search, explicit startup-default
 saving, and restored-session choices. See the existing
 [research](research/2026-10-26-provider-management.md) for source evidence and
-integration details. This section records agreed scope, not an implementation
-or new live-provider compatibility result.
+integration details and verification. ProvidersPlugin extends the existing
+vivy-gateway package; GatewayPlugin delegates to it for source compatibility.
+The recipe selects `openai`, `anthropic` and, with its terminal, `tui` features.
+The public configuration is `[providers]` with an `instances` map. A preset is
+identified by its native vendor and chosen protocol; custom instances can select
+the same mapping without changing their IDs or endpoints. Models overlay the
+preset catalog, with explicit exclusions for deleted preset rows.
+
+Credentials select exactly one source: saved key, named environment variable or
+explicit no-key mode. API-key input is hidden. Stored-key changes share the
+settings conflict lock and roll back if settings persistence fails. Provider
+HTTP errors retain their status and cause with the resolved key redacted.
+Configured environment names are withheld from build/describe/tool processes;
+an expanded policy invalidates persistent Python workers. Rust plugins are
+trusted process code and this is not a sandbox.
+
+The manager owns defaults and refresh ordering. Invalid settings retain the last
+valid state; edits update idle agents immediately and active agents at turn end.
+Wire facts are bound to the actual protocol/preset identity while public model
+references retain the configured instance ID. The generic Anthropic wire takes
+the configured model's explicit output limit. Generic OpenAI reasoning requires
+a known mapped preset rather than advertising unsupported request options.
+
+Verification uses offline fixtures and real Windows ConPTY. No new live-provider
+compatibility result or Linux/macOS runtime result is claimed.
 
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md

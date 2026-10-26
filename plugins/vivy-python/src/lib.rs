@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::process::{ChildStdin, Stdio};
 use std::sync::{
     Arc, Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     mpsc,
 };
 use std::time::Instant;
@@ -96,6 +96,7 @@ fn bind_calls(
 fn prune_workers(mut workers: ResMut<Workbenches>, agents: Query<(), With<Agent>>) {
     workers.0.retain(|agent, worker| {
         if agents.contains(*agent) {
+            worker.refresh_credential_policy();
             true
         } else {
             worker.stop();
@@ -113,8 +114,19 @@ fn stop_workers(workers: Res<Workbenches>) {
 struct Workbench {
     worker: Mutex<Option<Worker>>,
     control: Mutex<Option<Control>>,
+    policy_generation: AtomicU64,
 }
 impl Workbench {
+    fn refresh_credential_policy(&self) {
+        let generation = vivy_process::credential_policy_generation();
+        if self.policy_generation.load(Ordering::Acquire) != generation {
+            self.stop();
+            if let Ok(mut worker) = self.worker.try_lock() {
+                *worker = None;
+                self.policy_generation.store(generation, Ordering::Release);
+            }
+        }
+    }
     fn stop(&self) {
         if let Some(control) = self
             .control
@@ -228,6 +240,13 @@ impl PythonTool {
             ToolExecutionError::other(format!("Python workbench stopped; variables reset: {why}"))
         };
         let mut slot = self.state.worker.lock().unwrap_or_else(|e| e.into_inner());
+        let generation = vivy_process::credential_policy_generation();
+        if self.state.policy_generation.load(Ordering::Acquire) != generation {
+            *slot = None;
+            self.state
+                .policy_generation
+                .store(generation, Ordering::Release);
+        }
         let fresh = slot.is_none();
         let mut worker = match slot.take() {
             Some(worker) => worker,
@@ -384,6 +403,32 @@ impl Worker {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn credential_policy_change_restarts_persistent_workers() {
+        if std::env::var_os("VIVY_POLICY_TEST_CHILD").is_none() {
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::credential_policy_change_restarts_persistent_workers",
+                    "--nocapture",
+                ])
+                .env("VIVY_POLICY_TEST_CHILD", "1")
+                .status()
+                .unwrap();
+            assert!(status.success());
+            return;
+        }
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        call(&tool, "marker_before_policy = 42", None).unwrap();
+        vivy_process::register_credential_variables(&["VIVY_POLICY_EXPANSION_FIXTURE".into()]);
+        let result = call(
+            &tool,
+            "'STALE_POLICY' if 'marker_before_policy' in globals() else 'FRESH_POLICY'",
+            None,
+        )
+        .unwrap();
+        assert!(result.contains("FRESH_POLICY"), "{result}");
+    }
     use super::*;
     fn call(
         tool: &PythonTool,

@@ -1,7 +1,8 @@
 # vivy-test
 
 A Rust coding-agent experiment: **one YAML recipe selects components, one build
-assembles a runnable agent, and model access goes through a gateway first.**
+assembles a runnable agent, with configured OpenAI-compatible and
+Anthropic-compatible providers.**
 
 Use Rig's runtime and terminal and Pi's coding-agent workflow as the reference.
 The Windows-native species includes file/search tools, Git Bash, sessions,
@@ -41,27 +42,52 @@ Double-click `start.cmd` to open the interactive coding terminal in this
 checkout with the Windows console set to UTF-8. It uses the existing
 `C:\vt\debug` build and does not build automatically. If `Desktop\keys.txt` or
 `Desktop\key.txt` exists, it reads three non-empty lines (gateway URL, model
-ID, API key). It writes only the URL and model to the ignored
-`.workspace\launch-home\settings.toml`, and passes the
-key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
-`RIG_HOME`. Without a Desktop key file, the launcher uses the existing
-`RIG_HOME\settings.toml` and `RIG_SECRET_GATEWAY` environment variable.
+ID, API key). The host imports the first gateway into the ignored
+`.workspace\launch-home\settings.toml`; existing managed provider settings take
+priority. The key passes through `RIG_SECRET_GATEWAY` in process memory. Sessions
+use that isolated `RIG_HOME`. Without a Desktop key file, the launcher uses
+`RIG_HOME` (default `~/.rig`). An empty home can start and configure providers.
 
-## Gateway and runtime settings
+## Providers and runtime settings
+
+Start the terminal and run `/provider`. Add a built-in preset or a custom
+OpenAI/Anthropic-compatible endpoint, configure its models and credential source,
+and save. Only added instances enter the model catalog. The editor supports
+provider/model creation, edits and deletion; changes stay in a draft until saved.
+The instance ID stays fixed so sessions continue to identify the same account.
+
+- `/login <instance>` opens hidden API-key entry and selects saved-key mode.
+- `/logout <instance>` removes its saved key; environment variables are unchanged.
+- `/model` searches all configured models; a provider's menu filters its models.
+- `/model-default` explicitly saves the current model and thinking level for new
+  sessions. Temporary switches do not change defaults; resumed sessions retain
+  their recorded choices. `--model instance/model-id` overrides either.
+
+OpenAI uses Chat Completions; Anthropic uses Messages. Subscription login and
+Responses are not included. Presets reuse Rig's built-in metadata and option
+mappings; they do not establish compatibility with an untested endpoint.
 
 Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
 
 ```toml
-[gateway]
+[providers]
+default_model = "company/org/model-1" # also saved by /model-default
+
+[providers.instances.company]
+protocol = "openai"                # or "anthropic"
 base_url = "https://gateway.example/v1"
-model = "model-id-as-the-gateway-names-it"
-# Optional model facts, which Rig acts on:
-dialect = "openrouter"            # Rig's option mapping for this gateway (needed for /effort)
-context_window = 131072           # compaction keeps requests inside it
+preset = "openrouter"              # optional known compatibility mapping
+credential = { source = "env", name = "COMPANY_API_KEY" }
+# Alternatives: { source = "stored" } or explicit { source = "none" }
+
+[[providers.instances.company.models]]
+id = "org/model-1"                 # sent to the endpoint unchanged
+context_window = 131072
 max_output_tokens = 8192
-image_input = true                # images reach the model
-reasoning = ["low", "medium", "high"]   # /effort levels; add "off" if it can stop
-input_price = 0.5                 # USD per million tokens, both or neither
+tools = true
+image_input = true
+reasoning = ["low", "medium", "high"]
+input_price = 0.5                  # USD per million tokens, both or neither
 output_price = 1.5
 
 # Optional overrides; defaults discover Git for Windows and use `python`.
@@ -72,13 +98,29 @@ output_price = 1.5
 ```
 
 ```powershell
-$env:RIG_SECRET_GATEWAY = '...'  # never store the key in this repository
+$env:COMPANY_API_KEY = '...'  # never store the key in this repository
 & C:\vt\debug\vivy.exe
 ```
 
-An explicit `--model` takes precedence; a resumed session keeps its model;
-otherwise the configured gateway model is selected. Its raw model ID is sent
-unchanged. Build and execution children do not inherit `RIG_SECRET_*`.
+An explicit credential source never falls back to a different account. Saved
+keys live under `RIG_HOME/auth/provider-keys/`, outside settings and sessions.
+Configured credential variables and `RIG_SECRET_*` are withheld from owned
+build/describe/tool processes. Adding credential variables resets existing
+Python workers so subsequent calls use the updated filtering policy.
+
+Provider/model lists reload file edits. An invalid file retains the last valid
+catalog; external edits conflict with an open draft rather than being overwritten.
+Active turns finish on their existing connection; idle agents and subagents
+reconnect after a provider changes. A removed provider needs explicit repair.
+
+Built-in models inherit Rig's catalog; `models` adds/overrides individual rows,
+and `disabled_models` excludes removed preset models. Generic OpenAI endpoints
+need a known compatibility preset before declaring reasoning levels. Models are
+entered manually; automatic model discovery is not included.
+
+Existing `[gateway]` settings remain supported as `gateway/<model>` with
+`RIG_SECRET_GATEWAY`. A provider save migrates that table into the same instance
+collection. An explicit `providers.instances.gateway` takes priority.
 
 `/new`, `/resume <id>`, `/session`, and `/quit` use Rig's terminal and session
 mechanisms. A session switch in print mode returns Rig's exit code 75 rather
@@ -95,7 +137,7 @@ for one run, `/trust` or the start question to remember; `[trust] default` in
 In the terminal view, `/resume`
 alone opens the session picker; `/thinking` and `--thinking <level>` are Pi's
 names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
-(list more ids on the gateway with `models = [...]`), and `--export <id>
+(configure models through `/provider`), and `--export <id>
 [output]` exports a session from the command line; Alt+Up then
 Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
