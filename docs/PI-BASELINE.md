@@ -72,6 +72,11 @@ remain dated evidence and were not rerun against Pi for this addition.
 
 ## Findings that prevent misleading scope claims
 
+- Vivy's selected collaborative Plan plugin is an owner-approved addition beyond
+  this Pi core baseline. It supplies guidance and a terminal-reviewed exit,
+  without changing tool permissions. See DESIGN's "Collaborative Plan mode";
+  it does not establish general extension or autonomous Goal parity.
+
 - This Pi revision includes MCP and JavaScript Code Mode. Older descriptions of
   Pi as having no built-in MCP no longer describe this source baseline.
 - Pi's branch tree affects extension state, compaction, Code Mode storage and

@@ -39,6 +39,14 @@ components:
     plugins:
       - vivy_basics::context::ContextFilesPlugin
 
+  # Collaborative planning, user-reviewed exit and the terminal PLAN marker.
+  # Plan supplies guidance; existing tools and permissions stay unchanged.
+  - name: plan
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
+    plugins:
+      - vivy_basics::plan::PlanPlugin
+
   - name: gateway
     crate: vivy-gateway
     path: ../plugins/vivy-gateway

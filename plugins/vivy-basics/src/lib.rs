@@ -19,10 +19,13 @@
 //!   into the fork, as Pi's branch summary does.
 //! - [`subagents::VivySubagentsPlugin`] selects native Rig delegation with roles,
 //!   bounded parallel work, sequential chains and terminal feedback.
+//! - [`plan::PlanPlugin`] adds collaborative Plan guidance and a reviewed exit,
+//!   with terminal state and user feedback, without changing tool permissions.
 
 pub mod branch;
 pub mod context;
 pub mod model;
+pub mod plan;
 pub mod search;
 pub mod session;
 pub mod shell;

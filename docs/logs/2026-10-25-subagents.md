@@ -3,8 +3,8 @@
 Date: 2026-10-25. Repository: vivy-test. Branch: feat/subagents, base 5477eee.
 Scope: owner-approved [implementation plan](../plans/2026-10-25-subagents.md).
 Implementation commit c94f87f was fast-forward merged into local main on
-2026-10-25 with owner approval. No push was performed; the separate Plan branch
-is unchanged and unmerged.
+2026-10-25 with owner approval. Collaborative Plan was subsequently integrated on
+2026-10-26; combined verification is recorded in HANDOFF.md. No push was performed.
 
 ## Implementation
 
