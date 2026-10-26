@@ -38,14 +38,20 @@ the session's saved directory. Add the build directory to your PATH if desired.
 ### One-click Windows start
 
 Double-click `start.cmd` to open the interactive coding terminal in this
-checkout with the Windows console set to UTF-8. It uses the existing
-`C:\vt\debug` build and does not build automatically. If `Desktop\keys.txt` or
+checkout with the Windows console set to UTF-8. It reuses an existing build and
+does not build automatically: it looks for `vivy.exe` and `coding-agent.exe` in
+`%CARGO_TARGET_DIR%\debug`, `.generated\target\debug`, `target\debug` and
+`C:\vt\debug`, preferring a directory that holds both. If `Desktop\keys.txt` or
 `Desktop\key.txt` exists, it reads three non-empty lines (gateway URL, model
 ID, API key). It writes only the URL and model to the ignored
 `.workspace\launch-home\settings.toml`, and passes the
 key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
 `RIG_HOME`. Without a Desktop key file, the launcher uses the existing
 `RIG_HOME\settings.toml` and `RIG_SECRET_GATEWAY` environment variable.
+
+`vivy.exe` records this checkout's path at compile time, so a copied or moved
+tree keeps pointing at the old location even when its `target` directory came
+along. Rebuild after a move: `cargo clean -p vivy` and `cargo build -p vivy`.
 
 ## Gateway and runtime settings
 
