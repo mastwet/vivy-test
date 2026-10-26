@@ -2,11 +2,12 @@
 
 Recorded on 2026-10-24. This is an experiment brief, not an implemented API or a
 production compatibility promise. The user's decisions are fixed below; the
-runtime integration choice was resolved in favor of Rig's harness (see the
+coding runtime integration choice was resolved in favor of Rig's harness (see the
 implementation sections below).
 
-Updated 2026-10-25: **Hybrid architecture and first-stage boundary** below is the
-current design. Dated implementation sections preserve earlier evidence; they
+Updated 2026-10-27: **Separate durable and coding harnesses** below is the
+current direction. It supersedes conflicting scope and sequencing in the dated
+hybrid design below. Dated implementation sections preserve earlier evidence; they
 do not establish the newly designed capabilities. The owner has since reported
 a successful manual test; that report does not supply a new automated test record.
 
@@ -19,15 +20,16 @@ addition and its verification. This does not expand the parked Goal/evolution wo
 | --- | --- |
 | Independent Rust test repository | No dependency on the original Vivy repository or its recovery work. |
 | YAML recipe and compile-time composition are the central experiment | The recipe determines selected plugin dependencies and static constructor calls. |
-| Rig is the implementation foundation | Reuse its components and, where economical, its existing harness and terminal plugins. |
-| Pi coding-agent is the functional reference | Track the complete inspected coding-agent surface; deliver it incrementally. |
+| Separate coding and durable harnesses | Establish and verify their lifecycle contracts independently before extending them. |
+| Rig is the current coding implementation foundation | Reuse its existing execution, session and terminal components; the durable implementation choice remains open. |
+| Classic Pi is the coding reference; pi-durable is the durable reference | Coding preserves its interactive task/tool path; durable follows persistent task, checkpoint and wake semantics. |
 | Rust/Vivy extension equivalents | Do not implement compatibility with existing Pi TypeScript extension source. |
 | Gateway-first model access | First integrate one gateway; avoid rebuilding individual provider login, routing, and catalog infrastructure. |
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
 | Native delegation; optional Python orchestration later | Recipe-selected Rig wrapper provides single tasks, bounded parallel batches and chains. Python/apixis remains a later composition direction. See the dated subagent delivery record. |
-| Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
+| A trimmed Prime capability loop follows the harness foundations | Prioritize Python tools and MCP; recursion, factory, full daemon and automatic evolution are not prerequisites. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
 gate. Gateway-first access intentionally defers Pi's broad direct-provider and
@@ -35,9 +37,79 @@ OAuth surface. Embedding can initially use ordinary Rust library APIs; an
 independently packaged SDK is unnecessary. Do not declare complete Pi parity
 while those or other baseline rows remain incomplete.
 
-## Hybrid architecture and first-stage boundary
+## Separate durable and coding harnesses (owner, 2026-10-27)
 
-This section is the implementation authority for the accepted miniature diagram.
+The owner separates two product paths, with independent harness work:
+
+| Path | Main reference | Required distinction |
+| --- | --- | --- |
+| Coding | Classic Pi coding-agent and its agent loop | Interactive coding, the current conversation/tool chain, sessions, compaction, cancellation and explicit resume. Continue the existing Rig implementation. |
+| Durable | `pi/packages/durable` | Persisted admissions, task phases/checkpoints, recovery, durable sleep/wake, explicit work abort and replay policy. Persistent companionship belongs here. |
+
+`pi-durable` is TypeScript over pi-ai and Chord at the inspected Pi revision
+`f321e5bdd26b3624bfb2ab182a334d0a5edb698a`. It is a behavior and lifecycle
+reference, not an already integrated Rust dependency. Select the smallest Rust
+implementation against those contracts; neither a new full engine nor reuse of
+the coding harness establishes durable semantics without verification.
+
+In particular, cancelling a waiter does not abort its durable task. At the
+reference revision, interrupted tools rerun only when declared replay-safe;
+other interrupted calls produce an interrupted result. Durable storage does
+not make arbitrary Python code or remote effects safe to replay. A saved sleep
+also needs a live timer or a host wakeup to resume work.
+
+### Memory placement
+
+The mysoul persistent-companionship experiment informs the durable path. Preserve
+the intended layered context, short-term ACTMEM/Recap and MemPalace recall chain
+there, after establishing its harness foundation. Do not impose mysoul's Recap-only
+new-chat context, permanent conversation, memory maintenance or life scheduler
+on the classic coding path. Any coding memory addition needs its own concrete
+acceptance case.
+
+Use the actual mysoul implementation and its later changes when selecting memory
+behavior; its early hierarchical-archive design is not the final context policy.
+No original Vivy source, sessions, credentials or production data are required.
+
+### Delivery order and the Prime capability loop
+
+1. Establish the coding and durable harnesses as separate, small deliverables,
+   each checked against its own reference. Parallel ownership, if subsequently
+   used, must keep writes isolated; this decision does not start implementation.
+2. Build a trimmed Prime-style capability loop: discover a Python capability,
+   load its instructions, execute it, return a bounded useful result, handle
+   failure/cancellation, and release owned resources. Integrate and verify it
+   against each harness that consumes it.
+
+Keep Rust focused on its path's agent execution, identities, cancellation and
+state guarantees. Python supplies libraries, tools, MCP clients and bounded
+composition, without a second provider/agent loop. Prime's recursive-agent,
+family messaging, factory, complete supervisor and automatic evolution machinery
+are not gates for this capability loop. Existing optional coding delegation is
+not removed by this scope decision.
+
+Reuse the Python runtime/protocol and suitable adapters where practical; do not
+assume the full `rlm` package is already a trimmed workbench. Share concrete
+libraries or protocol code when both paths need them, without first creating a
+universal harness or shared authoritative conversation store. A common gateway
+or workbench does not imply common recovery or replay semantics.
+
+Initial checks should demonstrate a real multi-step coding task with failure and
+cancellation; durable admission deduplication, reopen from a committed checkpoint,
+sleep/wake and explicit abort; then one useful Python capability through each
+selected path. Memory and full background companionship are subsequent durable
+slices, not prerequisites for proving the coding workbench.
+
+Evidence: this clarification is a design decision, not a delivered second harness.
+The inspected sources are `.workspace/pi/packages/durable/README.md`, its
+`src/harness/types.ts`, and `packages/agent/src/agent-loop.ts`. Existing verification
+below remains evidence only for the behavior it actually ran.
+
+## Hybrid architecture and first-stage boundary (2026-10-25 record)
+
+This section records the earlier accepted miniature diagram. The 2026-10-27
+two-path decision above controls conflicting scope, memory placement and delivery
+order; retain the implementation evidence and applicable boundaries below.
 The [research checkpoint](research/2026-10-25-hybrid-agent-workbench-decisions.md)
 preserves evidence and discussion, including a mirrored copy in agent-vivy; it
 is not another editable specification. The [Pi baseline](PI-BASELINE.md) remains

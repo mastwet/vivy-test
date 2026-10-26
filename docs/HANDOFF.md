@@ -3,11 +3,16 @@
 ## Goal and current state
 
 The owner wants a fast Rust experiment preserving Vivy's useful idea of a species
-assembled from a YAML recipe at compile time. Rig supplies implementation;
-Pi coding-agent supplies the functional reference. Model access is gateway first.
-The current direction is a Pi-style coding core with direct tools, a Python
-workbench for deferred capabilities, and Prime-anchored automatic evolution with
-a narrow persona addition. Keep the implementation small and independently useful.
+assembled from a YAML recipe at compile time. Rig supplies the current coding
+implementation. Model access is gateway first. The owner's 2026-10-27 direction
+is two independent harness paths: classic Pi for coding, pi-durable for durable
+execution and persistent companionship. Establish those foundations first, then
+build a trimmed Prime-style Python capability loop against each consuming path.
+Layered context, ACTMEM/Recap and MemPalace belong to the later durable memory
+slice; do not apply mysoul's companionship context policy to coding by default.
+Recursion, factory, a complete Prime daemon and automatic evolution are not
+prerequisites. See DESIGN's **Separate durable and coding harnesses** for the
+current scope. No second harness or new memory implementation is delivered yet.
 
 Repository: `https://github.com/mastwet/vivy-test`.
 Current state: the builder, gateway, native Windows launcher, Git Bash process
@@ -15,9 +20,8 @@ adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner
 reported a successful manual run; that is not a newly recorded automated gateway
 test. Gateway model facts (delivery step 1) are implemented and checked against
-the scripted gateway. The owner's 2026-10-25 order in DESIGN's "Delivery slices
-and stopping points" is the current plan: core first, Python for anything
-advanced.
+the scripted gateway. DESIGN's 2026-10-27 two-path decision supersedes conflicting
+scope and ordering in its older "Delivery slices and stopping points" record.
 The later owner-approved collaborative Plan addition is implemented in
 `vivy-basics::plan::PlanPlugin` and selected in the baseline recipe. It includes
 terminal mode markers, explicit plan submission and user review/feedback;
@@ -85,6 +89,16 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
+The 2026-10-27 scope clarification takes precedence over older sequencing below.
+Work separately on the classic-Pi coding harness and the pi-durable-referenced
+durable harness; select a bounded acceptance case for each before implementation.
+`pi-durable` is a TypeScript reference, not a Rust integration already present.
+Then connect the trimmed Prime Python capability loop. Reuse existing coding
+verification, but do not treat session resume as proof of durable task replay,
+sleep/wake or waiter/abort semantics. No new universal harness abstraction is
+required. mysoul's memory behavior is a durable-path reference, not a dependency
+on its application, private data or runtime.
+
 The owner also requested provider-management research on 2026-10-26. See
 [provider management and plugin boundaries](research/2026-10-26-provider-management.md)
 for Pi/DSH/Rig evidence and a proposed extension of the gateway-first surface.
@@ -101,13 +115,12 @@ The native launcher and baseline agent were rebuilt from this main checkout.
 The integration remains local. No new live-provider or non-Windows platform
 claim is made.
 
-Follow DESIGN's "Delivery slices and stopping points" in order; do not start a
-later step before the earlier one's check passes. Step 1 (gateway model facts)
-is done offline. Next is step 2: one real-gateway smoke, then Pi and vivy
-against the same mock gateway, recording a result in every PI-BASELINE core
-row. Preserve the Windows launcher and Rig harness/TUI; do not write a
-replacement agent loop. Prime evolution, persona, PEN, MCP in Rust and new
-design documents wait until step 4 works.
+The older coding-only delivery sequence and its verification gaps remain in
+DESIGN and PI-BASELINE. Preserve the Windows launcher and Rig harness/TUI while
+checking that path; keep actual gateway evidence distinct from mock checks.
+Those coding records do not establish or select the durable implementation.
+The current two-path harness work precedes the trimmed Prime capability loop;
+automatic evolution, persona growth and PEN remain separate future scope.
 
 Use existing authorized gateway configuration without printing credentials. If
 essential configuration is unavailable, request only that missing information.
@@ -121,9 +134,9 @@ Do not guess secrets or present a scripted endpoint as a real gateway smoke.
 - **Prove real optionality.** Inspect the resolved dependency graph for each
   generated agent. Shared upstream crates can contain several tools/providers;
   omitting a wrapper does not prove all their source was excluded.
-- **Keep feedback useful.** Bounded task evidence feeds the accepted automatic
-  refinement slice. Reuse Prime's state/proposal/history vocabulary; its separate
-  incident CLI, daemon, service catalog and subagent platform are not prerequisites.
+- **Keep feedback useful.** Preserve bounded task evidence for useful errors and
+  future memory/refinement work. The Prime workbench loop does not require its
+  incident CLI, daemon, service catalog, subagent platform or automatic evolution.
 - **Preserve semantics as coverage expands.** Branch-aware state, cancellation,
   extension interception, and tool-result pairing matter more than matching
   command names. Use representative behavior checks.
