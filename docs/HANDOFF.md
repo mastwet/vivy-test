@@ -44,6 +44,13 @@ copied. Next work requires a bounded implementation scope, not another broad
 capability inventory. Today's save contains documentation only.
 
 Repository: `https://github.com/mastwet/vivy-test`.
+The owner's subsequent Go/remake migration assessment is recorded in
+[research section 18](research/2026-10-25-hybrid-agent-workbench-decisions.md#18-go-vivy-migration-assessment).
+It checks pinned source sizes and donor overlap, proposes a minimum behavior
+selection, and gives a conditional engineering allowance. It does not authorize
+implementation or change the two-harness scope. Original source was inspected
+read-only; no app data, source port or legacy data migration was involved.
+
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner

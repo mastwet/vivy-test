@@ -4,6 +4,11 @@ Date: 2026-10-25
 
 Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution and Vivy persona extension. Section 17.7 records the separately authorized native Rig subagent implementation in vivy-test; Python/apixis remains future work. This mirror does not authorize original Vivy runtime changes.
 
+Update, 2026-10-27: DESIGN's two-harness and trimmed-workbench decisions supersede
+the older evolution/orchestration scope below. Section 18 adds a read-only Go
+Vivy migration assessment in vivy-test only; it is not mirrored to the original
+checkout and does not authorize implementation or change the accepted scope.
+
 Scope: Preserve this conversation's findings and latest direction in both repositories.
 
 This report is intentionally saved identically under `docs/research/` in
@@ -973,3 +978,249 @@ there is no verified real-provider delegation. Details and final review outcomes
 belong in vivy-test's dated delivery record. Scripted tests are not real-provider evidence. No Pi TypeScript
 extension compatibility, complete Pi parity, Python bridge, apixis integration,
 new permission platform or original Vivy runtime modification is claimed.
+
+## 18. Go Vivy migration assessment
+
+Recorded 2026-10-27 at the owner's request. The target considered here is the
+current independent Rust/Python experiment, retaining minimum useful behavior
+from Go Vivy and its remake donors. Complete feature equivalence and historical
+data compatibility are separate, substantially larger scopes.
+
+### 18.1 Source boundaries and measured size
+
+The original repository at `C:/Users/Administrator/Desktop/agent-vivy` was read
+through Git objects, without checkout changes, builds, app launches or access to
+sessions, databases, credentials or production data. `git ls-remote --heads`
+confirmed the inspected remote main/remake heads on 2026-10-27; no fetch or push
+was performed. The local main is a different source snapshot, not the remote
+main with a newer date applied to the same code.
+
+| Snapshot | Exact revision | Go product source | All selected product source | Tests and fixtures | Generated | Other counted source |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Local main | `1df588a1a8e538524a6f0e757ac02a68f14d50ca` | 131,570 | 168,875 | 118,538 | 1,867 | 1,607 |
+| Remote main | `9cd2801f8090723a652d3e835f72d83715b82121` | 184,507 | 234,319 | 186,129 | 1,972 | 4,446 |
+| Remake integration | `0059b73138b3830fd3bfc1c041b9bc8353e93a33` | 153,550 | 196,382 | 138,987 | 1,913 | 2,451 |
+| Remake archive | `495caf6eba2063a71f16e7a8066c9935ff241839` | 184,507 | 234,319 | 186,129 | 1,972 | 4,446 |
+
+Go product source is a subset of all selected product source. Counts are physical
+lines, including blank lines and comments, obtained from `git ls-tree -r` and
+`git cat-file --batch` blobs, not non-comment executable statements. Selected
+extensions: Go, TS/TSX, JS/JSX, Vue, Svelte, Rust, Python, SQL, Proto, C/C++/headers
+and shell/PowerShell/batch scripts. Markdown, JSON/YAML, lockfiles, CSS/HTML,
+binary assets, untracked files and submodule contents are outside this count.
+
+Classification is path/header based: generated-code markers, `.pb.go`,
+`_generated.go`, `.gen.ts(x)`, bindings and wailsjs; then third_party/vendor;
+then scripts/docs/agent-support/spikes and shell launchers; then `_test.go`,
+`.test/.spec` and tests/testdata/fixtures/conformance/testsupport/e2e directories;
+remaining source is product source. This separates reusable conformance helpers
+even where their filename is not `_test.go`; ordinary product files can still
+contain small test helpers. The numbers are a reproducible scope indicator,
+not an exact measure of essential runtime logic.
+
+Remote main contains 167,202 Go test/helper lines separately from its 184,507 Go
+product lines. Generated source is under 0.5% of the total selected 426,866 lines.
+The large footprint is therefore not explained by generated code. Conversely,
+test volume is not evidence that the corresponding behavior is unnecessary.
+
+The source tree also excludes external Laputa/INOFY implementations and the
+`studio` submodule. Main's go.mod pins Laputa garden/mentle/laputa and redirects
+them to sibling Go modules. Their native implementation does not automatically
+become reusable Rust or Python code. These counts understate a complete product
+ecosystem migration, rather than including it implicitly.
+
+### 18.2 Remake is primarily a split of existing source
+
+All 18 remote remake refs were checked: 16 donor branches plus integration and
+archive. Relative to shared original base `202aac3885cb1479998127f0fb9004bea54aca57`,
+the 16 donors change 624 distinct selected source paths and contain 626 distinct
+`(path, resulting blob)` versions, including deletion markers. Of those, 617
+exactly match the corresponding remote-main path/blob. This is source-identity
+evidence, not proof that the branches integrate or pass together. This donor
+comparison excludes source snippets under docs and agent-support directories.
+
+The nine different versions concern engine/tool adaptation and ordering,
+Plan/work control, and associated tests. They are not nine whole missing
+features. Archive has the same counted source categories as remote main;
+integration has the same product/test source as base A, with additional support
+scripts. Adding every branch's full line count would massively double count.
+
+The pinned [remake index](https://github.com/ProjectViVy/agent-vivy/blob/0059b73138b3830fd3bfc1c041b9bc8353e93a33/docs/superpowers/plans/remake-20261019/index.md)
+explicitly calls these donor branches, not build/product-accepted features.
+R10-R24 wait for accepted core/contracts; R25 is a warming-history handoff.
+Those are the recorded states at the inspected commit, not a fresh runtime test.
+Remake contributes behavioral requirements and regression examples, not a second
+entire product that must be added to main's migration inventory.
+
+### 18.3 What accounts for the footprint
+
+Remote-main product source under the same classifier:
+
+| Area | Lines | Migration implication |
+| --- | ---: | --- |
+| `internal/runtime` | 49,537 | Interactive runs, durable work, child agents, workflow, reports, context, memory, tools and recovery coexist here. This is much more than an LLM loop. |
+| `internal/storage` | 29,661 | SQLite and PostgreSQL, multiple product stores, journal/history, recovery and paired migrations. One minimal local backend avoids reproducing both implementations. |
+| `ui` | 32,687 | Browser product and its configuration. Reusing React presentation still requires adapting transport, stores and feature assumptions. |
+| `sdk/tui` | 16,413 | A substantial terminal product lives inside sdk; the whole sdk directory cannot fairly be called assembly overhead. Rig's terminal is the replacement candidate. |
+| `internal/rpc` | 12,301 | Control/query/event projection for the broad product, including a 7,345-line `control.go`. A smaller product exposes fewer commands. |
+| `internal/app` | 8,558 | Composition and lifecycle, including a 2,458-line app.go and many feature bridges. |
+| `plugins` | 24,508 | Multiple channels, UI modules, ACP, notebook, workflows, memory, persona and other integrations. |
+
+These are disjoint examples, not the full sum. The 28,064-line sdk product total
+includes the 16,413-line TUI as well as assembly, frontend, Ports and launch code.
+The runtime Service alone is 5,752 lines, with shared state for admissions,
+reviews, Goal, tools, bundles, Recap and shutdown. This concentration makes
+cross-feature adaptation expensive even when an individual tool is small.
+
+The architectural diagnosis is scope accumulation plus the cross-product cost
+of state, interfaces and compatibility: every feature gains persistence,
+RPC, UI, module wiring, lifecycle and regression work. Broad provider/channel
+support, two storage backends, three product faces and a distribution/plugin
+platform multiply that cost. This inspection does not establish what fraction
+is duplicate or removable dead code; no blanket deletion percentage is justified.
+
+Pinned source anchors: [runtime Service](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/service.go),
+[engine wiring](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/engine.go),
+[storage contracts](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/contracts.go)
+and [Go dependencies](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/go.mod).
+
+### 18.4 Suggested minimum behavior selection
+
+This table is assessment advice against the owner's saved direction, not approval
+to delete or implement features. Retain the behavior and failure invariants;
+do not port an old subsystem merely because its branch name survives.
+
+| Remake area | Minimum replacement or disposition |
+| --- | --- |
+| core-fixes | Translate applicable correctness regressions: one terminal outcome, cancellation, cleanup, failed/unknown effects and recovery. Do not carry all old Eino glue. |
+| provider | Use the existing gateway/Rig path. Keep the configured model identifier, streaming, tool-call fidelity and credential redaction; defer the old provider catalog/routing breadth. |
+| notebook | Start with ordinary workspace files and Python libraries when needed; defer a notebook database/editor and its separate provenance/RPC system. |
+| reports | Keep one requested report workflow as a Python capability if useful; defer the complete report product/settings/publication system. |
+| toolkits | Replace the initial need with discoverable Python capabilities, explicit dependencies and MCP configuration. Defer content-package acquisition, release, rollback, revocation and management UI. Python alone does not implement that package lifecycle. |
+| bml | Use the selected partitioned MemPalace long-term-memory direction; do not maintain a second authoritative BML store. Historical BML import is separate. |
+| recap | Preserve durable's ACTMEM/Recap intent: versioned working state, source association, commit before discarding context, bounded recall and correction. Use mysoul's later results as behavioral reference without imposing them on coding. |
+| cognition | Retain only concrete durable task/continuity responsibilities. Defer Mission and autonomous cognition/evolution machinery as first-release gates. |
+| skill-evolution | Keep ordinary skill discovery/use. Reviewed or automatic mutation is a later independent capability. |
+| persona | Preserve Laputa as the sole persona authority; implement the minimum consuming boundary. Its Go implementation is not already present in this Rust runtime. MemPalace L0 remains excluded. |
+| workflow | Express specific useful compositions in Python; defer INOFY compatibility, general DAG storage, revisions and visual editing. |
+| acp | Defer unless an actual client requires it. No ACP compatibility promise is needed to validate the two harnesses. |
+| tool-parallelism | Reuse framework support for bounded independent calls when required; preserve ordering and cancellation for effectful work. |
+| chat-ui | Keep a usable entry, streaming, stop, failures and resume visibility; existing TUI is the first entry. A browser surface is a separate selected slice, not implied full UI migration. |
+| misc | Select fixes relevant to the new code and Windows distribution; no bulk replay of maintenance commits. |
+| warming | Defer until measured latency/cost warrants it; no separate nudge/warming/steering framework prerequisite. |
+
+The minimum useful replacement is two distinct harnesses using one workspace:
+classic interactive coding; durable task admission/checkpoint/wake/abort; one
+trimmed Python capability/MCP loop usable by each; Laputa persona plus durable
+ACTMEM and domain-partitioned long-term recall. Keep compilation-based recipe
+selection and one model gateway. Exclude complete old UI/settings parity,
+multi-channel delivery, Studio, public SDK/Port compatibility, generalized
+workflow/evolution platforms and legacy database/checkpoint import from the
+initial estimate. These omitted features remain possible later scope, not
+requirements the owner has agreed to discard permanently.
+
+### 18.5 Reuse and the remaining hard boundaries
+
+Current vivy-test already supplies assembly, launcher, gateway, classic coding
+tools, context-file loading, session/branch support, skills/trust, Plan and
+bounded Rig-native delegation. Its tracked Rust/Python source files total
+11,733 physical lines: 9,249 in implementation files and 2,484 in separate test
+files. Inline Rust tests remain in the first number, so this is not an exact
+production-only comparison or proof of equivalent coverage. Existing recorded
+checks in HANDOFF apply; no new app/gateway runs were made for this assessment.
+
+Reuse candidates are Rig's coding/session/terminal facilities; Prime's Python
+protocol/event-loop and managed MCP patterns; the Python MCP SDK; native
+MemPalace library calls; and concrete mysoul memory semantics. Pi-durable is a
+TypeScript behavior reference, not a drop-in Rust durable engine. The native
+MemPalace facade and Laputa Rust-consuming boundary remain unimplemented.
+
+The following responsibilities survive any reduction in tool-development work:
+
+1. **Durable authority:** admitted task identity, committed phase, deduplication,
+   explicit abort, persisted wake times and host restart. A cancelled waiter is
+   not a cancelled task; a timer in an exited process cannot wake anything.
+2. **Effect outcomes:** a Python/remote operation may finish just before a crash.
+   Unknown outcome must not become automatic replay. Persist logical operation
+   identity/outcome and define replay eligibility for retained operations.
+3. **Workbench lifetime:** the current worker preserves variables but cancels
+   asyncio tasks at every cell end. MCP sessions and long-lived clients need a
+   continuously serviced loop, managed resources and an unblocked cancel/control
+   path; execution/output alone does not close this loop.
+4. **Memory commits:** MemPalace retrieval is not authoritative task state.
+   Preserve Recap revision/source association and archive/commit ordering;
+   coordinate shared-workspace writes and distinguish memory partitions from
+   permission boundaries. Do not copy the original subject/session schema
+   wholesale just to retain these invariants.
+5. **Language boundary:** Python expands capability libraries, but Rust must
+   still own the chosen task lifecycle, cancellation and bounded admission of
+   outputs. Duplicating the model/agent loop in Python would defeat the target.
+
+Go's `internal/runtime/checkpoint.go` explicitly binds opaque Eino checkpoints
+to engine version and prompt identity. Such checkpoints are not portable Rig
+continuations. Reading old exported conversation text, importing structured
+memory and resuming an interrupted effect are three different compatibility
+tasks. No legacy data inspection or migration is included here.
+
+Go already has cron: `internal/runtime/cron_scheduler.go`, CronStore and matching
+RPC/UI/storage paths. Its recorded startup policy skips missed recurring
+occurrences and disables overdue one-shots; that is not pi-durable's persisted
+sleep/wake contract. A minimal new scheduler should admit due work into the
+durable harness with explicit missed-run/overlap policy, rather than invoke
+Python in an unrelated second execution path. Rust retains durable scheduling
+authority; Python can expose schedule management. Live-host or OS wake support
+must be selected before claiming tasks run while the product is closed.
+
+Pinned behavior anchors: [checkpoint binding](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/checkpoint.go),
+[Recap compaction](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/recap_compaction.go)
+and [cron lifecycle](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/cron_scheduler.go).
+
+### 18.6 Difficulty and planning allowance
+
+**Full Go/remake feature equivalence is high difficulty and is a product rewrite.**
+Changing language/framework while preserving all data, approval checkpoints,
+protocols, interfaces and plugin behavior retains most of the expensive contract
+work. This audit does not justify a reliable full-equivalence completion date.
+It would require per-surface acceptance and data-migration investigation.
+
+**The owner's minimal two-harness replacement is medium-to-high difficulty,
+with a bounded scope.** The coding base is substantially underway; durable,
+Python lifecycle and memory commit/recovery are the main remaining work. Do not
+convert 180,000 Go lines into a Rust-line estimate or assume Python removes
+state-management work.
+
+Illustrative engineering allowance, not a measured delivery commitment: one
+experienced contributor familiar with Rust/Python, using the current experiment,
+Windows as the initial platform, one gateway, local storage, no legacy data
+compatibility and no new browser/Studio product:
+
+| Work package | Focused engineering days | Completion evidence |
+| --- | ---: | --- |
+| Verify and close the retained coding path | 3-6 | Representative real coding task, tool/model failure, stop, explicit resume and session/compaction behavior. |
+| Persistent Python capability lifecycle | 4-8 | Discovery/instructions, cross-cell async client, host callback, bounded result, failure/reuse, targeted cancel and shutdown. |
+| One managed MCP integration | 3-6 | Configure/connect/list/call, timeout/disconnect, reload/close and child-process cleanup. |
+| Minimal durable harness and scheduling | 8-15 | Admission dedup, committed checkpoint reopen, sleep/wake, explicit abort and safe treatment of interrupted effects. |
+| Laputa boundary, ACTMEM and native MemPalace | 6-12 | Persona authority, versioned Recap commit/correction, scoped remember/search/get and cross-harness partition behavior. |
+| Combined recovery and Windows packaging | 5-10 | Kill/reopen at selected boundaries, install/start diagnostics, resource cleanup and one useful end-to-end task per path. |
+| Total | 29-57 | Roughly 6-12 five-day engineering weeks; not a calendar or staffing promise. |
+
+These are judgment ranges inferred from source/contract gaps, not historical
+velocity measurements. Packages may overlap; changing the durable backend,
+Laputa integration or native-memory write contract can move the total outside
+the range. A coding-plus-Python demonstration can precede the two-harness
+replacement, but does not establish the promised persistent companion/memory
+behavior. A browser face, channels, compatibility/import or autonomous evolution
+would need their own estimate after selection.
+
+The recommended next commitment is one bounded vertical slice with measured
+failure/recovery evidence, then re-estimate the remaining packages. Continue
+the saved order: establish coding and durable foundations separately, close
+the trimmed Prime capability loop, then the durable memory slice. Treat the
+old regressions as a source of obligations; do not require restoring every
+layer built to serve the old product's much broader ambitions.
+
+Verification for this assessment: source/ref identity and physical-line counts
+were checked; the original Go product and remake donors were not built or run.
+Documentation changes are checked separately with `git diff --check`. No source
+port, dependency installation, private-data migration or upstream push is part
+of this deliverable.
