@@ -51,6 +51,14 @@ selection, and gives a conditional engineering allowance. It does not authorize
 implementation or change the two-harness scope. Original source was inspected
 read-only; no app data, source port or legacy data migration was involved.
 
+The owner's next refinement reduces migration scope further: retire BML, use
+the full upstream MemPalace engine in Python (still no L0 persona injection),
+and rewrite Laputa. Small bundles and hooks remain intended capabilities.
+Plan is implemented; external hook and saved session-goal examples exist in Rig
+but are not selected. Autonomous Goal remains unwired. See DESIGN's native-memory
+section and research 18.7; do not reuse the earlier broad estimate as a quote
+for copying old features.
+
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner

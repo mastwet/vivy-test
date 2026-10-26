@@ -1224,3 +1224,49 @@ were checked; the original Go product and remake donors were not built or run.
 Documentation changes are checked separately with `git diff --check`. No source
 port, dependency installation, private-data migration or upstream push is part
 of this deliverable.
+
+### 18.7 Owner refinement and remaining integration work
+
+The owner clarified that the intended feature transfer is substantially smaller:
+retain small bundle and hook capabilities, build on existing Plan/Goal
+infrastructure, rewrite Laputa, retire BML and adopt the full upstream MemPalace
+engine. This supersedes any reading of 18.4 as deferring every bundle/hook
+feature or requiring migration of the old toolkit/cognition architecture.
+The earlier 29-57 engineering-day allowance combines new harness/memory work
+and replacement-product verification; it is not an estimate of old-code transfer
+and should not be reused as a quote for this narrower selection.
+
+Source check at Rig `55cd481a2421fd5da468b5bd6afc6ac876883599`:
+`corpus/sn/src/hook_scripts.rs` provides session_start, prompt_submit,
+before_tool, after_tool and turn_end external scripts, timeout/cancellation and
+project trust. `corpus/base/src/session_goal.rs` provides saved user-set goal
+text, prompt/status projection and restore. Neither plugin is selected in the
+current coding recipe. The delivered Vivy PlanPlugin already uses Rig's request,
+review, cancellation and saved-state boundaries. These are a strong foundation;
+a saved goal does not yet supply autonomous advancement or durable execution.
+
+Suggested remaining integration inventory, without creating new platforms:
+
+- One content-bundle import/list/enable convention for the actually retained
+  skills, prompts, hook declarations and Python/MCP configuration. Keep compiled
+  Rust selection in recipes. Exact format/lifecycle is not decided here.
+- A managed Python environment and capability lifecycle: interpreter/dependency
+  reproducibility, discoverable instructions, live asyncio/MCP resources,
+  bounded results, cancellation and shutdown. Existing shell/Python process
+  support is reusable, not a second installer/service platform requirement.
+- Durable host availability, persisted task/wake state, abort and recovery;
+  Goal's advance/finish/stop behavior uses that path when persistence is needed.
+- Rewritten Laputa's persona/context boundary, versioned ACTMEM/Recap and full
+  MemPalace integration. Preserve native write/read semantics and domain/source
+  association. Full engine availability does not activate a second persona L0
+  or make MemPalace the authoritative in-flight task store.
+- Shared workspace/task identity and coordination of conflicting writes.
+  Python's outer execute hook does not observe every operation performed by
+  libraries inside a cell; expose capability-level events only where the
+  retained product actually needs hook visibility/control.
+- One chosen daily-use entry and useful task status/results. Existing coding
+  TUI is available; a companion channel/browser face is a later explicit choice.
+
+Reusing the old web UI, all channels, LSP/ACP, historical data, general workflow,
+Studio, automatic evolution and distribution governance is not newly selected
+by this clarification. No implementation or upstream data change was made.

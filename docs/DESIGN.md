@@ -150,6 +150,25 @@ below remains evidence only for the behavior it actually ran.
 
 ### Python-native memory candidate and research checkpoint (2026-10-27)
 
+Owner refinement after the Go migration assessment: retire BML and use the full
+upstream MemPalace engine through Python; an upstream memory-engine extraction
+or slim fork is no longer the intended starting point. A small Vivy-facing API
+can still bound outputs and select partitions without removing engine features.
+The earlier Laputa persona authority remains: MemPalace L0 is not injected.
+Laputa itself will be rewritten; preserving its responsibility does not mean
+importing its existing Go implementation. ACTMEM/Recap remains working state,
+separate from MemPalace's long-term storage/retrieval responsibility.
+
+Retain small content bundles and hooks as intended capabilities. Bundle format
+and exact import/enable behavior remain to be selected; a minimal content bundle
+need not reproduce the old toolkit publication/rollback platform. Compiled Rust
+component selection still belongs to the YAML recipe and rebuild. Existing
+PlanPlugin is delivered. Rig's `corpus/base/src/session_goal.rs` supplies a saved
+session-goal example and `corpus/sn/src/hook_scripts.rs` supplies an external-hook
+example; neither is selected in the current recipe. These are reusable source
+patterns, not evidence of delivered Vivy Goal or external hooks. Autonomous Goal
+advancement, completion/stop conditions and restart policy remain unwired.
+
 The owner asked whether MemPalace can be imported as a library to expose native
 long-term memory inside the Python workbench. Source inspection establishes that
 the library route exists; this is an integration candidate, not a completed
