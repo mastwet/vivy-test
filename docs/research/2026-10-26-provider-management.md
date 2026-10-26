@@ -390,8 +390,13 @@ Verification record:
   checks pass. Linkers emit the existing MSVC library/export-file message.
 
 All network acceptance uses synthetic loopback fixtures. Actual provider/gateway
-compatibility and Linux/macOS runtime execution remain unverified. No push or
-merge is part of this delivery.
+compatibility and Linux/macOS runtime execution remain unverified. The feature
+delivery was initially kept on its branch. The owner subsequently requested
+local integration: `de10ee3` was fast-forward merged into `vivy-test` main on
+2026-10-26. All 132 Rust tests were rerun successfully there, followed by a
+native launcher/baseline rebuild and the cross-protocol loopback smoke. The
+shared `C:/vt` build now belongs to the main checkout. No push is part of that
+integration.
 
 [pi-models]: https://github.com/earendil-works/pi/blob/d5b3de22d0e24a3e9c38a9410d3329b099717283/packages/coding-agent/docs/models.md
 [pi-custom]: https://github.com/earendil-works/pi/blob/d5b3de22d0e24a3e9c38a9410d3329b099717283/packages/coding-agent/docs/custom-provider.md
