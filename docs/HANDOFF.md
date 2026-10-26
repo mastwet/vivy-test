@@ -88,6 +88,9 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 The owner also requested provider-management research on 2026-10-26. See
 [provider management and plugin boundaries](research/2026-10-26-provider-management.md)
 for Pi/DSH/Rig evidence and a proposed extension of the gateway-first surface.
+The follow-up narrows the first provider categories to built-in and user-defined,
+reusing Rig's preset/Connector pipeline; it records the custom-ID registration
+boundary and an offline API-construction probe, with no live-provider claim.
 That proposal does not approve implementation or change the delivery order below.
 
 Follow DESIGN's "Delivery slices and stopping points" in order; do not start a

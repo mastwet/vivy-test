@@ -5,10 +5,14 @@ owner review, not a replacement for DESIGN's gateway-first decision or a claim
 that the proposed management commands exist. Provider management expands the
 previously deferred direct-provider surface explicitly requested for research.
 
+Owner refinement, 2026-10-26: first distinguish built-in providers from
+user-defined providers, and reuse Rig's prefabricated provider pipeline.
 Keep Rig's execution path. Add management of configured provider instances,
-their credentials and model catalogs over its existing Connector. Select
-protocol and special-authentication code through the recipe; configure instances
-of compiled adapters at runtime. A compatible gateway remains one such instance.
+their credentials and model catalogs over its existing Connector. Reuse native
+presets and compatible protocols already present in Rig; a vendor does not need
+a new local protocol plugin. The recipe selects owned management capabilities
+and any additional implementation dependencies. Runtime settings configure
+instances of compiled capabilities. A compatible gateway remains one instance.
 
 ## Source revisions
 
@@ -22,7 +26,8 @@ of compiled adapters at runtime. A compatible gateway remains one such instance.
 Pi was cloned into ignored `.workspace/pi` and left detached at the handoff's
 baseline. DSH files were read through GitHub; neither reference is a product
 dependency. The evidence below is source inspection and the current generated
-package's offline Cargo graph, not a new live-provider compatibility test.
+package's offline Cargo graph, plus the offline construction probe recorded
+below. None is a new live-provider compatibility test.
 
 ## What the references establish
 
@@ -88,13 +93,80 @@ listed models, no provider-instance CRUD UI, no explicit provider-first picker,
 no configuration reload for captured endpoint/key state, and no unified policy
 for direct-provider credentials. `/model vendor/model` already exists.
 
+### Rig follow-up: two provider sources, one execution pipeline
+
+The existing chain is `Models -> Connector -> ModelSpec/Provide -> native
+ProviderConfig -> completion model/handler -> existing agent execution`.
+`Models::default()` already contains `Connector::default()`, which starts with
+`Catalog::builtin()`. Native providers are not absent from the current host just
+because startup defaults to `gateway/...`; management and deliberate selection
+are the missing layer.
+
+| User-facing category | Rig reuse | Owned work |
+| --- | --- | --- |
+| Built-in provider, such as DeepSeek, OpenAI, Anthropic or Gemini | Catalog rows, native presets/dialects, `ConnectOptions`, Connector and existing login/model controls | Select exposed presets; manage instance/default/credential settings and the provider-first picker |
+| User-defined provider using a known vendor or compatible protocol | `ProviderId::declare`, `Catalog::insert(ModelSpec)`, `Connector::provide`, and an existing `ProviderConfig` | Validate endpoint, credential reference and per-model facts; register each configured instance |
+
+For a built-in identity, `ConnectOptions::new().api_key(...).base_url(...)`
+overrides credentials and endpoint while retaining the vendor's dialect. With
+no explicit registration, Connector can use the preset's environment lookup.
+Use the host's explicit credential policy for configured instances rather than
+accidentally inheriting unrelated ambient credentials.
+
+A custom endpoint does not normally require custom protocol code. A new instance
+such as `company` can reuse `ProviderId::catalog("deepseek").config(...)` with
+its endpoint changed, or a generic OpenAI-compatible config. Insert its own
+ModelSpec rows and register a closure calling
+`config.completion_handler(spec.reference(), spec.id, http, ModelFacts::new(...))`.
+The same seam works with Rig's Anthropic and Gemini config variants. OpenAI Chat
+Completions versus Responses is a route choice on OpenAIConfig, not a fourth
+protocol family. Keep request dialects explicit: a compatible endpoint alone
+does not establish vendor-specific reasoning or tool behavior.
+
+One important [API boundary][rig-registry]: `ProviderId::declare("company")`
+only creates an identity. Combining it with `ConnectOptions::format(OpenAi)`
+does **not** create a protocol preset; `Catalog::connect_with` still rejects it
+as `CatalogOnly`. Use `Connector::provide` with the existing configured wire.
+Our GatewayPlugin already demonstrates this registration pattern. No second
+provider trait, engine or generic adapter registry is required.
+
+The built-in catalog also contains catalog-only entries. Bedrock, Vertex AI and
+Gemini gRPC require their companion crates/registrations; Voyage AI's entry is
+for embeddings/reranking. Listing a row is not proof that this host can run it
+as a coding-agent completion model. Derive exposed availability from the actual
+assembled catalog, registered handlers and tool capability, and distinguish
+local constructibility from successful remote validation.
+Use Rig's canonical IDs rather than guessed display names: for example, this
+revision identifies Gemini as `gcp.gemini`, while its protocol family is
+`gemini`. The construction probe caught that naming distinction as well.
+
+For the requested first scope, use one small provider-management crate with
+built-in and custom configuration branches. If the recipe must independently
+select those capabilities, expose two plugin constructors from that crate and
+assemble them over the same Models resource. Initialize the selected catalog
+once, then append registrations. Do not create one wrapper crate per vendor.
+Only a genuinely new wire/auth implementation warrants additional plugin code;
+runtime native-library loading remains outside this scope.
+
+An ignored `.workspace/provider-api-probe` was run with `cargo run --offline`
+against the exact pinned Rig revision, using fake keys and `.invalid` endpoints.
+The standalone probe explicitly enables rig-core's `reqwest` feature: its
+default features alone provide no HTTP client, whereas rig-harness already
+enables it. The initial probe exposed `NoHttpClient` before this was corrected.
+It checked construction through three built-in protocol families, rejection of
+a declared ID with only ConnectOptions, and successful handler construction for
+four custom instances over those families, including two instances of DeepSeek
+with the same model ID. It also checked that an explicitly empty, populated
+catalog rejects an unregistered built-in selection. No HTTP was sent: the probe
+does not verify wire serialization, authentication, streaming or tool calls.
+
 ## Recommended ownership
 
 | Concern | Implementation owner |
 | --- | --- |
 | Streaming, tools, cancellation, usage, compaction and child model calls | Existing Rig execution path through Models and Connector |
 | Provider instance ID, display name, adapter, endpoint, credential reference and configured models | One small typed configuration collection in user settings |
-| Native protocols and provider request dialects | Reuse Rig clients and mappings; recipe selects owned adapter plugins |
+| Native protocols and provider request dialects | Rig clients, presets and mappings; add owned protocol code only for an observed unsupported case |
 | Model facts | Rig ModelSpec, built-in defaults plus per-model overrides and disclosed discovery facts |
 | Credentials | One host-owned store/resolver; settings contain references, never resolved secrets |
 | Provider/model selectors and status | Projection of registered adapters, configured instances and their actual catalog/status |
@@ -125,11 +197,17 @@ upstream model ID `org/model-1`; the request sends the latter unchanged.
   choice, without silently routing the session to a different account.
 
 The following is a proposed runtime configuration shape, not currently accepted
-syntax. Keep it in user settings; the recipe still selects the adapter code.
+syntax. Keep it in user settings; the recipe selects the management/plugin code.
 
 ```toml
+[providers.deepseek]
+kind = "builtin"
+preset = "deepseek"
+credential_env = "RIG_SECRET_DEEPSEEK"
+
 [providers.company]
-adapter = "openai-chat"
+kind = "custom"
+protocol = "openai-chat"
 base_url = "https://gateway.example/v1"
 credential_env = "RIG_SECRET_COMPANY"
 
@@ -138,6 +216,11 @@ id = "org/model-1"
 context_window = 131072
 max_output_tokens = 8192
 ```
+
+Built-in instances reuse the preset's catalog and allow per-model overrides;
+custom instances supply models manually first. A custom instance can name a
+known preset instead of a generic protocol when vendor-specific mapping is
+needed. The implementation should validate those mutually exclusive choices.
 
 Preserve `[gateway]` as a legacy input during migration, mapping it into the same
 management/execution path. Do not retain two independently editable stores of
@@ -234,6 +317,7 @@ still need separate streaming/tool-call verification before compatibility claims
 [dsh-key]: https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/llm/llm-deepseek-api-key/README.md
 [dsh-account]: https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/llm/llm-deepseek-account/README.md
 [rig-connector]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-core/src/catalog/connector.rs
+[rig-registry]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-core/src/providers/registry.rs
 [rig-login]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/plugins/rig-basics/src/login.rs
 [rig-modules]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-core/src/providers/mod.rs
 [rust-abi]: https://doc.rust-lang.org/reference/items/external-blocks.html#r-items.extern.abi.rust
