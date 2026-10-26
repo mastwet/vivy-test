@@ -42,8 +42,9 @@ checkout with the Windows console set to UTF-8. It reuses an existing build and
 does not build automatically: it looks for `vivy.exe` and `coding-agent.exe` in
 `%CARGO_TARGET_DIR%\debug`, `.generated\target\debug`, `target\debug` and
 `C:\vt\debug`, preferring a directory that holds both. If `Desktop\keys.txt` or
-`Desktop\key.txt` exists, it reads three non-empty lines (gateway URL, model
-ID, API key). It writes only the URL and model to the ignored
+`Desktop\key.txt` exists, it reads three or four non-empty lines (gateway URL,
+model ID, API key, and optionally the Rig dialect such as `deepseek`). It
+writes only the URL, model and dialect to the ignored
 `.workspace\launch-home\settings.toml`, and passes the
 key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
 `RIG_HOME`. Without a Desktop key file, the launcher uses the existing
@@ -81,6 +82,27 @@ output_price = 1.5
 $env:RIG_SECRET_GATEWAY = '...'  # never store the key in this repository
 & C:\vt\debug\vivy.exe
 ```
+
+### A provider's own API, with no gateway in between
+
+`[gateway]` is any OpenAI-compatible endpoint, so a provider's own API serves
+as one: nothing is proxied, and the vendor's base URL replaces the gateway's.
+Rig ships DeepSeek's request handling as the `deepseek` dialect — it drops a
+forced tool choice while the model thinks, takes strict tools under `/beta`,
+refuses `json_schema` response formats, and reads `reasoning_content` back —
+so name it rather than leaving the generic `gateway` dialect:
+
+```toml
+[gateway]
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"     # or deepseek-v4-pro, or the deepseek-flash alias
+models = ["deepseek-v4-pro"]    # optional: more ids for /model and Alt+P
+dialect = "deepseek"
+```
+
+The key stays the agent's `gateway` secret `RIG_SECRET_GATEWAY`, which the
+launcher reads from the third line of the Desktop key file; the same
+`dialect = "deepseek"` is its optional fourth line.
 
 An explicit `--model` takes precedence; a resumed session keeps its model;
 otherwise the configured gateway model is selected. Its raw model ID is sent

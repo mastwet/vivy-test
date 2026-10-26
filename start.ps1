@@ -51,8 +51,8 @@ try {
         $values = @([System.IO.File]::ReadAllLines($credentialFile, [System.Text.Encoding]::UTF8) |
             ForEach-Object { $_.Trim() } |
             Where-Object { $_.Length -gt 0 })
-        if ($values.Count -ne 3) {
-            throw 'The Desktop key file must have three non-empty lines: gateway URL, model ID, and API key.'
+        if ($values.Count -lt 3 -or $values.Count -gt 4) {
+            throw 'The Desktop key file must have three or four non-empty lines: gateway URL, model ID, API key, and optionally the Rig dialect (such as `deepseek`).'
         }
 
         $endpoint = $null
@@ -70,6 +70,10 @@ try {
         $baseUrlToml = ConvertTo-Json -InputObject $values[0] -Compress
         $modelToml = ConvertTo-Json -InputObject $values[1] -Compress
         $settings = "[gateway]`nbase_url = $baseUrlToml`nmodel = $modelToml`n"
+        if ($values.Count -eq 4) {
+            $dialectToml = ConvertTo-Json -InputObject $values[3] -Compress
+            $settings += "dialect = $dialectToml`n"
+        }
         $encoding = [System.Text.UTF8Encoding]::new($false)
         [System.IO.File]::WriteAllText((Join-Path $rigHome 'settings.toml'), $settings, $encoding)
         $env:RIG_HOME = $rigHome
