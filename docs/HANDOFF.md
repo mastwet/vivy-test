@@ -85,6 +85,13 @@ format and recovery protocol remain open and are not implemented.
 Prime's fast window path falls back on Windows; pi-durable's Node SQLite defaults
 and single-owner assumption are explicitly qualified in that research.
 
+The owner further clarified: do not add a Vivy-owned SQLite database alongside
+MemPalace; focus on a Python-workbench ingestion and recall flow into MemPalace's
+own storage. JSON-based files remain the proposed session/task substrate.
+Single-binary deployment is not important. This is not a ban on the storage
+technologies internal to MemPalace. Ingestion policy and durable file commit
+semantics are not yet designed or implemented; see DESIGN.
+
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner

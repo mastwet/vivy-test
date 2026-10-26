@@ -95,6 +95,11 @@ Start with Rig's existing file store for coding and evaluate a Rust-owned
 file-backed durable store using pi-durable's JSONL backend as a reference.
 The exact format, transaction protocol and recovery semantics remain to be
 designed and tested; this is a direction, not a claim that they are implemented.
+The owner further clarified that an additional Vivy-owned SQLite database is
+not desired alongside MemPalace: the intended memory investment is an ingestion
+and recall flow into MemPalace's existing storage. This is not a ban on upstream
+storage internals: the inspected MemPalace source includes a Chroma backend
+with SQLite files. Single-binary deployment is not an owner goal.
 Keep the two harnesses' session and
 execution state distinct even when they use the same workspace. The Python
 workbench supplies capabilities; it must not be the authoritative owner of the

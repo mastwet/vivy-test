@@ -187,6 +187,16 @@ Laputa itself will be rewritten; preserving its responsibility does not mean
 importing its existing Go implementation. ACTMEM/Recap remains working state,
 separate from MemPalace's long-term storage/retrieval responsibility.
 
+The owner's subsequent storage direction is to avoid an additional Vivy-owned
+SQLite database: use JSON-based files for the Vivy session/task persistence
+design and concentrate memory work on a Python-workbench ingestion and recall
+flow into the existing MemPalace engine. Single-binary deployment is not a
+selection goal. This does not exclude SQLite or other storage internal to the
+chosen upstream MemPalace backend; it avoids a second Vivy database duplicating
+memory or session responsibilities. The ingestion triggers, source identity,
+domain partition selection, deduplication, failure handling and Obsidian
+integration need separate design. No automatic ingestion is implied.
+
 Retain small content bundles and hooks as intended capabilities. Bundle format
 and exact import/enable behavior remain to be selected; a minimal content bundle
 need not reproduce the old toolkit publication/rollback platform. Compiled Rust
