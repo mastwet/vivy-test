@@ -85,6 +85,11 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
+The owner also requested provider-management research on 2026-10-26. See
+[provider management and plugin boundaries](research/2026-10-26-provider-management.md)
+for Pi/DSH/Rig evidence and a proposed extension of the gateway-first surface.
+That proposal does not approve implementation or change the delivery order below.
+
 Follow DESIGN's "Delivery slices and stopping points" in order; do not start a
 later step before the earlier one's check passes. Step 1 (gateway model facts)
 is done offline. Next is step 2: one real-gateway smoke, then Pi and vivy
