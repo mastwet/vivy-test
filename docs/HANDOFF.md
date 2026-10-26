@@ -18,6 +18,31 @@ Recursion, factory, a complete Prime daemon and automatic evolution are not
 prerequisites. See DESIGN's **Separate durable and coding harnesses** for the
 current scope. No second harness or new memory implementation is delivered yet.
 
+### Saved discussion checkpoint (2026-10-27)
+
+The owner asked to save today's decisions before further work. Resume from
+DESIGN's current two-harness section and **Python-native memory candidate and
+research checkpoint**, not the older full Prime/evolution direction. The order
+remains: establish coding and durable harness foundations separately, then close
+the trimmed Prime Python capability loop. Shared workspace/domain memory does
+not merge their task state or replay semantics. Keep the implementation small.
+
+The latest investigation is a native MemPalace library facade inside Python.
+Programmatic search and collection access exist, but native write/chunk/read
+equivalence is unverified. remember/search/get are proposed facade names, not
+shipped APIs. Laputa supplies persona; MemPalace L0 is not injected. No MemPalace
+fork, native-memory implementation or dependency change was made. Record costs
+before treating optional-feature omission as a smaller installation/runtime.
+
+Prime runtime `c4c238ca025e382d96fb5f37e6328ca77fb82ef3` passed seven isolated
+Python protocol/lifecycle probe checks; that does not validate its Rust adapter,
+MCP, snapshots or full background operation. Existing vivy worker tests passed
+six cases; its asyncio tasks are still cancelled at cell end. DESIGN preserves
+the exact inspected paths, pins, probe limits and mysoul reference locations.
+mysoul remains read-only reference material; no sessions or memory data are
+copied. Next work requires a bounded implementation scope, not another broad
+capability inventory. Today's save contains documentation only.
+
 Repository: `https://github.com/mastwet/vivy-test`.
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding

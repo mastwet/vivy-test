@@ -5,8 +5,9 @@ production compatibility promise. The user's decisions are fixed below; the
 coding runtime integration choice was resolved in favor of Rig's harness (see the
 implementation sections below).
 
-Updated 2026-10-27: **Separate durable and coding harnesses** below is the
-current direction. It supersedes conflicting scope and sequencing in the dated
+Saved checkpoint, 2026-10-27: **Separate durable and coding harnesses**, its
+shared-workspace/memory boundaries and the native-library investigation below
+are the current direction. They supersede conflicting scope and sequencing in the dated
 hybrid design below. Dated implementation sections preserve earlier evidence; they
 do not establish the newly designed capabilities. The owner has since reported
 a successful manual test; that report does not supply a new automated test record.
@@ -146,6 +147,83 @@ Evidence: this clarification is a design decision, not a delivered second harnes
 The inspected sources are `.workspace/pi/packages/durable/README.md`, its
 `src/harness/types.ts`, and `packages/agent/src/agent-loop.ts`. Existing verification
 below remains evidence only for the behavior it actually ran.
+
+### Python-native memory candidate and research checkpoint (2026-10-27)
+
+The owner asked whether MemPalace can be imported as a library to expose native
+long-term memory inside the Python workbench. Source inspection establishes that
+the library route exists; this is an integration candidate, not a completed
+adapter or approval of every proposed method signature. The candidate keeps
+MemPalace storage/retrieval in Python, Laputa persona/context ownership, and each
+Rust harness's lifecycle boundaries. It does not require a Rust MCP stack or a
+separate MemPalace MCP server merely for in-process calls.
+
+At `f41e8e75ddaadf5588d5127715fa531d79eadb45`,
+`mempalace.searcher.search_memories` is a programmatic entry point with explicit
+`palace_path`, `wing` and `room` arguments; `mempalace.palace.get_collection`
+exposes collection access. A small Vivy facade could provide remember/search/get,
+with bounded results, source/event association and host-admitted partition scope.
+Those names are proposals, not existing upstream APIs. Write deduplication,
+long-content chunking and logical-drawer reassembly partly live in MCP handlers;
+direct collection upsert/get is not automatically behavior-equivalent. Do not
+import `mempalace.mcp_server` as a shortcut: its initialization redirects stdout
+and loads the broad server surface, which is unsuitable inside the workbench.
+
+Prefer a small integration surface over an immediate upstream fork. Not invoking
+L0, graph, diary, coordination, hooks or mesh is functional selection, not proof
+that their package dependencies or import costs have disappeared. The inspected
+`mempalace-light-mcp` consolidates tools but imports the full server; it is not a
+demonstrated slim storage engine. Measure install size, startup, resident memory
+and retrieval costs before deciding to extract modules or split dependencies.
+No performance improvement or dependency reduction was measured in this session.
+
+The next native-memory experiment, when implementation is requested, should use
+synthetic data and a new isolated palace: scoped write -> search -> full retrieval
+-> reopen, with long-content roundtrip, duplicate delivery, repeated text from
+distinct sources and concurrent-writer behavior. Keep existing mysoul memory
+and its verified MCP route untouched. A native-library success must be recorded
+separately from historical MCP success.
+
+Research references and evidence for resuming this discussion:
+
+- Prime source: `.workspace/prime-agent`,
+  `c4c238ca025e382d96fb5f37e6328ca77fb82ef3`; inspect
+  `prime-agent-runtime/src/rlm/repl.md`, `repl.py`, `mcp.py`,
+  `crates/pa-core/src/kernel/bootstrap/runtime_code.rs`,
+  `session_engine/turn_boundary.rs` and `refinement/`. The `rlm` package imports
+  factory/harness/recursion surfaces; a runnable package is not already a trimmed
+  workbench. The Rust `pa-core`/`pa-daemon` dependency trees overlap Rig ownership.
+- A session-local synthetic Windows probe drove Prime's Python runtime without
+  its Rust host: seven checks passed (protocol-3 handshake, cross-cell variables,
+  background task survival, an in-cell duplex host callback, recovery after a
+  cell error, targeted async interrupt/reuse, graceful shutdown). No packages
+  were installed. Snapshot/restore was not run because `dill` was absent; MCP,
+  synchronous Windows interruption and full product recovery were not tested.
+  The scratch probe was temporary, not a maintained acceptance script.
+- The existing `python -B plugins/vivy-python/tests/test_worker.py` ran six
+  passing offline tests. A separate actual-worker probe confirmed that its
+  current cell-end cleanup cancels a created asyncio task before the next cell.
+  This worker is an auxiliary executor, not a connected MCP/native-memory loop.
+- mysoul reference entry: `C:/Users/Administrator/Desktop/mysoul`; its research
+  points to the actual application at
+  `C:/Users/Administrator/.codex/worktrees/mysoul-v01/mysoul`. Read its
+  `src/mysoul/laputa.py`, `recall.py`, `mempalace.py`,
+  `tests/integration/test_recap_only_context.py` and
+  `test_on_demand_memory.py`, plus the later memory plans. Actual code uses
+  committed Recap and explicit recall; older README/spec snapshots alone do
+  not establish the final behavior. This session inspected source and prior
+  validation records; it did not rerun mysoul or access its live memory data.
+- MemPalace source was read from that application's
+  `.local/upstream-mempalace` at the revision above. Upstream documentation:
+  [Python API](https://mempalaceofficial.com/reference/python-api) and
+  [MCP tools](https://mempalaceofficial.com/reference/mcp-tools). Pin and verify
+  the chosen source/package rather than assuming current docs match a release.
+
+Open choices: the Rust durable implementation, the exact Prime runtime subset,
+the native MemPalace write/read seam, domain taxonomy and source-identity mapping,
+and each harness's initial acceptance case. These are not implemented decisions.
+Resume with those bounded choices; do not restart a full-platform or RLM parity
+effort. No product code, dependency or memory data was changed by this checkpoint.
 
 ## Hybrid architecture and first-stage boundary (2026-10-25 record)
 
