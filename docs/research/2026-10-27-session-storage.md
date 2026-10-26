@@ -40,6 +40,14 @@ and [tool operations](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f809
 These are useful design references, not a reason to import the Go backend,
 reproduce every product store, or migrate legacy data.
 
+The Go [V0 architecture](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/docs/AGENT-VIVY-ARCHITECTURE-V0.md)
+records that the pure-Go SQLite driver supported a single Windows executable,
+while the desired storage semantics included atomic journal commits, snapshots,
+leases and restart recovery. D-026 explicitly says the database engine was not
+the architectural invariant; D-031 made SQLite the V0 reference and deferred a
+filesystem journal probe. This explains the recorded choice, not a proven
+performance advantage over files.
+
 ## What the references actually keep
 
 | System | Authoritative representation | Lifecycle and recovery | Long history and concurrency |
@@ -82,16 +90,18 @@ the TypeScript implementation is a reference, not a Rust dependency.
 
 ## Proposed direction for Vivy
 
-The smallest initial split is **Rig's existing file store for coding; a
-Rust-owned transactional store for durable tasks and their conversation
-records**, with SQLite as the leading candidate for a local prototype. This is
-a recommendation, not an owner decision. Keep the two harnesses' session and
+The owner's subsequent preference is **JSON-based files rather than SQLite**.
+Start with Rig's existing file store for coding and evaluate a Rust-owned
+file-backed durable store using pi-durable's JSONL backend as a reference.
+The exact format, transaction protocol and recovery semantics remain to be
+designed and tested; this is a direction, not a claim that they are implemented.
+Keep the two harnesses' session and
 execution state distinct even when they use the same workspace. The Python
 workbench supplies capabilities; it must not be the authoritative owner of the
 Rust runtime's session or task lifecycle.
 
-For a durable session, put a task transition and the conversation records it
-depends on in the same authoritative transaction. A minimal model would identify
+For a durable session, publish a task transition and the conversation records
+it depends on as one authoritative commit. A minimal model would identify
 the session, task, phase/status, revision, checkpoint and wake deadline, plus
 request/effect identifiers where needed. A durable submission is admitted once;
 resume loads committed state; a sleep commits its checkpoint and deadline before
@@ -99,23 +109,23 @@ the runtime relinquishes control. An actual running scheduler or host wakeup is
 still required. A persisted deadline alone cannot start a stopped application.
 Implement only the task kinds and records needed by the first durable use case.
 
-This proposal does not require copying all pi-durable tables or building a
-generic workflow platform. Keep one authoritative representation per session;
-JSONL export, UI projections, search indexes and caches are derived data. Do
-not make a JSONL transcript and a SQLite task record independently authoritative
-for the same commit: a crash between writes would leave an ambiguous recovery.
-The chosen SQLite journal and sync policy must be explicit and tested on the
-actual Windows deployment; WAL/NORMAL is a tradeoff, not a universal durability
-promise. Protect the durable runtime with a defined single-owner policy; SQLite
-serializing writes by itself does not prevent two schedulers from executing a
-task twice.
+This proposal does not require a generic workflow platform. Keep one
+authoritative representation per session; UI projections, search indexes and
+caches are derived data. Do not make separate files independently authoritative
+for the same commit without a recovery protocol: a crash between writes would
+leave ambiguous state. One candidate is a single JSONL batch per commit; another
+is pi-durable's multiple sidecars with a main commit marker. The latter is more
+involved and should not be implemented preemptively. Define and test commit
+publication, truncated writes, sync policy and single-owner behavior on Windows.
+Python/MCP effects still require their own recovery rules.
 
-Other choices remain open. A single SQLite system for both harnesses could make
-cross-session queries simpler but needs integration with Rig and a measured
-cost; an all-JSONL design has simple files but must independently implement
-atomic multi-record transitions and ownership. Do not select either merely to
-make both directories look uniform. No compatibility with old Vivy data or its
-deployment architecture is required.
+The owner has expressed a preference, not approved a concrete on-disk format.
+Readable JSON is suitable for small snapshots; append-only JSONL avoids rewriting
+a growing conversation on every event. Neither is automatically faster for
+every query. Pi-durable's present JSONL backend holds full history in memory;
+do not adopt that limitation as a Vivy requirement. Large-history loading,
+pagination, indexes, and crash guarantees need measurement and a bounded design.
+No compatibility with old Vivy data or its deployment architecture is required.
 
 ## Effects, memory and the shared workspace
 

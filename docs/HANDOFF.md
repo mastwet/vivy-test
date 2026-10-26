@@ -79,8 +79,9 @@ findings; no such additional implementation is implied.
 
 The later [session storage comparison](research/2026-10-27-session-storage.md)
 records Prime, Pi coding, pi-durable and the current Rig storage boundaries. It
-proposes retaining Rig's coding store and evaluating a Rust-owned transactional
-durable store, without treating that candidate as an approved implementation.
+records the owner's later preference for JSON-based files, retaining Rig's
+coding store and evaluating a Rust-owned file-backed durable store. The durable
+format and recovery protocol remain open and are not implemented.
 Prime's fast window path falls back on Windows; pi-durable's Node SQLite defaults
 and single-owner assumption are explicitly qualified in that research.
 
