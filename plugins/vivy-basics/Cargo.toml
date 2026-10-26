@@ -1,7 +1,7 @@
 [package]
 name = "vivy-basics"
 version = "0.1.0"
-description = "rig-harness plugins for daily use, after Pi: search tools, prompt templates, /session, /copy and /export."
+description = "vivy-test coding, session and terminal plugins on rig-harness."
 edition = "2024"
 rust-version = "1.97.1"
 publish = false

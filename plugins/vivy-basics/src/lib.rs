@@ -21,11 +21,14 @@
 //!   bounded parallel work, sequential chains and terminal feedback.
 //! - [`plan::PlanPlugin`] adds collaborative Plan guidance and a reviewed exit,
 //!   with terminal state and user feedback, without changing tool permissions.
+//! - [`prompt::VivyPromptPlugin`] supplies the default vivy-test coding identity.
+//! - `tui::VivyTuiPlugin` composes the optional compact terminal screen.
 
 pub mod branch;
 pub mod context;
 pub mod model;
 pub mod plan;
+pub mod prompt;
 pub mod search;
 pub mod session;
 pub mod shell;
@@ -33,3 +36,6 @@ pub mod skills;
 pub mod subagents;
 pub mod templates;
 pub mod trust;
+
+#[cfg(feature = "tui")]
+pub mod tui;

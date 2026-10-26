@@ -15,7 +15,7 @@ fn draw(view: &ToolCallView<'_>) -> Vec<Line<'static>> {
         "Parallel"
     };
     let Some(text) = view.result_text() else {
-        let mut lines = vec![view.header(format!("Vivy {title}"), "")];
+        let mut lines = vec![view.header(format!("vivy-test {title}"), "")];
         if let Some(output) = view.output {
             lines.extend(output.lines().map(|line| Line::from(line.to_owned())));
         } else {
@@ -40,12 +40,12 @@ fn draw(view: &ToolCallView<'_>) -> Vec<Line<'static>> {
         return lines;
     };
     let Ok(result) = serde_json::from_str::<Value>(&text) else {
-        let mut lines = vec![view.header(format!("Vivy {title}"), "")];
+        let mut lines = vec![view.header(format!("vivy-test {title}"), "")];
         lines.extend(view.result_lines());
         return lines;
     };
     let mut lines = vec![view.header(
-        format!("Vivy {title}"),
+        format!("vivy-test {title}"),
         format!("{}/{} completed", result["completed"], result["total"]),
     )];
     for row in result["results"].as_array().into_iter().flatten() {

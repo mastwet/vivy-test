@@ -192,7 +192,7 @@ def terminal_checks(binary, work, env, server):
         terminal.type(ENTER, enter=False)
         view.wait("built-in and user roles visible", lambda text: "scout:" in text and "custom:" in text)
         terminal.type("PARALLEL_CASE PARENT_PRIVATE_CONTEXT")
-        view.wait("parallel card, Markdown answers and final reply", lambda text: "PARALLEL_ACCEPTED" in text and "Vivy Parallel" in text)
+        view.wait("parallel card, Markdown answers and final reply", lambda text: "PARALLEL_ACCEPTED" in text and "vivy-test Parallel" in text)
         assert '"results"' not in view.text()
         child = server.parallel["results"][0]["agent"]
         terminal.type("/agents " + child)

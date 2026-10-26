@@ -57,7 +57,7 @@ impl Plugin for VivySubagentsPlugin {
                 .get_mut("properties")
                 .and_then(|v| v.as_object_mut())
                 .unwrap();
-            properties.insert("profile".into(), json!({"type":"string","description":"Named Vivy role; /roles lists built-in, user and trusted project roles."}));
+            properties.insert("profile".into(), json!({"type":"string","description":"Named vivy-test role; /roles lists built-in, user and trusted project roles."}));
             properties.insert("cwd".into(), json!({"type":"string","description":"Working directory inside this project, relative to yours. Project context stays shared."}));
         }
     }

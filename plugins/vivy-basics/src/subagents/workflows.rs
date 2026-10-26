@@ -113,8 +113,8 @@ pub(super) fn add(app: &mut App) {
     let independent = || ToolOptions {
         footprint: Some(Touches::Independent),
     };
-    app.add_open_tool(PARALLEL, "Delegate 1-8 independent tasks to native Vivy agents, up to four running children. Returns all results, including failures. Use distinct files for parallel edits.", independent(), parallel)
-        .add_open_tool(CHAIN, "Delegate a finite sequence of native Vivy agents. {previous} in a prompt receives the prior bounded final answer. Stops at the first failure.", independent(), chain)
+    app.add_open_tool(PARALLEL, "Delegate 1-8 independent tasks to native vivy-test agents, up to four running children. Returns all results, including failures. Use distinct files for parallel edits.", independent(), parallel)
+        .add_open_tool(CHAIN, "Delegate a finite sequence of native vivy-test agents. {previous} in a prompt receives the prior bounded final answer. Stops at the first failure.", independent(), chain)
         .add_observer(child_spawned)
         .add_observer(child_finished)
         .add_observer(spawn_failed)

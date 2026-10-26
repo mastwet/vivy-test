@@ -23,6 +23,9 @@ The later owner-approved collaborative Plan addition is implemented in
 terminal mode markers, explicit plan submission and user review/feedback;
 see DESIGN's "Collaborative Plan mode" and README usage. Goal and automatic
 evolution remain separate work.
+The owner-approved 2026-10-26 terminal refresh selects a compact vivy-test screen
+on Rig's public widgets, a persistent footer and a branded default identity.
+See DESIGN's "Compact vivy-test terminal" and the verification appendix below.
 Read [DESIGN.md](DESIGN.md) for decisions and [PI-BASELINE.md](PI-BASELINE.md) for
 coverage. Those documents replace the need to reconstruct the chat history.
 
@@ -203,3 +206,70 @@ steps. Outside a review, it now waits for the exact editor text, dismisses
 completion and then submits; the full scenario passed. Modal command behavior
 and product keybindings were unchanged. This scripted gateway verification does
 not establish real-provider compatibility. No push was performed.
+
+## Compact terminal verification (2026-10-26, Windows)
+
+The recipe now selects `VivyPromptPlugin` and the feature-gated `VivyTuiPlugin`.
+The local Codex source at `970111f6cb` was inspected for presentation; neither
+reference checkout was edited or made a new build/runtime dependency. Rig's
+native execution, session, question, editor and transcript paths are retained.
+
+Checks used the pinned Rust 1.97.1 toolchain, `CARGO_TARGET_DIR=C:/vt` and
+`CARGO_PROFILE_DEV_DEBUG=0`:
+
+```powershell
+cargo test --workspace --locked
+cargo test --manifest-path plugins/vivy-basics/Cargo.toml --features tui --locked
+cargo check --manifest-path plugins/vivy-basics/Cargo.toml --lib --no-default-features --locked
+cargo run -p vivy -- build recipes/coding-agent.yaml
+cargo fmt --all -- --check
+cargo fmt --manifest-path plugins/vivy-basics/Cargo.toml -- --check
+git diff --check
+python scripts/branding_tui.py C:/vt/debug/vivy.exe
+python scripts/plan_tui.py C:/vt/debug/vivy.exe
+python scripts/subagents_smoke.py C:/vt/debug/vivy.exe --tui
+python scripts/smoke.py C:/vt/debug/vivy.exe
+```
+
+The 20 root tests and 73 tui-enabled basics tests passed. The new tests cover
+model-visible default identity and preservation of an explicit role, changing
+welcome metadata, Unicode and resize fitting, persistent draft-time status,
+NO_COLOR, dark/light input surfaces with preserved diff/failure colors, native
+multiline Paste events, title restoration and unrelated control sequences,
+and complete/live tool output through actual registered renderers. Brand tests
+first failed against upstream defaults. A stale input-hint redraw and missing
+shell renderer were reproduced before correction, then passed.
+Final visual QA retained the project name at the end of shortened directories
+and fitted whole shortcut hints, with an additional failing-then-passing test.
+
+The baseline rebuilt successfully for the existing start.cmd. A disposable
+recipe with no terminal component also built, and its normal Cargo dependency
+graph contained neither rig-tui nor ratatui. The no-default-features library
+check, formatting and Git whitespace checks passed. Native linking emitted
+MSVC's library/export-file informational warning; no new compiler warning was
+introduced by the implementation.
+
+The compact-screen script passed on real Windows ConPTY at 120x40 and 50x20,
+both with the inherited NO_COLOR setting and with truecolor explicitly enabled:
+branded startup/title, Plan-visible drafts, Unicode multiline continuation,
+actual shell output, exit-7 failure cause, running output and Esc cancellation.
+Synthetic terminal streams were rasterized and visually inspected at both sizes;
+the images are ignored test artifacts, not screenshots of a real-provider task.
+The scripted gateway checked that requests use the vivy-test default identity.
+The existing Plan terminal script passed approval/write, feedback, scrolling,
+modal exit and restart/resume. Subagent acceptance passed child views, usage,
+parallel/chain workflows and cancellation of four shell descendants. The
+existing general smoke passed model, file, shell, session, Python, JSON,
+failure, credential-filtering, image, effort and compaction scenarios.
+
+Test-only pyte 0.8.2, wcwidth 0.2.13 and pywinpty 3.1.0 were reused/installed in
+ignored scratch and exposed through PYTHONPATH; no product dependency was added.
+The new script closes its terminal before deleting its scratch directory and
+uses process liveness on Windows, since pywinpty's output reader may wait after
+the process exits. ConPTY multiline checks use the native backslash+Enter
+fallback; the offline Paste test separately covers newlines and Unicode.
+
+A fresh read-only source review found no substantiated issue. This review is
+distinct from the builds and terminal runs above. All network acceptance here
+used a synthetic loopback gateway; no new real-provider or Linux/macOS result
+is claimed.

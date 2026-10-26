@@ -757,7 +757,6 @@ version = "0.0.0"
 dependencies = [
  "rig-basics",
  "rig-harness",
- "rig-tui",
  "vivy-basics",
  "vivy-gateway",
  "vivy-python",

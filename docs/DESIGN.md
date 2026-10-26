@@ -716,5 +716,42 @@ Rig supplies the loop, effects, saved state, commands, Ask and TUI. DSH is seman
 reference material only. Verification commands and real terminal results for this
 delivery are recorded in [HANDOFF.md](HANDOFF.md); earlier dated results remain historical.
 
+## Compact vivy-test terminal (2026-10-26)
+
+The owner approved a Codex-inspired visual refresh, English UI, consistent
+vivy-test branding and complete tool output with existing primary keybindings.
+The local Codex checkout at `970111f6cb` is presentation reference material only;
+no Codex code or runtime dependency is added. Rig remains pinned at `55cd481a`.
+
+`vivy_basics::tui::VivyTuiPlugin`, behind the existing `tui` feature, composes
+`TuiViewPlugin` with the native transcript, editor and question strip. A separate
+status line below the input stays visible with a draft. Its fitting priorities
+keep activity and Plan ahead of model and usage details. Public canvas hooks
+replace ordinary input hints and supply an empty-input placeholder, leaving
+question titles, focus, caret and completion overlays to Rig.
+
+The welcome reuses Rig's unsaved metadata aside and renders a small vivy-test
+title with this plugin's version, current model/reasoning and directory.
+Display-width truncation follows terminal resizes and keeps the directory's
+project-name suffix. Shortcut hints fit as complete items. A terminal-write adapter
+changes only Rig's application-title prefix; prompt marks, other control
+sequences and title-stack restoration retain their owner. Normal transcript
+and error content are not subject to a global brand substitution.
+
+Neutral tool surfaces reduce visual noise while preserving terminal-derived
+input/user shades, failure and diff colors, and NO_COLOR. Existing coding
+renderers retain their complete results with compact state markers. Local
+shell/search wrappers have no upstream renderer: small looks are installed
+only for those tools found in the assembled runtime, preserving live output,
+full results and failure status rather than displaying raw argument JSON.
+
+The recipe selects `VivyPromptPlugin` for the default identity in all fronts.
+It reuses Rig's default coding guidance with only `You are rig` changed to
+`You are vivy-test`, and preserves the empty-role condition so explicit prompts
+remain authoritative. The terminal component selects the presentation plugin
+and its Cargo feature; omitting it excludes rig-tui without a runtime enable
+flag. The underlying .rig paths, protocol names and environment variables stay
+compatible. The same Plan, subagent and session mechanisms remain in use.
+
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md

@@ -1,0 +1,293 @@
+use super::*;
+use rig_harness_test_support::{MemoryStore, app_on, first_agent};
+use rig_tui::{Editor, MainEditor, Side, StatusItem, StatusItems, Theme, Tone, TuiTestScreen};
+
+fn screen_app() -> (App, Entity) {
+    let (mut app, _) = app_on(&MemoryStore::default());
+    app.insert_resource(Invoked::default())
+        .insert_resource(ProjectRoot("C:/fixture/项目".into()))
+        .add_plugins((AgentPlugin, SessionLogPlugin, VivyTuiPlugin));
+    rig_tui::add_view(&mut app);
+    app.finish();
+    app.update();
+    let agent = first_agent(app.world_mut()).unwrap();
+    let mut status = StatusItems::default();
+    for item in [
+        StatusItem::new("model", Side::Left, 30, u8::MAX).says("org/model-1", Tone::Bold),
+        StatusItem::new("status", Side::Left, 50, u8::MAX).says("idle", Tone::Green),
+        StatusItem::new("plan", Side::Left, 10, u8::MAX).says("PLAN", Tone::Cyan),
+    ] {
+        status.show(item);
+    }
+    app.world_mut()
+        .entity_mut(agent)
+        .insert((rig_basics::models::ModelLabel("org/model-1".into()), status));
+    app.insert_resource(ShownAgent(Some(agent)));
+    app.insert_resource(TuiTestScreen::new(100, 24));
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 100, 24)));
+    app.update();
+    (app, agent)
+}
+
+fn text(app: &App) -> String {
+    app.world().resource::<TuiTestScreen>().rows().join("\n")
+}
+
+#[test]
+fn welcome_uses_our_identity_and_tracks_model_changes_without_duplicate_headers() {
+    let (mut app, agent) = screen_app();
+    let before = text(&app);
+    assert!(before.contains(">_ vivy-test (v0.1.0)"), "{before}");
+    assert!(!before.contains("█▙") && !before.contains("rig v"));
+    assert!(before.replace(' ', "").contains("项目"), "{before}");
+    app.world_mut()
+        .entity_mut(agent)
+        .insert(rig_basics::models::ModelLabel("org/next-model".into()));
+    app.update();
+    let after = text(&app);
+    assert!(after.contains("org/next-model"), "{after}");
+    assert_eq!(after.matches(">_ vivy-test").count(), 1);
+}
+
+#[test]
+fn typing_keeps_plan_and_activity_in_the_footer_and_keeps_the_native_editor() {
+    let (mut app, _) = screen_app();
+    assert!(text(&app).contains("Ask vivy-test to do anything"));
+    assert!(!text(&app).contains("Ctrl+V image"), "{}", text(&app));
+    let world = app.world_mut();
+    let mut editors = world.query_filtered::<&mut Editor, With<MainEditor>>();
+    editors
+        .single_mut(world)
+        .unwrap()
+        .set("检查这段代码\nsecond line");
+    app.update();
+    let rows = app.world().resource::<TuiTestScreen>().rows();
+    assert!(rows.last().unwrap().contains("PLAN"), "{}", rows.join("\n"));
+    assert!(rows.last().unwrap().contains("idle"));
+    assert!(rows.iter().any(|row| row.contains("second line")));
+    assert!(!rows.iter().any(|row| row.contains("Ask vivy-test")));
+}
+
+#[test]
+fn terminal_titles_are_rebranded_while_prompt_marks_and_title_restore_survive() {
+    let (mut app, _) = screen_app();
+    let written = app.world().resource::<TuiTestScreen>().written();
+    let first = String::from_utf8_lossy(written);
+    assert!(first.contains("\x1b]2;vivy-test · idle\x1b\\"), "{first:?}");
+    assert!(!first.contains("\x1b]2;rig ·"));
+    assert!(first.contains("\x1b]133;A"));
+    app.world_mut().write_message(rig_harness::AppExit::Success);
+    app.update();
+    assert!(
+        app.world()
+            .resource::<TuiTestScreen>()
+            .written()
+            .ends_with(b"\x1b[23;0t")
+    );
+}
+
+#[test]
+fn plain_theme_and_narrow_screens_keep_the_editor_and_plan_visible() {
+    let (mut app, _) = screen_app();
+    app.insert_resource(Theme::default().without_color());
+    app.world_mut()
+        .resource_mut::<TuiTestScreen>()
+        .resize(32, 12);
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 32, 12)));
+    app.update();
+    let output = text(&app);
+    assert!(output.contains("PLAN"), "{output}");
+    assert!(output.contains('›'));
+    let screen = app.world().resource::<TuiTestScreen>();
+    assert!(screen.buffer().content().iter().all(|cell| {
+        cell.fg == rig_tui::ratatui::style::Color::Reset
+            && cell.bg == rig_tui::ratatui::style::Color::Reset
+    }));
+}
+
+#[test]
+fn long_unicode_directory_and_model_are_refit_after_resize() {
+    let (mut app, agent) = screen_app();
+    app.insert_resource(ProjectRoot(format!("C:/{}", "测试/".repeat(60)).into()));
+    app.world_mut()
+        .resource_mut::<TuiTestScreen>()
+        .resize(32, 16);
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 32, 16)));
+    app.update();
+    let small = text(&app);
+    assert!(small.contains('…'), "{small}");
+    assert!(!small.contains('\u{fffd}'));
+    app.world_mut()
+        .entity_mut(agent)
+        .insert(rig_basics::models::ModelLabel("org/new-model".into()));
+    app.world_mut()
+        .resource_mut::<TuiTestScreen>()
+        .resize(100, 24);
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 100, 24)));
+    app.update();
+    assert!(text(&app).contains("org/new-model · reasoning default"));
+    assert_eq!(text(&app).matches(">_ vivy-test").count(), 1);
+}
+
+#[test]
+fn terminal_branding_leaves_arbitrary_text_and_other_control_sequences_untouched() {
+    let (mut app, _) = screen_app();
+    let start = app.world().resource::<TuiTestScreen>().written().len();
+    let untouched = b"literal rig text\x1b]52;c;cmln\x1b\\\x1b]133;C\x1b\\";
+    app.world_mut()
+        .write_message(TerminalWrite(untouched.to_vec()));
+    app.update();
+    assert_eq!(
+        &app.world().resource::<TuiTestScreen>().written()[start..],
+        untouched
+    );
+}
+
+#[test]
+fn theme_changes_preserve_diff_colors_and_adapt_the_input_surface() {
+    let (mut app, _) = screen_app();
+    let mut inputs = Vec::new();
+    for background in [(0x1c, 0x1c, 0x1c), (0xfa, 0xfa, 0xfa)] {
+        let native = Theme::on(background, true);
+        app.insert_resource(native);
+        app.world_mut().write_message(RequestRedraw);
+        app.update();
+        let actual = app.world().resource::<Theme>();
+        assert_eq!(actual.added, native.added);
+        assert_eq!(actual.removed, native.removed);
+        assert_eq!(actual.call_failed, native.call_failed);
+        assert_eq!(actual.tool, Color::Reset);
+        inputs.push(actual.input);
+    }
+    assert_ne!(inputs[0], inputs[1]);
+}
+
+#[test]
+fn coding_renderer_adapter_preserves_every_output_row_and_failure_cause() {
+    use rig_harness::rig_core::message::{ToolCall, ToolFunction, ToolName};
+    use rig_harness::rig_core::tool::ToolResult;
+    use rig_tui::{CallState, ToolCallView, ToolRenderer};
+    let mut app = App::new();
+    app.insert_resource(Invoked::default())
+        .add_plugins((rig_basics::coding_tools::ReadTool, VivyTuiPlugin));
+    let renderer = |app: &mut App| {
+        let world = app.world_mut();
+        world
+            .query::<&ToolRenderer>()
+            .iter(world)
+            .find(|r| r.tool == "read")
+            .unwrap()
+            .render
+            .clone()
+    };
+    let original = renderer(&mut app);
+    app.finish();
+    let adapted = renderer(&mut app);
+    let call = ToolCall::from_wire(
+        "read-1",
+        ToolFunction::new(
+            ToolName::new("read").unwrap(),
+            serde_json::json!({"path":"file.rs"}),
+        ),
+    );
+    let output = (0..80)
+        .map(|n| format!("line {n}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let mut result = call.answer(&ToolResult::success(output.into()));
+    let view = ToolCallView::new(&call, Some(&result), CallState::Done);
+    let before = original(&view);
+    let after = adapted(&view);
+    assert!(after[0].to_string().starts_with("• "));
+    assert_eq!(after[1..], before[1..]);
+    assert!(after.last().unwrap().to_string().contains("line 79"));
+    result.is_error = true;
+    let failed = adapted(&ToolCallView::new(&call, Some(&result), CallState::Done));
+    assert!(failed[0].to_string().starts_with("× "));
+    assert!(failed[0].to_string().contains("failed"));
+    assert!(failed.last().unwrap().to_string().contains("line 79"));
+}
+
+#[test]
+fn assembled_shell_and_search_have_readable_renderers_instead_of_raw_json() {
+    use rig_harness::rig_core::message::{ToolCall, ToolFunction, ToolName};
+    use rig_tui::{CallState, ToolCallView, ToolRenderer};
+    let (mut app, _) = app_on(&MemoryStore::default());
+    app.insert_resource(Invoked::default()).add_plugins((
+        crate::shell::ShellTool,
+        crate::search::SearchTools,
+        VivyTuiPlugin,
+    ));
+    app.finish();
+    let world = app.world_mut();
+    let mut renderers = world.query::<&ToolRenderer>();
+    let renderer = renderers
+        .iter(world)
+        .find(|r| r.tool == "shell")
+        .expect("the assembled shell needs a readable renderer");
+    let call = ToolCall::from_wire(
+        "shell-1",
+        ToolFunction::new(
+            ToolName::new("shell").unwrap(),
+            serde_json::json!({"command":"printf visible", "timeout_secs":60}),
+        ),
+    );
+    let mut view = ToolCallView::new(&call, None, CallState::Running(None));
+    view.output = Some("ACTUAL-LIVE-OUTPUT\nlast live line");
+    let text = (renderer.render)(&view)
+        .into_iter()
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        text.contains("$ printf visible") && !text.contains("\"command\""),
+        "{text}"
+    );
+    assert!(text.contains("ACTUAL-LIVE-OUTPUT") && text.contains("last live line"));
+    assert!(renderers.iter(world).any(|r| r.tool == "search"));
+    assert!(renderers.iter(world).any(|r| r.tool == "list"));
+}
+
+#[test]
+fn native_paste_preserves_unicode_and_newlines_without_submitting() {
+    use rig_tui::{KeyInput, PendingInput, crossterm::event::Event};
+    let (mut app, _) = screen_app();
+    app.world_mut()
+        .resource_mut::<PendingInput>()
+        .0
+        .push(KeyInput::Event(Event::Paste(
+            "检查代码\nsecond line".into(),
+        )));
+    app.update();
+    let world = app.world_mut();
+    let mut editors = world.query_filtered::<&Editor, With<MainEditor>>();
+    assert_eq!(
+        editors.single(world).unwrap().text(),
+        "检查代码\nsecond line"
+    );
+}
+
+#[test]
+fn narrow_welcome_keeps_the_project_name_and_hints_end_on_whole_items() {
+    let (mut app, _) = screen_app();
+    app.insert_resource(ProjectRoot(
+        "C:/a-very-long-parent-folder/another-parent/vivy-test".into(),
+    ));
+    app.world_mut()
+        .resource_mut::<TuiTestScreen>()
+        .resize(32, 16);
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 32, 16)));
+    app.update();
+    let rows = app.world().resource::<TuiTestScreen>().rows();
+    let directory = rows
+        .iter()
+        .find(|row| row.contains("C:/") || row.contains("/vivy-test"))
+        .unwrap();
+    assert!(directory.trim_end().ends_with("vivy-test"), "{directory}");
+    let hint = rows
+        .iter()
+        .find(|row| row.contains("Enter send"))
+        .unwrap()
+        .trim();
+    assert_eq!(hint, "Enter send");
+}

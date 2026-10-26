@@ -16,9 +16,10 @@ rig:
   rev: 55cd481a2421fd5da468b5bd6afc6ac876883599
 components:
   - name: prompt
-    crate: rig-basics
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
     plugins:
-      - rig_basics::prompt::DefaultPromptPlugin
+      - vivy_basics::prompt::VivyPromptPlugin
 
   # Pi's project trust: the project's own skills, prompt templates and
   # system-prompt files load once the user trusts it (--approve, /trust, or
@@ -142,7 +143,6 @@ components:
     crate: rig-basics
     plugins:
       - rig_basics::BasicCommandsPlugin
-      - rig_basics::welcome::WelcomePlugin
 
   # -p, piped input and --json: the front of every run without a terminal.
   - name: print
@@ -152,9 +152,10 @@ components:
 
   # The terminal view. Without it, rig-tui is not compiled at all.
   - name: terminal
-    crate: rig-tui
+    crate: vivy-basics
+    path: ../plugins/vivy-basics
     plugins:
-      - rig_tui::TuiPlugin
+      - vivy_basics::tui::VivyTuiPlugin
     features:
       rig-basics: [tui]
       vivy-basics: [tui]

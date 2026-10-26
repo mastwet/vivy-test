@@ -101,6 +101,27 @@ Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
 agents. `python scripts/sessions_tui.py <vivy>` checks these on Linux/macOS.
 
+## Terminal presentation
+
+The recipe's `terminal` component selects `vivy_basics::tui::VivyTuiPlugin`:
+a compact Codex-inspired screen built from Rig's native terminal widgets.
+The welcome and window title identify **vivy-test**. The footer remains visible
+while typing, with activity, Plan, model, reasoning and available usage data;
+narrow windows keep activity and Plan first. Tool calls show readable commands,
+their full output and failure causes; file edits retain their complete diffs.
+
+The editor, command/file completion, scrolling, questions and session controls
+keep their existing keys. Enter sends, Shift+Enter or Ctrl+J adds a line, and
+backslash then Enter is a multiline fallback. During work, Enter steers,
+Tab queues and Esc stops. `NO_COLOR` disables colors. Removing `terminal` and
+rebuilding excludes `rig-tui`; the default vivy-test identity also works in
+print/JSON mode. Configuration paths and `RIG_HOME` remain compatible.
+
+`python scripts/branding_tui.py <vivy>` checks the compact screen at 120x40 and
+50x20 using a scripted loopback gateway and a real pseudoterminal. It uses the
+same test-only dependencies as `plan_tui.py`; set `VIVY_TUI_EVIDENCE` to capture
+synthetic screens and terminal streams outside Git.
+
 ## Native subagents
 
 The recipe's `subagents` component adds `task`, `message`, `wait`,
