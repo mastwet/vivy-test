@@ -1,5 +1,6 @@
 # Reference checkouts and disposable experiment work.
 /.workspace/
+/.workapce/
 /.generated/
 target/
 /data/
