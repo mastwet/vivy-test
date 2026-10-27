@@ -160,6 +160,9 @@ records the runtime/host/Skills/MCP boundaries, 16 fresh Windows REPL tests and
 a proposed first scope with W1-W5 acceptance gates. Selective Prime reuse,
 fresh-state restart and the separate native-memory consumer gate are proposals,
 not yet approved implementation choices. No product implementation starts here.
+Research section 19.7 adds the component transplant map and concrete dependency
+cuts, including existing Python Skills. It refines the reuse proposal without
+selecting extra capabilities or changing the accepted execution boundaries.
 
 1. Preserve the accepted coding path and use it as the first workbench consumer.
 2. Close a trimmed Prime-style capability loop: discover a Python capability,

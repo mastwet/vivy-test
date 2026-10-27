@@ -185,6 +185,13 @@ scope into the workbench design; do not restart a broad inventory or ask the
 owner to invent a task before the scope is clear. The proposal is not a shipped
 workbench or an approved implementation specification.
 
+The subsequent component audit is in research section 19.7. It identifies the
+REPL/protocol/bridge, executable-Skill loading and generic MCP lifecycle as donor
+candidates, and maps all nine bundled Python Skills to their actual host or
+library dependencies. The current Vivy worker protocol is incompatible with a
+drop-in Prime worker; host routing must change with it. Keep `vivy-process` and
+existing direct tools. No transplant has been implemented or validated yet.
+
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
 The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize
 the new Python workbench: close its design, implement the selected runtime and
