@@ -54,6 +54,16 @@ key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
 tree keeps pointing at the old location even when its `target` directory came
 along. Rebuild after a move: `cargo clean -p vivy` and `cargo build -p vivy`.
 
+### One-click Windows build
+
+Double-click `build.cmd` after a recipe or source change; `start.cmd` only
+launches what is already built. It builds into the `CARGO_TARGET_DIR` that
+`start.cmd` looks at first, else `.generated\target`, keeps
+`CARGO_PROFILE_DEV_DEBUG=0`, and prints the built binary. It takes an optional
+recipe path, defaulting to `recipes/coding-agent.yaml`. It stops before
+compiling when that build's `vivy.exe` or agent is still running, because
+Windows cannot replace a running executable.
+
 ## Gateway and runtime settings
 
 Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
