@@ -249,6 +249,103 @@ fn assembled_shell_and_search_have_readable_renderers_instead_of_raw_json() {
 }
 
 #[test]
+fn a_wheel_notch_scrolls_the_transcript_without_typing_or_sending() {
+    use rig_harness::rig_core::completion::Message;
+    use rig_harness::rig_ecs::agent::Conversation;
+    let (mut app, agent) = screen_app();
+    let mut conversation = app
+        .world_mut()
+        .get_mut::<Conversation>(agent)
+        .expect("the agent holds a conversation");
+    for row in 0..40 {
+        conversation.push(Message::user(format!("transcript row {row}")));
+    }
+    app.update();
+    let bottom = text(&app);
+    assert!(bottom.contains("transcript row 39"), "{bottom}");
+    wheel(&mut app, MouseEventKind::ScrollUp);
+    let scrolled = text(&app);
+    assert_ne!(bottom, scrolled, "the wheel looks further back");
+    assert!(!scrolled.contains("transcript row 39"), "{scrolled}");
+    assert!(
+        scrolled.contains("more below") && scrolled.contains("Ask vivy-test to do anything"),
+        "reading happens above an untouched input: {scrolled}"
+    );
+    let world = app.world_mut();
+    let mut editors = world.query_filtered::<&Editor, With<MainEditor>>();
+    assert!(
+        editors.single(world).unwrap().is_empty(),
+        "a wheel notch types nothing"
+    );
+    // Down again reaches the newest output, as following the work does.
+    for _ in 0..20 {
+        wheel(&mut app, MouseEventKind::ScrollDown);
+    }
+    let followed = text(&app);
+    assert!(followed.contains("transcript row 39"), "{followed}");
+}
+
+/// Puts a wheel notch of `kind` among the frame's keys, then runs a frame.
+fn wheel(app: &mut App, kind: MouseEventKind) {
+    use rig_tui::crossterm::event::{KeyModifiers, MouseEvent};
+    app.world_mut()
+        .resource_mut::<PendingInput>()
+        .0
+        .push(KeyInput::Event(Event::Mouse(MouseEvent {
+            kind,
+            column: 10,
+            row: 5,
+            modifiers: KeyModifiers::NONE,
+        })));
+    app.update();
+}
+
+#[test]
+fn wheel_events_become_scrolls_and_other_mouse_events_stay_dropped() {
+    use rig_tui::crossterm::event::{KeyModifiers, MouseButton, MouseEvent};
+    let mouse = |kind| {
+        KeyInput::Event(Event::Mouse(MouseEvent {
+            kind,
+            column: 10,
+            row: 5,
+            modifiers: KeyModifiers::NONE,
+        }))
+    };
+    assert!(asks_to_scroll(&mouse(MouseEventKind::ScrollUp)));
+    assert!(asks_to_scroll(&mouse(MouseEventKind::ScrollDown)));
+    for ignored in [
+        MouseEventKind::Moved,
+        MouseEventKind::Down(MouseButton::Left),
+        MouseEventKind::Up(MouseButton::Left),
+    ] {
+        assert!(!asks_to_scroll(&mouse(ignored)), "{ignored:?}");
+    }
+}
+
+#[test]
+fn the_wheel_is_asked_for_with_the_screen_and_given_back_on_the_way_out() {
+    let (mut app, _) = screen_app();
+    let asked = app.world().resource::<TuiTestScreen>().written().to_vec();
+    assert!(
+        asked.windows(WHEEL_ON.len()).any(|bytes| bytes == WHEEL_ON),
+        "{asked:?}"
+    );
+    app.world_mut().write_message(rig_harness::AppExit::Success);
+    app.update();
+    let written = app.world().resource::<TuiTestScreen>().written();
+    assert!(
+        written
+            .windows(WHEEL_OFF.len())
+            .any(|bytes| bytes == WHEEL_OFF),
+        "{written:?}"
+    );
+    assert!(
+        written.ends_with(b"\x1b[23;0t"),
+        "the title restore still ends the output: {written:?}"
+    );
+}
+
+#[test]
 fn native_paste_preserves_unicode_and_newlines_without_submitting() {
     use rig_tui::{KeyInput, PendingInput, crossterm::event::Event};
     let (mut app, _) = screen_app();

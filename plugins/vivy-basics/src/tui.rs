@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use bevy_ecs::message::MessageMutator;
+
 use rig_harness::prelude::*;
 use rig_tui::ratatui::{
     layout::{Constraint, Rect},
@@ -12,12 +13,24 @@ use rig_tui::ratatui::{
     widgets::{Block, Clear, Paragraph, Widget},
 };
 use rig_tui::{
-    AsideRenderer, Editor, InlineStrip, InputContext, KeyFocus, MainEditor, MainPane, PaneKeys,
-    PanelCanvas, Placement, RequestRedraw, StatusItems, StatusLine, StatusSystems, TerminalSize,
-    TerminalWrite, Theme, TranscriptPane, TranscriptSource, TuiPanel, TuiSystems, TuiViewPlugin,
+    AsideRenderer, Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus,
+    KeyInput, MainEditor, MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw,
+    StatusItems, StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
+    TranscriptSource, TuiKeys, TuiPanel, TuiSystems, TuiViewPlugin,
+    crossterm::event::{Event, MouseEventKind},
 };
 
 mod looks;
+
+/// The wheel reported to us, in SGR form, and nothing else about the mouse:
+/// no motion, no clicks. The view owns no mouse, so the sequence is a
+/// [`TerminalWrite`], and leaving the terminal undoes it.
+const WHEEL_ON: &[u8] = b"\x1b[?1000h\x1b[?1006h";
+const WHEEL_OFF: &[u8] = b"\x1b[?1000l\x1b[?1006l";
+
+/// Rows one wheel notch moves the transcript: what a terminal's wheel
+/// usually does, and a third of Rig's page keys.
+const NOTCH: usize = 3;
 
 /// A compact coding screen with vivy-test branding and a persistent footer.
 #[derive(Default)]
@@ -45,7 +58,19 @@ impl Plugin for VivyTuiPlugin {
             MainPane,
             PaneKeys,
         ));
-        app.add_systems(PostUpdate, prioritize_status.in_set(StatusSystems::Edit))
+        app.add_systems(Startup, ask_for_wheel)
+            // Written after the frame, before the view lets the terminal go
+            // and before the exit-time title restore that ends the output.
+            .add_systems(
+                Last,
+                release_wheel
+                    .before(OnAppExitSystems)
+                    .run_if(on_message::<AppExit>),
+            )
+            // Rig reads the mouse and leaves it to nothing; the wheel is
+            // the transcript's, in every scope, before any binding.
+            .add_systems(TuiKeys, wheel_scrolls.in_set(InputSystems::Filter))
+            .add_systems(PostUpdate, prioritize_status.in_set(StatusSystems::Edit))
             .add_systems(PostUpdate, prepare.in_set(TuiSystems::Prepare))
             // The native widget has already drawn its text and caret. Change
             // only its chrome before composition; overlays still draw last.
@@ -125,6 +150,53 @@ fn prioritize_status(mut statuses: Query<&mut StatusItems>) {
             *items = next;
         }
     }
+}
+
+/// Asks the terminal for the wheel once the view holds it, so a notch
+/// scrolls the transcript instead of leaving the mouse to the terminal.
+fn ask_for_wheel(mut writes: MessageWriter<TerminalWrite>) {
+    writes.write(TerminalWrite(WHEEL_ON.to_vec()));
+}
+
+/// Gives the terminal's mouse back on the way out, so the shell after this
+/// one is not asked for reports it never wanted.
+fn release_wheel(mut writes: MessageWriter<TerminalWrite>) {
+    writes.write(TerminalWrite(WHEEL_OFF.to_vec()));
+}
+
+/// Turns each wheel notch into the scroll rows it means, before the keys
+/// reach the view; other mouse events, which nothing binds, stay dropped.
+fn wheel_scrolls(mut events: ResMut<PendingInput>) {
+    if !events.0.iter().any(asks_to_scroll) {
+        return;
+    }
+    let mut next = Vec::with_capacity(events.0.len());
+    for item in std::mem::take(&mut events.0) {
+        match item {
+            KeyInput::Event(event) => match scroll(&event) {
+                Some(action) => next.extend(std::iter::repeat_n(KeyInput::Action(action), NOTCH)),
+                None => next.push(KeyInput::Event(event)),
+            },
+            item => next.push(item),
+        }
+    }
+    events.0 = next;
+}
+
+/// The scroll a wheel event asks for, else nothing.
+fn scroll(event: &Event) -> Option<InputAction> {
+    match event {
+        Event::Mouse(mouse) => match mouse.kind {
+            MouseEventKind::ScrollUp => Some(InputAction::ScrollUp),
+            MouseEventKind::ScrollDown => Some(InputAction::ScrollDown),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn asks_to_scroll(item: &KeyInput) -> bool {
+    matches!(item, KeyInput::Event(event) if scroll(event).is_some())
 }
 
 fn input_chrome(
