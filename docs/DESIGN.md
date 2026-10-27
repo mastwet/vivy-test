@@ -1,14 +1,118 @@
 # Decisions and assembly direction
 
+## Python workbench implementation checkpoint (2026-10-28)
+
+The owned runtime now adapts Prime's persistent REPL and generic MCP lifecycle;
+Rust owns protocol dispatch, process trees, preparation and Rig integration.
+The full pinned native MemPalace engine is an optional consumer through a thin
+async facade. This supersedes the earlier statements that the replacement and
+native facade were only proposals. Durable remains deferred. The delivery plan
+is [Python workbench integration](plans/2026-10-28-python-workbench.md); usage is
+in the README. Implementation and local review verification are complete. The
+owner deferred actual-provider acceptance to a later manual run while changing
+provider; that gate remains open before declaring the entire system accepted.
+
+More, Fast, Good, Frugal guided the implementation: one embedded Python package,
+one existing Rig execution path, one shared trusted Skill inventory, existing
+vivy-process job ownership, and upstream MCP/MemPalace contracts. There is no
+new agent loop, dependency resolver, memory database or plugin SDK. Core and native
+memory dependencies are prepared separately. Runtime settings configure the
+compiled Python capability; omitting its YAML component still removes the crate.
+
+Important adaptation decisions: environments publish an atomic pointer without
+renaming venvs; owned temporary directories and uv cache avoid the observed Windows
+path-access failures; the upstream state-home seam is rebound to isolate locks
+because CONFIG_DIR alone is insufficient. Native collection search supplies the
+bounded semantic recall API, with source/wing/room filters; full upstream ingestion,
+hybrid orchestration and persona layers are not automatically enabled.
+
+Recorded verification on Windows, CPython 3.13.12, Rust 1.97.1 and pinned Rig:
+
+| Gate | Evidence and remaining limits |
+| --- | --- |
+| W1 runtime | 13 Rust workbench tests pass: persistent state, independent owners, Unicode, late output attribution, ordinary errors, queued/running cancellation, explicit retirement, timeout, crash/idle-crash recovery and credential policy changes. |
+| W2 preparation/loading | Real uv prepare, cancel, retry and warm reuse pass through Coding JSON. Corrupt pointer repair, failed install preserving the old pointer and lock contention pass. Trusted callable/module/lazy Markdown and unavailable-binding cases are tested. |
+| W3 MCP | Actual stdio and Streamable HTTP pass, including pagination, repeated cursor failure, parallel lazy open, close during open, reload, call timeout, failed startup with preserved HTTP 401 cause, filtered environment, full envelopes and isError. Unscoped search includes configured lazy connections. |
+| W4 Coding | Scripted gateway drives Skill discovery, actual MCP dataset, cross-cell processing, complete artifact, deliberate exception, retained state and reset. Headless Python workflow passes; omitted Python has no crate in the normal graph and no model tool. Windows terminal status/output/cancel/fresh/reset/exit passes. |
+| W5 lifecycle/cost | Twenty real worker + MCP + spawned-child cycles pass with no surviving owned PIDs after reset/close. Actual queued-call close/reset rejects the old queued write. Compaction retains live Python state. Crash/timeout recovery and removed Skill refresh also pass. Maximum measured close command plus process-exit confirmation is 0.256 s. |
+| M1/M2 native memory | Full Python suite: 36 tests pass, including 9 native tests with real assets/Chroma. Covers identity dedup/conflicts, distinct sources, complete long text/reopen, chunk loss, filters, noncreating reads, wrong stored dimension, competing writers, bounded foreign lock and cancelled waiter without replay. |
+| M3 joint model | Final scripted Coding-to-native chain passes (84.28 s, including a 5,000-line memory write and independent artifact inspection/native reopen-read). Actual provider acceptance is deferred by the owner for a manual run after switching provider. StepFun attempts failed TLS before a response; no compatibility claim is made. The authorized credential was never logged. |
+
+Supporting regression: root Cargo workspace tests and 60 vivy-basics tests pass;
+original Coding smoke, Plan Windows terminal, headless delegation and recipe
+without delegation pass. Source inspection alone is not platform acceptance.
+
+Initial measured costs, not an optimization claim: core prepared environment
+46,330,772 logical file bytes / 32 packages; full native environment 345,563,501
+bytes / 97 packages; pinned model cache 329,871,566 bytes. These are logical sizes,
+not physical allocated bytes (uv can share cached files). Cached preparation took
+8.05 s for the core fixture and 11.82 s for the native dependency environment;
+native assets/probe publication in the joint fixture took 18.41 s. The initial
+20-cycle final rerun measured median cold Coding+Python+MCP call 0.956 s, warm call
+0.093 s and worker RSS 60,211,200 bytes. Network/cache conditions affect these costs.
+
+One upstream limitation is visible: Chroma emits a legacy embedding-function
+deprecation, and MemPalace initially records dimension zero for the core embedder.
+The adapter performs the real 384-dimensional embeddinggemma probe, validates the
+prepared identity and stored dimension, and records the concrete identity on write.
+No fallback MiniLM model, server import, existing palace migration or L0 injection.
+
+### Final review and implementation rulings
+
+One independent whole-branch review of `66d1a8c..e6a00e0` found five Important
+issues and no Critical or Minor issues. Each was reproduced by a failing test,
+fixed in one author pass and verified by the complete relevant suites; no second
+review was substituted for those checks:
+
+| Finding | Fix and evidence |
+| --- | --- |
+| Queued handlers restarted a workbench after close/reset | Permanently retire the removed Arc and synchronize admission with active cancellation. Rust regression and actual two-call Coding close/reset both reject the queued file write. |
+| Large Unicode exceptions exceeded the protocol frame | Preserve full text first; size error fields for worst-case JSON expansion and cap exception type names. The 100,000-emoji exception retains existing variables. |
+| Unscoped MCP search silently searched nothing | Search configured enabled lazy connections using the host inventory, in deterministic order. Actual stdio search regression passes. |
+| HTTP startup 401 became CancelledError | Unwind transport task groups before publishing failure; preserve the sanitized underlying status and distinguish caller cancellation. Real loopback 401 regression passes. |
+| Real-mode marker matching could pass failed execution | Require successful tool-result outputs, exercise the expected ordinary error, inspect the complete artifact and independently reopen/read the expected source/event. Argument-only/failed-result counterexamples now fail. |
+
+Rulings carried from implementation and review:
+
+- Use a native Windows task ledger with the English numbered plan instead of
+  task-extraction wrappers; the cost is manual bookkeeping. The standard review
+  package script was used for the final review.
+- Publish environment pointers atomically without renaming venvs; embedded
+  absolute paths stay valid, at the cost of retaining unused environments.
+- Bind upstream state paths and own temporary/cache directories; this isolates
+  locks and fixes reproduced access failures. Upstream upgrades must revalidate
+  that seam; owned caches and failed environments need explicit disk maintenance.
+- Pin the full engine and immutable embeddinggemma assets, including SOCKS support
+  in the dependency lock. The optional installation/cache costs are measured above.
+- Use native vector search for the bounded facade. Its chunk limit precedes
+  logical-record deduplication, so fewer distinct records may be returned; broader
+  hybrid ranking and ingestion remain explicit future consumers of the full engine.
+- Respect the owner's deferred manual provider gate. Local fixtures are complete
+  evidence only for local behavior; actual provider compatibility stays unverified.
+- Windows is the only platform accepted here. Additional platforms require runs.
+- Interrupted native writes remain uncertain rather than promising rollback;
+  callers inspect the same source/event and do not automatically replay it.
+- Trusted Python/Skills/plugins are not sandboxed. Durable, replay, existing-palace
+  migration, OAuth, automatic ingestion and persona changes remain excluded.
+
+These rulings address every behavior the reviewer declined to judge. No deferred
+minor findings remain. Durable work must still wait for the owner's final system
+acceptance, including the replacement provider's manual run.
+
 Recorded on 2026-10-24. This is an experiment brief, not an implemented API or a
 production compatibility promise. The user's decisions are fixed below; the
-runtime integration choice was resolved in favor of Rig's harness (see the
+coding runtime integration choice was resolved in favor of Rig's harness (see the
 implementation sections below).
 
-Updated 2026-10-25: **Hybrid architecture and first-stage boundary** below is the
-current design. Dated implementation sections preserve earlier evidence; they
-do not establish the newly designed capabilities. The owner has since reported
-a successful manual test; that report does not supply a new automated test record.
+Saved checkpoint, 2026-10-27: **Separate durable and coding harnesses**, its
+shared-workspace/memory boundaries and the native-library investigation below
+are the current direction. They supersede conflicting scope and sequencing in the dated
+hybrid design below. Dated implementation sections preserve earlier evidence; they
+do not establish the newly designed capabilities. On 2026-10-27 the owner
+explicitly accepted the real-task coding path: the agent fixed one of its own
+bugs, and the owner reported a stable end-to-end chain. This closes the initial
+real-task coding acceptance gate. Evidence is owner-run acceptance; earlier
+automated checks remain separately recorded.
 
 The later **Collaborative Plan mode** section records the owner-approved Plan
 addition and its verification. This does not expand the parked Goal/evolution work.
@@ -19,15 +123,17 @@ addition and its verification. This does not expand the parked Goal/evolution wo
 | --- | --- |
 | Independent Rust test repository | No dependency on the original Vivy repository or its recovery work. |
 | YAML recipe and compile-time composition are the central experiment | The recipe determines selected plugin dependencies and static constructor calls. |
-| Rig is the implementation foundation | Reuse its components and, where economical, its existing harness and terminal plugins. |
-| Pi coding-agent is the functional reference | Track the complete inspected coding-agent surface; deliver it incrementally. |
+| Separate coding and durable harnesses | Establish and verify their lifecycle contracts independently before extending them. |
+| Shared workspace and partitioned memory | Both paths use the same workspace; memory is organized by domain/topic, with persona owned by Laputa. |
+| Rig is the current coding implementation foundation | Reuse its existing execution, session and terminal components; the durable implementation choice remains open. |
+| Classic Pi is the coding reference; pi-durable is the durable reference | Coding preserves its interactive task/tool path; durable follows persistent task, checkpoint and wake semantics. |
 | Rust/Vivy extension equivalents | Do not implement compatibility with existing Pi TypeScript extension source. |
 | Gateway-first model access | First integrate one gateway; avoid rebuilding individual provider login, routing, and catalog infrastructure. |
 | Run first; keep mechanisms inexpensive | The first end-to-end coding task precedes a generalized plugin platform. |
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
 | Native delegation; optional Python orchestration later | Recipe-selected Rig wrapper provides single tasks, bounded parallel batches and chains. Python/apixis remains a later composition direction. See the dated subagent delivery record. |
-| Prime-anchored automatic evolution | Use Prime's actual harness/proposal/history formats; add a narrow Vivy persona extension. |
+| Validate the Python workbench before starting durable | Coding has passed real-task acceptance. Close the new workbench's design and system validation first; then establish durable and verify its workbench integration. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
 gate. Gateway-first access intentionally defers Pi's broad direct-provider and
@@ -35,9 +141,311 @@ OAuth surface. Embedding can initially use ordinary Rust library APIs; an
 independently packaged SDK is unnecessary. Do not declare complete Pi parity
 while those or other baseline rows remain incomplete.
 
-## Hybrid architecture and first-stage boundary
+### Owner scope refinement: capability inventory (2026-10-27)
 
-This section is the implementation authority for the accepted miniature diagram.
+- Do not pursue compatibility with old Vivy data or its multi-platform
+  deployment arrangements. Existing platform tests remain evidence of what
+  actually ran; a future platform is a separate product selection.
+- Do not migrate the old Notebook and Reports products. The new direction is a
+  MemPalace + Obsidian capability loop in the Python workbench; its flows,
+  sync direction, interfaces and lifecycle await detailed design.
+- If a reusable INOFY-style workflow is selected, it belongs in a Python
+  component. Whether and how the existing INOFY implementation itself can be
+  reused has not been verified; no old Go runtime dependency is authorized.
+- Do not migrate the old Skill evolution or AutoDream. A new Prime-style
+  evolution chain is planned outside Vivy; its implementation/host is not
+  chosen here. Ordinary Skills remain part of the coding agent.
+- Redesign Cron, webhook and background work instead of porting the old
+  architecture. Durable admission, task identity, abort and wake guarantees
+  remain part of the independently established durable harness.
+- LSP is optional and non-core; select or adapt Rig's LSP example if the feature
+  is taken up. If a channel is selected for the first phase, consider QQ channel
+  only; even that selection and the exact QQ surface remain undecided.
+- ACP and SSH may use available reference implementations, without preserving
+  the old Go architecture. Their selection and integration remain undecided.
+
+Prime and Rig source findings for history search, context inspection and file
+rewind are in the feature inventory's reference section. Those findings do not
+select or implement any additional feature. In particular, Rig's Git-backed
+file rewind is not the already-selected conversation rewind.
+
+## Separate durable and coding harnesses (owner, 2026-10-27)
+
+The owner separates two product paths, with independent harness work:
+
+| Path | Main reference | Required distinction |
+| --- | --- | --- |
+| Coding | Classic Pi coding-agent and its agent loop | Interactive coding, the current conversation/tool chain, sessions, compaction, cancellation and explicit resume. Continue the existing Rig implementation. |
+| Durable | `pi/packages/durable` | Persisted admissions, task phases/checkpoints, recovery, durable sleep/wake, explicit work abort and replay policy. Persistent companionship belongs here. |
+
+`pi-durable` is TypeScript over pi-ai and Chord at the inspected Pi revision
+`f321e5bdd26b3624bfb2ab182a334d0a5edb698a`. It is a behavior and lifecycle
+reference, not an already integrated Rust dependency. Select the smallest Rust
+implementation against those contracts; neither a new full engine nor reuse of
+the coding harness establishes durable semantics without verification.
+
+In particular, cancelling a waiter does not abort its durable task. At the
+reference revision, interrupted tools rerun only when declared replay-safe;
+other interrupted calls produce an interrupted result. Durable storage does
+not make arbitrary Python code or remote effects safe to replay. A saved sleep
+also needs a live timer or a host wakeup to resume work.
+
+### Memory placement
+
+The mysoul persistent-companionship experiment informs the durable path. Preserve
+the intended layered context and short-term ACTMEM/Recap there after establishing
+its harness foundation. Both harnesses may use the shared, partitioned MemPalace
+recall capability; its admission must fit each path's lifecycle. Do not impose
+mysoul's Recap-only new-chat context, permanent conversation, memory maintenance
+or life scheduler on the classic coding path.
+
+Use the actual mysoul implementation and its later changes when selecting memory
+behavior; its early hierarchical-archive design is not the final context policy.
+No original Vivy source, sessions, credentials or production data are required.
+
+### Shared workspace, memory partitions and Laputa (owner clarification)
+
+Coding and durable use the same workspace. Harness kind describes how work runs,
+not which domain owns its memory: a companion may handle games, coding, household
+work, cooking and embodied-device tasks. Do not create separate authoritative
+long-term memories solely because work passed through different harnesses.
+
+Use MemPalace's palace/wing/room/drawer organization for domain/topic partitions
+and source-backed content. Illustrative wings include coding, games and daily
+life; rooms can represent projects or topics. These examples do not freeze a
+taxonomy. Recall begins in the relevant partition; expanding to other relevant
+partitions is explicit and bounded by the caller's admitted scope and context
+budget. Shared preferences may be recalled across domains without becoming new
+persona authorities. A wing/room filter organizes retrieval; it is not an ACL.
+
+Keep that organizational hierarchy distinct from MemPalace's optional L0-L3
+context stack. At the mysoul-inspected upstream revision
+`f41e8e75ddaadf5588d5127715fa531d79eadb45`, `layers.py` defines L0 as an identity
+file, L1 as a compact recent/important memory view, L2 as scoped retrieval and
+L3 as semantic search. `MemoryStack.wake_up()` renders L0 and L1 together;
+ordinary MCP search/get do not require that wrapper. Layer numbers are not
+palace/wing/room/drawer depths, task checkpoints or ACTMEM versions.
+
+Laputa remains the persona/context authority. Do not inject MemPalace L0 identity
+or maintain a second persona file. Compose admitted memory results with Laputa's
+selected identity and the path's own working context. MemPalace L1 is not a
+replacement for authoritative current task state; adopting its rendering would
+need a concrete benefit beyond the planned ACTMEM/Recap projection. The choice
+of scoped MCP or Python calls does not require modifying the upstream engine.
+
+The mysoul adapter's scope-hash wing and per-evidence room mapping establishes
+source association, not this proposed semantic taxonomy. Reuse its tested
+connection/provenance behavior selectively. If semantic rooms replace per-evidence
+rooms, preserve distinct event/source identities despite upstream content
+deduplication; do not change existing data as part of this design clarification.
+
+A shared workspace does not merge active task identities, Python namespaces or
+checkpoint ownership. Each harness retains those boundaries, and simultaneous
+writes to the same target must be coordinated. These requirements do not imply
+a new multi-agent society, universal permissions platform or shared agent loop.
+
+### Delivery order and the Prime capability loop
+
+Owner sequencing update, 2026-10-27: the new Python workbench is the immediate
+priority because coding and future agent paths need it. Complete its design,
+implementation and system validation before starting the durable harness. This
+supersedes the earlier requirement to establish both harnesses first; their
+separate lifecycle responsibilities remain unchanged.
+
+Owner scope decision, 2026-10-27: accept the closure, exclusions and implementation
+ownership in [research section 19.9](research/2026-10-25-hybrid-agent-workbench-decisions.md#199-closure-scope-and-implementation-ownership-2026-10-27).
+This supersedes the earlier proposal status for that scope. Sections 19.7 and
+19.8 retain the donor audit and Python-side loading evidence. Detailed adapter
+contracts and the implementation plan remain to be written; this record does
+not claim the replacement workbench has been implemented or validated.
+
+The first workbench must close environment preparation/delivery, persistent
+execution, bidirectional host communication, capability loading/discovery,
+generic MCP over stdio and Streamable HTTP, complete results/artifacts,
+cancellation/cleanup, per-agent state boundaries, and diagnostics/system
+acceptance. Loading includes trusted Python Skills, explicit library imports,
+selected host bridges and lazy MCP discovery with honest availability/errors.
+Keep YAML compile-time plugin selection and the accepted direct coding tools.
+
+Adapt Prime's bounded REPL core, protocol/Python bridge, Skill import helpers
+and generic MCP lifecycle; adapt its environment preparation workflow. Retain
+Rig's discovery/output facilities and `vivy-process`. Locally implement the
+Rust dispatcher/Rig integration, packaging/configuration, availability and
+conflict handling, result mapping, lifecycle escalation and integration checks.
+Transplantation requires deliberate dependency cuts and verification; replacing
+only the Python worker is incompatible with the current Rust protocol.
+
+Restart starts fresh Python state, preserves explicit file artifacts and tells
+the model what was reset; do not replay cells automatically. Skill code updates
+take effect at an explicit worker restart boundary; MCP connections have their
+own reload/close lifecycle. Normal compaction must preserve the intended live
+worker, while different agents must not share live namespaces.
+
+Omit Prime's second agent/model loop, factory/recursive tree, family routing,
+full daemon/continual harness/evolution, duplicate coding/shell tools, legacy
+per-service MCP wrappers, service marketplace/OAuth and a universal plugin SDK.
+Do not require every bundled Skill/library, CLI wrapper, a new UI or every MIME
+renderer. Defer automatic snapshots/hot reload/live-resource migration, durable
+scheduling/replay, full memory ingestion/sync, persona-memory redesign and extra
+platforms. These exclusions preserve existing native Rig delegation.
+
+1. Preserve the accepted coding path and use it as the first workbench consumer.
+2. Close a trimmed Prime-style capability loop: discover a Python capability,
+   load its instructions, execute it, return a bounded useful result, handle
+   failure/cancellation, and release owned resources. Define a bounded system
+   acceptance case, validate the runtime independently and through coding, and
+   record W1-W5 results. Use the dataset-to-artifact scenario through Coding,
+   including failure/cancel/reset variants, resource cleanup and operating costs.
+3. Close the separate native MemPalace consumer gate: write/search/get/close/
+   reopen using isolated synthetic data, checking source identity, long content,
+   duplicate delivery and concurrent writers. Reuse the native engine with a
+   thin Vivy adapter; do not expand this gate into a memory-management platform.
+4. Establish the durable harness against pi-durable's lifecycle reference,
+   then verify its integration with the validated workbench. A coding integration
+   does not establish durable replay or recovery semantics.
+
+Keep Rust focused on its path's agent execution, identities, cancellation and
+state guarantees. Python supplies libraries, tools, MCP clients and bounded
+composition, without a second provider/agent loop. Prime's recursive-agent,
+family messaging, factory, complete supervisor and automatic evolution machinery
+are not gates for this capability loop. Existing optional coding delegation is
+not removed by this scope decision.
+
+Reuse the Python runtime/protocol and suitable adapters where practical; do not
+assume the full `rlm` package is already a trimmed workbench. Share concrete
+libraries or protocol code when both paths need them, without first creating a
+universal harness or shared authoritative conversation store. A common gateway
+or workbench does not imply common recovery or replay semantics.
+
+The initial real-task coding gate is accepted by the owner (2026-10-27): the
+agent fixed one of its own bugs and the owner confirmed the chain was stable.
+Retain existing failure/cancellation checks as regression evidence; another
+real-task coding demonstration is not a prerequisite to the next slice.
+Next close the workbench design and system validation described above. After
+that, establish durable admission deduplication, reopen from a committed
+checkpoint, sleep/wake and explicit abort, including its workbench boundary.
+Durable ACTMEM/Recap and full background companionship remain subsequent slices;
+the selected native MemPalace consumer validation precedes durable and does not
+introduce its lifecycle.
+
+Evidence: this clarification is a design decision, not a delivered second harness.
+The inspected sources are `.workspace/pi/packages/durable/README.md`, its
+`src/harness/types.ts`, and `packages/agent/src/agent-loop.ts`. Existing verification
+below remains evidence only for the behavior it actually ran.
+
+### Python-native memory candidate and research checkpoint (2026-10-27)
+
+Owner refinement after the Go migration assessment: retire BML and use the full
+upstream MemPalace engine through Python; an upstream memory-engine extraction
+or slim fork is no longer the intended starting point. A small Vivy-facing API
+can still bound outputs and select partitions without removing engine features.
+The earlier Laputa persona authority remains: MemPalace L0 is not injected.
+Laputa itself will be rewritten; preserving its responsibility does not mean
+importing its existing Go implementation. ACTMEM/Recap remains working state,
+separate from MemPalace's long-term storage/retrieval responsibility.
+
+The owner's subsequent storage direction is to avoid an additional Vivy-owned
+SQLite database: use JSON-based files for the Vivy session/task persistence
+design and concentrate memory work on a Python-workbench ingestion and recall
+flow into the existing MemPalace engine. Single-binary deployment is not a
+selection goal. This does not exclude SQLite or other storage internal to the
+chosen upstream MemPalace backend; it avoids a second Vivy database duplicating
+memory or session responsibilities. The ingestion triggers, source identity,
+domain partition selection, deduplication, failure handling and Obsidian
+integration need separate design. No automatic ingestion is implied.
+
+Retain small content bundles and hooks as intended capabilities. Bundle format
+and exact import/enable behavior remain to be selected; a minimal content bundle
+need not reproduce the old toolkit publication/rollback platform. Compiled Rust
+component selection still belongs to the YAML recipe and rebuild. Existing
+PlanPlugin is delivered. Rig's `corpus/base/src/session_goal.rs` supplies a saved
+session-goal example and `corpus/sn/src/hook_scripts.rs` supplies an external-hook
+example; neither is selected in the current recipe. These are reusable source
+patterns, not evidence of delivered Vivy Goal or external hooks. Autonomous Goal
+advancement, completion/stop conditions and restart policy remain unwired.
+
+The owner asked whether MemPalace can be imported as a library to expose native
+long-term memory inside the Python workbench. Source inspection establishes that
+the library route exists; this is an integration candidate, not a completed
+adapter or approval of every proposed method signature. The candidate keeps
+MemPalace storage/retrieval in Python, Laputa persona/context ownership, and each
+Rust harness's lifecycle boundaries. It does not require a Rust MCP stack or a
+separate MemPalace MCP server merely for in-process calls.
+
+At `f41e8e75ddaadf5588d5127715fa531d79eadb45`,
+`mempalace.searcher.search_memories` is a programmatic entry point with explicit
+`palace_path`, `wing` and `room` arguments; `mempalace.palace.get_collection`
+exposes collection access. A small Vivy facade could provide remember/search/get,
+with bounded results, source/event association and host-admitted partition scope.
+Those names are proposals, not existing upstream APIs. Write deduplication,
+long-content chunking and logical-drawer reassembly partly live in MCP handlers;
+direct collection upsert/get is not automatically behavior-equivalent. Do not
+import `mempalace.mcp_server` as a shortcut: its initialization redirects stdout
+and loads the broad server surface, which is unsuitable inside the workbench.
+
+Prefer a small integration surface over an immediate upstream fork. Not invoking
+L0, graph, diary, coordination, hooks or mesh is functional selection, not proof
+that their package dependencies or import costs have disappeared. The inspected
+`mempalace-light-mcp` consolidates tools but imports the full server; it is not a
+demonstrated slim storage engine. Measure install size, startup, resident memory
+and retrieval costs before deciding to extract modules or split dependencies.
+No performance improvement or dependency reduction was measured in this session.
+
+The next native-memory experiment, when implementation is requested, should use
+synthetic data and a new isolated palace: scoped write -> search -> full retrieval
+-> reopen, with long-content roundtrip, duplicate delivery, repeated text from
+distinct sources and concurrent-writer behavior. Keep existing mysoul memory
+and its verified MCP route untouched. A native-library success must be recorded
+separately from historical MCP success.
+
+Research references and evidence for resuming this discussion:
+
+- Prime source: `.workspace/prime-agent`,
+  `c4c238ca025e382d96fb5f37e6328ca77fb82ef3`; inspect
+  `prime-agent-runtime/src/rlm/repl.md`, `repl.py`, `mcp.py`,
+  `crates/pa-core/src/kernel/bootstrap/runtime_code.rs`,
+  `session_engine/turn_boundary.rs` and `refinement/`. The `rlm` package imports
+  factory/harness/recursion surfaces; a runnable package is not already a trimmed
+  workbench. The Rust `pa-core`/`pa-daemon` dependency trees overlap Rig ownership.
+- A session-local synthetic Windows probe drove Prime's Python runtime without
+  its Rust host: seven checks passed (protocol-3 handshake, cross-cell variables,
+  background task survival, an in-cell duplex host callback, recovery after a
+  cell error, targeted async interrupt/reuse, graceful shutdown). No packages
+  were installed. Snapshot/restore was not run because `dill` was absent; MCP,
+  synchronous Windows interruption and full product recovery were not tested.
+  The scratch probe was temporary, not a maintained acceptance script.
+- The existing `python -B plugins/vivy-python/tests/test_worker.py` ran six
+  passing offline tests. A separate actual-worker probe confirmed that its
+  current cell-end cleanup cancels a created asyncio task before the next cell.
+  This worker is an auxiliary executor, not a connected MCP/native-memory loop.
+- mysoul reference entry: `C:/Users/Administrator/Desktop/mysoul`; its research
+  points to the actual application at
+  `C:/Users/Administrator/.codex/worktrees/mysoul-v01/mysoul`. Read its
+  `src/mysoul/laputa.py`, `recall.py`, `mempalace.py`,
+  `tests/integration/test_recap_only_context.py` and
+  `test_on_demand_memory.py`, plus the later memory plans. Actual code uses
+  committed Recap and explicit recall; older README/spec snapshots alone do
+  not establish the final behavior. This session inspected source and prior
+  validation records; it did not rerun mysoul or access its live memory data.
+- MemPalace source was read from that application's
+  `.local/upstream-mempalace` at the revision above. Upstream documentation:
+  [Python API](https://mempalaceofficial.com/reference/python-api) and
+  [MCP tools](https://mempalaceofficial.com/reference/mcp-tools). Pin and verify
+  the chosen source/package rather than assuming current docs match a release.
+
+Open choices: the Rust durable implementation, the exact Prime runtime subset,
+the native MemPalace write/read seam, domain taxonomy and source-identity mapping,
+and the durable harness's bounded initial acceptance case. Coding's initial
+real-task gate is accepted as recorded above. The remaining choices are not
+implemented decisions.
+Resume with those bounded choices; do not restart a full-platform or RLM parity
+effort. No product code, dependency or memory data was changed by this checkpoint.
+
+## Hybrid architecture and first-stage boundary (2026-10-25 record)
+
+This section records the earlier accepted miniature diagram. The 2026-10-27
+two-path decision above controls conflicting scope, memory placement and delivery
+order; retain the implementation evidence and applicable boundaries below.
 The [research checkpoint](research/2026-10-25-hybrid-agent-workbench-decisions.md)
 preserves evidence and discussion, including a mirrored copy in agent-vivy; it
 is not another editable specification. The [Pi baseline](PI-BASELINE.md) remains
@@ -777,6 +1185,61 @@ last frame, leaves nothing for the view to compare. Both need one size source
 per frame — and, for the second, a frame that is not caused by an event — in
 rig-tui. They reproduced with the pre-fix binary as well.
 
+## Provider management scope (owner, 2026-10-26)
+
+The owner explicitly narrows provider management to two protocol families:
+**OpenAI-compatible** and **Anthropic-compatible**. All built-in provider presets
+and user-defined provider instances derive from one of these families. Built-in
+versus custom describes the source of defaults, not separate execution engines.
+Reuse Rig's existing wire implementations and Connector; keep one model/agent
+execution path. Subscription login, OAuth, device/browser authorization, token
+refresh and native third-protocol adapters are outside this scope.
+
+The recipe selects the compiled management/protocol capabilities; runtime
+settings supply provider instance IDs, endpoints, credential references and
+per-model facts. Adding an instance of a compiled family needs configuration;
+it does not require rebuilding. Provider-specific dialect defaults may reuse
+Rig's mappings within the chosen family. The initial OpenAI path is the current
+Chat Completions route; Responses is a route within that family and requires
+separate acceptance if added.
+
+Expose only the configured, supported instances through the catalog/Connector,
+including CLI selection. Do not leave Rig's full default catalog as an accidental
+way to select an excluded protocol. This is an availability boundary; Rig's
+monolithic modules retain the compilation limitation already documented above.
+API-key storage and explicit keyless endpoints are sufficient; do not install
+the whole upstream LoginPlugin just to obtain API-key entry.
+
+Preserve the current gateway through migration into the same configuration path.
+The implemented UX is provider selection, model search, explicit startup-default
+saving, and restored-session choices. See the existing
+[research](research/2026-10-26-provider-management.md) for source evidence and
+integration details and verification. ProvidersPlugin extends the existing
+vivy-gateway package; GatewayPlugin delegates to it for source compatibility.
+The recipe selects `openai`, `anthropic` and, with its terminal, `tui` features.
+The public configuration is `[providers]` with an `instances` map. A preset is
+identified by its native vendor and chosen protocol; custom instances can select
+the same mapping without changing their IDs or endpoints. Models overlay the
+preset catalog, with explicit exclusions for deleted preset rows.
+
+Credentials select exactly one source: saved key, named environment variable or
+explicit no-key mode. API-key input is hidden. Stored-key changes share the
+settings conflict lock and roll back if settings persistence fails. Provider
+HTTP errors retain their status and cause with the resolved key redacted.
+Configured environment names are withheld from build/describe/tool processes;
+an expanded policy invalidates persistent Python workers. Rust plugins are
+trusted process code and this is not a sandbox.
+
+The manager owns defaults and refresh ordering. Invalid settings retain the last
+valid state; edits update idle agents immediately and active agents at turn end.
+Wire facts are bound to the actual protocol/preset identity while public model
+references retain the configured instance ID. The generic Anthropic wire takes
+the configured model's explicit output limit. Generic OpenAI reasoning requires
+a known mapped preset rather than advertising unsupported request options.
+
+Verification uses offline fixtures and real Windows ConPTY. No new live-provider
+compatibility result or Linux/macOS runtime result is claimed.
+
 ### Upstream Rig bump (2026-10-28)
 
 Rig moved one breaking commit ahead (`e1cd47d5`, "editor commands run through
@@ -793,11 +1256,15 @@ and a `SubagentSystems::Prepare` set orders a child's role before it, because
 the new `route_calls` sits in the same window and an unconstrained pair would
 be an ambiguous stage order.
 
-Verified with the new revision: 78 `vivy-basics` tests, the four `vivy-python`
-tests, the 20 root-workspace tests, and the real ConPTY scripts — compact screen
-at 120x40 and 50x20 (including the resize checkpoints), Plan mode's 20
-checkpoints, and the subagent acceptance. The Plan script's pre-existing
-"resumed terminal restores PLAN" failure remains, unchanged by this bump.
+Verified with the new revision: 78 `vivy-basics` tests, the `vivy-python` and
+`vivy-gateway` tests, the root-workspace tests, and the real ConPTY scripts —
+compact screen at 120x40 and 50x20 (including the resize checkpoints), Plan
+mode's 24 checkpoints, the Python workbench terminal flow, the subagent
+acceptance and the provider smoke. The plan script's earlier "resumed terminal
+restores PLAN" failure came from running the species binary directly, where
+`--resume` belongs to the launcher; it passes through the launcher.
+`workbench_smoke.py` was not run: it needs an explicitly prepared asset root.
 
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/e1cd47d57f0bccb50ddffd6f45de2ac3365b271c/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/e1cd47d57f0bccb50ddffd6f45de2ac3365b271c/crates/rig-harness/README.md
+

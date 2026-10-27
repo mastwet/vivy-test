@@ -3042,8 +3042,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b59c4d22ed448339746c59b905d24568fcbb3ab65a500494f7b8c3e97739f2b"
 dependencies = [
  "indexmap",
+ "serde_core",
+ "serde_spanned",
  "toml_datetime",
  "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 
@@ -3332,8 +3335,24 @@ version = "0.1.0"
 dependencies = [
  "bevy_ecs",
  "bevy_log",
+ "bevy_tasks",
+ "futures",
  "rig-harness",
  "serde",
+ "serde_json",
+ "toml",
+ "toml_edit",
+ "url",
+ "vivy-process",
+]
+
+[[package]]
+name = "vivy-process"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "toml",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

@@ -11,6 +11,12 @@ hash system. Keep the wider range visible without making it a first-run gate.
 Rust functional equivalents are accepted; existing TypeScript extensions and
 Pi's exact wire/source API compatibility are not requirements.
 
+**Owner acceptance, 2026-10-27:** the agent fixed one of its own bugs in a real
+coding task. The owner confirmed the chain was stable and explicitly accepted
+the initial coding path. That gate is closed. The dated comparison below
+retains its original automated-test scope and provider-specific limitations;
+it does not reopen the accepted real-task gate or establish full Pi parity.
+
 **No row has reached Pi parity.** The Result column records what was measured.
 Core rows (the Rust-owned coding core, per DESIGN's core boundary) were compared
 on 2026-10-25 by `scripts/compare_pi.py`: Pi at the pinned revision, run from

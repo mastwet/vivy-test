@@ -1,7 +1,8 @@
 # vivy-test
 
 A Rust coding-agent experiment: **one YAML recipe selects components, one build
-assembles a runnable agent, and model access goes through a gateway first.**
+assembles a runnable agent, with configured OpenAI-compatible and
+Anthropic-compatible providers.**
 
 Use Rig's runtime and terminal and Pi's coding-agent workflow as the reference.
 The Windows-native species includes file/search tools, Git Bash, sessions,
@@ -44,11 +45,11 @@ does not build automatically: it looks for `vivy.exe` and `coding-agent.exe` in
 `C:\vt\debug`, preferring a directory that holds both. If `Desktop\keys.txt` or
 `Desktop\key.txt` exists, it reads three or four non-empty lines (gateway URL,
 model ID, API key, and optionally the Rig dialect such as `deepseek`). It
-writes only the URL, model and dialect to the ignored
-`.workspace\launch-home\settings.toml`, and passes the
-key through `RIG_SECRET_GATEWAY` in process memory. Sessions use that isolated
-`RIG_HOME`. Without a Desktop key file, the launcher uses the existing
-`RIG_HOME\settings.toml` and `RIG_SECRET_GATEWAY` environment variable.
+supplies a first-run hint to the host, which persists it in the ignored
+`.workspace/launch-home/settings.toml`; existing managed provider settings take
+priority. The key passes through `RIG_SECRET_GATEWAY` in process memory. Sessions
+use that isolated `RIG_HOME`. Without a Desktop key file, the launcher uses
+`RIG_HOME` (default `~/.rig`). An empty home can start and configure providers.
 
 `vivy.exe` records this checkout's path at compile time, so a copied or moved
 tree keeps pointing at the old location even when its `target` directory came
@@ -64,21 +65,46 @@ recipe path, defaulting to `recipes/coding-agent.yaml`. It stops before
 compiling when that build's `vivy.exe` or agent is still running, because
 Windows cannot replace a running executable.
 
-## Gateway and runtime settings
+## Providers and runtime settings
+
+Start the terminal and run `/provider`. Add a built-in preset or a custom
+OpenAI/Anthropic-compatible endpoint, configure its models and credential source,
+and save. Only added instances enter the model catalog. The editor supports
+provider/model creation, edits and deletion; changes stay in a draft until saved.
+The instance ID stays fixed so sessions continue to identify the same account.
+
+- `/login <instance>` opens hidden API-key entry and selects saved-key mode.
+- `/logout <instance>` removes its saved key; environment variables are unchanged.
+- `/model` searches all configured models; a provider's menu filters its models.
+- `/model-default` explicitly saves the current model and thinking level for new
+  sessions. Temporary switches do not change defaults; resumed sessions retain
+  their recorded choices. `--model instance/model-id` overrides either.
+
+OpenAI uses Chat Completions; Anthropic uses Messages. Subscription login and
+Responses are not included. Presets reuse Rig's built-in metadata and option
+mappings; they do not establish compatibility with an untested endpoint.
 
 Edit `RIG_HOME/settings.toml` (default `~/.rig/settings.toml`):
 
 ```toml
-[gateway]
+[providers]
+default_model = "company/org/model-1" # also saved by /model-default
+
+[providers.instances.company]
+protocol = "openai"                # or "anthropic"
 base_url = "https://gateway.example/v1"
-model = "model-id-as-the-gateway-names-it"
-# Optional model facts, which Rig acts on:
-dialect = "openrouter"            # Rig's option mapping for this gateway (needed for /effort)
-context_window = 131072           # compaction keeps requests inside it
+preset = "openrouter"              # optional known compatibility mapping
+credential = { source = "env", name = "COMPANY_API_KEY" }
+# Alternatives: { source = "stored" } or explicit { source = "none" }
+
+[[providers.instances.company.models]]
+id = "org/model-1"                 # sent to the endpoint unchanged
+context_window = 131072
 max_output_tokens = 8192
-image_input = true                # images reach the model
-reasoning = ["low", "medium", "high"]   # /effort levels; add "off" if it can stop
-input_price = 0.5                 # USD per million tokens, both or neither
+tools = true
+image_input = true
+reasoning = ["low", "medium", "high"]
+input_price = 0.5                  # USD per million tokens, both or neither
 output_price = 1.5
 
 # Optional overrides; defaults discover Git for Windows and use `python`.
@@ -89,9 +115,29 @@ output_price = 1.5
 ```
 
 ```powershell
-$env:RIG_SECRET_GATEWAY = '...'  # never store the key in this repository
+$env:COMPANY_API_KEY = '...'  # never store the key in this repository
 & C:\vt\debug\vivy.exe
 ```
+
+An explicit credential source never falls back to a different account. Saved
+keys live under `RIG_HOME/auth/provider-keys/`, outside settings and sessions.
+Configured credential variables and `RIG_SECRET_*` are withheld from owned
+build/describe/tool processes. Adding credential variables resets existing
+Python workers so subsequent calls use the updated filtering policy.
+
+Provider/model lists reload file edits. An invalid file retains the last valid
+catalog; external edits conflict with an open draft rather than being overwritten.
+Active turns finish on their existing connection; idle agents and subagents
+reconnect after a provider changes. A removed provider needs explicit repair.
+
+Built-in models inherit Rig's catalog; `models` adds/overrides individual rows,
+and `disabled_models` excludes removed preset models. Generic OpenAI endpoints
+need a known compatibility preset before declaring reasoning levels. Models are
+entered manually; automatic model discovery is not included.
+
+Existing `[gateway]` settings remain supported as `gateway/<model>` with
+`RIG_SECRET_GATEWAY`. A provider save migrates that table into the same instance
+collection. An explicit `providers.instances.gateway` takes priority.
 
 ### A provider's own API, with no gateway in between
 
@@ -133,7 +179,7 @@ for one run, `/trust` or the start question to remember; `[trust] default` in
 In the terminal view, `/resume`
 alone opens the session picker; `/thinking` and `--thinking <level>` are Pi's
 names for `/effort`, Shift+Tab cycles the reasoning level and Alt+P the model
-(list more ids on the gateway with `models = [...]`), and `--export <id>
+(configure models through `/provider`), and `--export <id>
 [output]` exports a session from the command line; Alt+Up then
 Enter rewinds to an earlier message, and the branch left behind is summarized
 into the fork (Pi's branch summary); `/fork` and `/agents` manage a session's
@@ -213,17 +259,116 @@ with an explicit message and leaves Plan enabled.
 ## Optional Python workbench
 
 The recipe's `python` component adds `python_repl(code, timeout_secs?)` alongside
-the existing tools. Variables/imports and top-level `await` persist across calls
-for one active agent. The default timeout is 60 seconds.
+the native coding tools. Each live agent owns a persistent Python namespace and
+asyncio loop, including top-level `await` and tasks that survive cell completion.
+The default timeout is 60 seconds. Background output keeps its original call ID;
+unattributable native/thread output is retained in the event journal.
 
-Cancellation or timeout stops the worker and its descendants and resets
-variables. Ordinary Python exceptions retain existing variables. Exit, session
-switching, and resumed processes start a fresh namespace. There are no state
-snapshots, automatic package installations, or background task service. Python
-and shell run with the user's permissions; neither is a security sandbox.
+Use `/python prepare` to explicitly create an environment with `uv`, install the
+hash-locked dependencies and trusted Python Skills, and probe it before publishing
+`.vivy/workbench/current.json`. Preparation is cancellable with `/python close`.
+Concurrent preparation reports busy. Failed preparation preserves the previous
+environment; ordinary Python calls never install anything. `uv` and an installed
+Python 3.11+ must be on PATH (Windows acceptance uses CPython 3.13.12).
+
+`/python status` reports preparation/allocation. `/python reset` refreshes trusted
+Skill discovery and starts fresh on next use, adopting a prepared environment.
+`/python close` releases this agent's worker. Neither command removes artifacts
+or committed memories. Dependency changes require another explicit prepare.
+Old and failed environment directories are retained; remove only unused ones
+after all workers have closed. No live-resource migration or automatic replay.
+
+Cancellation and timeout interrupt the running cell, allow bounded unwinding,
+then terminate its owned process tree. Ordinary exceptions preserve variables.
+Compaction retains the live worker; separate agents, forks, session switches,
+process resumes and exit have separate/fresh namespaces. Python, trusted Skills
+and shell run with the user's permissions; these are not sandboxes.
+
+The trusted inventory is shared with Rig's Skill prompt. Markdown instructions
+remain lazy: `workbench.list_skills()` and `workbench.instructions(name)`. A Skill
+directory with `pyproject.toml` is installed during prepare and imported before
+the first cell. Its module defaults to the project name with `-` changed to `_`.
+`[tool.vivy.skill]` can declare `module`, `binding`, and `requires_host` (only
+`mcp.config` and `mcp.list_connections` currently exist). A module's callable `run`
+becomes a callable binding; otherwise the binding is the module. Broken imports,
+missing host handlers, collisions and reserved names are reported as unavailable
+without hiding other Skills. `workbench.readiness` distinguishes installed MCP
+and prepared native memory from unavailable capabilities. Explicit library
+imports are ordinary Python imports.
+
+Configure MCP in user settings, using environment-variable references for secrets:
+
+```toml
+[python.connections.dataset]
+type = "stdio"
+command = "C:/tools/dataset/.venv/Scripts/python.exe"
+args = ["C:/tools/dataset/server.py"]
+env = { DATASET_TOKEN = { env = "MY_DATASET_TOKEN" } }
+startupTimeoutMs = 20000
+callTimeoutMs = 60000
+
+[python.connections.remote]
+type = "http" # MCP Streamable HTTP
+url = "https://example.com/mcp"
+headers = { Authorization = { env = "MY_MCP_AUTHORIZATION" } }
+```
+
+`await mcp.list_connections()` returns `connectionId` entries without secrets.
+Use `list_tools(connection)`, `search_tools(query, connection_id=...)`,
+`describe_tool(connection, tool)`, `call_tool(connection, tool, arguments)`,
+`reload(connection)` and `close()`. Connections open lazily and are reused.
+Reload closes the selected generation; close ends the registry until worker reset.
+Calls return complete MCP envelopes, including `content`, `structuredContent`
+and `isError`. `McpToolError.result` retains an error envelope. Calls are never
+automatically retried. OAuth, marketplaces and service-specific wrappers are absent.
+
+Complete text, oversized repr/errors, MCP envelopes and MIME displays are saved
+under `.vivy/workbench/artifacts`, partitioned by session, agent, generation and
+call. Tool views are bounded; descriptors report path, bytes, media type and
+completeness. `workbench.artifact(value, media_type)` saves explicit output;
+use `application/json` for structured objects. A 256 MiB per-artifact/event-journal
+limit and disk failures are explicit errors, never successful complete descriptors.
+Reset retains files, but a process crash can leave an incomplete journal.
+
+Native memory is optional:
+
+```toml
+[python]
+memory = true
+# memory_root = "C:/my-workspace/native-memory" # default: .vivy/workbench/native-memory
+```
+
+Then `/python prepare` installs the full pinned upstream MemPalace and Chroma
+engine and explicitly downloads/probes pinned multilingual embeddinggemma ONNX
+assets. Normal memory calls stay offline. Configuration, state/locks, model cache,
+temporary files and palace data live under `memory_root`; no existing user palace
+is imported. Preparation probes use separate synthetic palaces under `probes/`.
+
+```python
+record = await memory.remember("Dataset sum: 42", source_id="dataset-a", event_id="run-1",
+                               wing="coding", room="analysis")
+hits = await memory.search("dataset total", wing="coding", room="analysis", limit=5)
+complete = await memory.get(record["id"])  # or source_id=..., event_id=...
+await memory.close()  # reset the worker to reopen
+```
+
+Same source/event/content/partition deduplicates; changed content or partition
+conflicts. Identical content from different sources remains distinct. Inputs are
+limited to 1 MiB per explicit event; complete reads validate ordered chunks and
+their content hash. The facade uses the native drawers collection's vector search
+with explicit source/wing/room filters, not MemPalace's broader ingestion or hybrid
+search orchestration. `limit` caps matching chunks before logical-record deduplication,
+so it can return fewer distinct memories. Each worker serializes synchronous engine work off the
+asyncio loop; cross-process locking surrounds open, operation and close, including
+reads. Lock contention fails before writing. Interrupted synchronous writes can
+have committed: inspect the same source/event explicitly; never replay blindly.
+No MemPalace MCP server or L0 persona is loaded. Durable and automatic ingestion
+remain outside this delivery.
 
 Remove the Python component and rebuild to exclude its crate and embedded worker.
-All component selection remains in [the recipe](recipes/coding-agent.yaml).
+Compilation selection remains in [the recipe](recipes/coding-agent.yaml).
+The owned runtime adapts Prime's bounded REPL/MCP mechanisms; see
+[NOTICE](plugins/vivy-python/NOTICE.md) for the donor pin and retained MIT license.
 
 ## Project notes
 

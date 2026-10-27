@@ -4,6 +4,7 @@
 /.generated/
 target/
 /data/
+/.vivy/
 
 # Local credentials and runtime settings.
 .env

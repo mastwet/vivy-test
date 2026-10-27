@@ -1,4 +1,11 @@
-//! The model of one OpenAI-compatible gateway, as `gateway/<model>`.
+//! OpenAI/Anthropic-compatible provider management on Rig.
+//!
+//! `ProvidersPlugin` installs configured instances over one Connector. The
+//! recipe selects `openai`, `anthropic` and optionally `tui` Cargo features.
+//! Runtime configuration, credentials and model overrides are described in
+//! the repository README and the `config` module.
+//!
+//! Legacy gateway input remains available as `gateway/<model>`:
 //!
 //! `RIG_HOME/settings.toml`:
 //!
@@ -34,14 +41,20 @@
 use bevy_log::warn;
 use rig_harness::prelude::*;
 use rig_harness::rig_core::{
-    catalog::{Catalog, ModelFacts, ModelSpec, Pricing, ReasoningSupport, Transport},
+    catalog::{ModelSpec, Pricing, ReasoningSupport},
     completion::Effort,
-    operation::Completion,
-    providers::openai::{OpenAIConfig, Route, wire},
-    providers::registry::{ConnectError, ProviderConfig, ProviderId},
-    serve::{ErasedHandler, adapters::ModelAdapter},
+    providers::openai::wire,
+    providers::registry::ProviderId,
 };
 use serde::Deserialize;
+
+pub mod config;
+mod providers;
+mod redact;
+pub mod store;
+#[cfg(feature = "tui")]
+mod ui;
+pub use providers::{ProvidersPlugin, ProvidersState, reload, remove_key, save_config, save_key};
 
 /// The vendor the gateway's model is listed under.
 pub const VENDOR: &str = "gateway";
@@ -178,96 +191,31 @@ fn spec_of(vendor: ProviderId, id: &str, settings: &GatewaySettings) -> ModelSpe
     spec
 }
 
-/// Lists the configured model as `gateway/<model>` and reaches it through
-/// the gateway with the `gateway` secret.
+/// Compatibility entry point for ProvidersPlugin, including legacy `[gateway]`.
 #[derive(Default)]
 pub struct GatewayPlugin;
 
 impl Plugin for GatewayPlugin {
     fn build(&self, app: &mut App) {
-        app.add_secret(Secret::new(SECRET, "API key of the model gateway"));
-        app.add_setting::<GatewaySettings>("gateway");
-        let settings = app.world().resource::<GatewaySettings>().clone();
-        if let Some(missing) = settings.missing() {
-            warn!("gateway: settings.toml has no [gateway] {missing}; no gateway model is listed");
-            return;
-        }
-        let key = app
-            .world()
-            .get_resource::<Secrets>()
-            .and_then(|secrets| secrets.get(SECRET))
-            .filter(|key| !key.is_empty())
-            .map(str::to_owned);
-        let vendor = match ProviderId::declare(VENDOR) {
-            Ok(vendor) => vendor,
-            Err(why) => return warn!("gateway: cannot declare the `{VENDOR}` vendor: {why}"),
-        };
-        let dialect = settings.dialect().unwrap_or_else(|why| {
-            warn!("gateway: {why}; using the generic dialect");
-            &DIALECT
-        });
-        let mut models = app.world_mut().get_resource_or_init::<Models>();
-        for spec in specs(vendor, &settings) {
-            models.0.catalog_mut().insert(spec);
-        }
-        let base_url = settings.base_url.trim().to_owned();
-        models.0.provide(
-            vendor,
-            move |spec: &ModelSpec, _: &Catalog, transport: &Transport| {
-                connect(dialect, &base_url, key.as_deref(), spec, transport)
-            },
-        );
-        app.add_systems(PostStartup, default_gateway_model);
+        app.add_plugins(ProvidersPlugin);
     }
 }
 
-fn default_gateway_model(
-    settings: Res<GatewaySettings>,
-    invoked: Option<Res<Invoked>>,
-    agents: Query<Entity, (With<Agent>, Without<ModelChoice>, Without<SpawnedBy>)>,
-    mut commands: Commands,
-) {
-    if invoked.is_some_and(|invoked| invoked.args.model.is_some()) {
-        return;
-    }
-    for agent in &agents {
-        commands
-            .entity(agent)
-            .insert(ModelChoice(format!("gateway/{}", settings.model.trim())));
-    }
-}
-
-/// `spec` on the gateway at `base_url`, or why it cannot be reached.
-fn connect(
-    dialect: &'static wire::Dialect,
-    base_url: &str,
-    key: Option<&str>,
-    spec: &ModelSpec,
-    transport: &Transport,
-) -> Result<ErasedHandler, ConnectError> {
-    let key = key.ok_or_else(|| ConnectError::MissingKey {
-        vendor: VENDOR.to_owned(),
-        tried: vec![rig_harness::harness_protocol::secret_variable(SECRET).into()],
-    })?;
-    let http = transport.shared().ok_or(ConnectError::NoHttpClient)?;
-    let config = OpenAIConfig::with_key(dialect, key)
-        .with_base_url(base_url)
-        .with_route(Route::Chat);
-    let model = ProviderConfig::OpenAi(config).completion_model(
-        &spec.id,
-        http,
-        ModelFacts::new(spec.clone()),
-    );
-    let adapter = ModelAdapter::<Completion>::new(spec.reference(), model);
-    Ok(ErasedHandler::new(adapter))
-}
-
-#[cfg(test)]
+#[cfg(all(test, feature = "openai"))]
 mod tests {
     use super::*;
 
     fn app(settings: &str, secrets: &[(&str, &str)]) -> App {
         let mut app = App::new();
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        app.insert_resource(rig_harness::services::RigHome(
+            rig_harness::harness_protocol::Home::at(std::env::temp_dir().join(format!(
+                "vivy-legacy-memory-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ))),
+        ));
         app.insert_resource(Settings::from_toml(settings));
         app.insert_resource(secrets.iter().copied().collect::<Secrets>());
         app.init_resource::<Models>();

@@ -66,29 +66,17 @@ try {
         }
 
         $rigHome = Join-Path $repoRoot '.workspace\launch-home'
-        New-Item -ItemType Directory -Path $rigHome -Force | Out-Null
-        $baseUrlToml = ConvertTo-Json -InputObject $values[0] -Compress
-        $modelToml = ConvertTo-Json -InputObject $values[1] -Compress
-        $settings = "[gateway]`nbase_url = $baseUrlToml`nmodel = $modelToml`n"
-        if ($values.Count -eq 4) {
-            $dialectToml = ConvertTo-Json -InputObject $values[3] -Compress
-            $settings += "dialect = $dialectToml`n"
-        }
-        $encoding = [System.Text.UTF8Encoding]::new($false)
-        [System.IO.File]::WriteAllText((Join-Path $rigHome 'settings.toml'), $settings, $encoding)
         $env:RIG_HOME = $rigHome
+        $env:VIVY_BOOTSTRAP_GATEWAY_URL = $values[0]
+        $env:VIVY_BOOTSTRAP_GATEWAY_MODEL = $values[1]
+        $env:VIVY_BOOTSTRAP_GATEWAY_DIALECT = if ($values.Count -eq 4) { $values[3] } else { $null }
         $env:RIG_SECRET_GATEWAY = $values[2]
-        Write-Host 'Loaded gateway settings from the Desktop key file; the API key stays in process memory.'
+        Write-Host 'Loaded the Desktop gateway hint; existing provider settings take priority and the API key stays in process memory.'
     } else {
         if (-not $env:RIG_HOME) {
             $env:RIG_HOME = Join-Path $HOME '.rig'
         }
-        if (-not $env:RIG_SECRET_GATEWAY) {
-            throw 'Set RIG_SECRET_GATEWAY or put three non-empty lines (gateway URL, model ID, API key) in Desktop\keys.txt.'
-        }
-        if (-not (Test-Path -LiteralPath (Join-Path $env:RIG_HOME 'settings.toml') -PathType Leaf)) {
-            throw 'Gateway settings.toml was not found under RIG_HOME.'
-        }
+        # An empty home is usable: /provider adds the first provider and key.
     }
 
     Write-Host "Starting the coding terminal in $repoRoot"

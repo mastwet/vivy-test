@@ -11,3 +11,4 @@ serde = { version = "1", features = ["derive"] }
 serde-saphyr = "2"
 rig-harness-protocol = { git = "https://github.com/0xPlaygrounds/rig", rev = "e1cd47d57f0bccb50ddffd6f45de2ac3365b271c" }
 ctrlc = "3"
+vivy-process = { path = "../vivy-process" }

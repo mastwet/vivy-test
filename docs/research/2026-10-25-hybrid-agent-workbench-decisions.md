@@ -4,6 +4,23 @@ Date: 2026-10-25
 
 Status: Research checkpoint with an accepted hybrid architecture, Prime-anchored automatic evolution and Vivy persona extension. Section 17.7 records the separately authorized native Rig subagent implementation in vivy-test; Python/apixis remains future work. This mirror does not authorize original Vivy runtime changes.
 
+Update, 2026-10-27: DESIGN's two-harness and trimmed-workbench decisions supersede
+the older evolution/orchestration scope below. Section 18 adds a read-only Go
+Vivy migration assessment in vivy-test only; it is not mirrored to the original
+checkout and does not authorize implementation or change the accepted scope.
+
+Latest workbench investigation, 2026-10-27: section 19 traces the pinned Prime
+implementation, records a fresh Windows REPL test run, and proposes a bounded
+workbench scope and acceptance loop. The owner prioritizes workbench validation
+before durable. The owner subsequently accepted section 19.9's closure scope,
+exclusions and transplant/local implementation ownership, including fresh-state
+restart and the separate native-memory consumer gate before durable. This
+supersedes earlier proposal labels for those choices; detailed adapter contracts
+and the implementation plan remain work to do, with no runtime acceptance implied.
+Section 19.7 adds the component-level transplant audit, including all nine
+Python-backed Skills found in this pinned checkout's top-level `skills/`.
+Section 19.8 adds Python-side tool loading, explicitly requested by the owner.
+
 Scope: Preserve this conversation's findings and latest direction in both repositories.
 
 This report is intentionally saved identically under `docs/research/` in
@@ -973,3 +990,991 @@ there is no verified real-provider delegation. Details and final review outcomes
 belong in vivy-test's dated delivery record. Scripted tests are not real-provider evidence. No Pi TypeScript
 extension compatibility, complete Pi parity, Python bridge, apixis integration,
 new permission platform or original Vivy runtime modification is claimed.
+
+## 18. Go Vivy migration assessment
+
+Recorded 2026-10-27 at the owner's request. The target considered here is the
+current independent Rust/Python experiment, retaining minimum useful behavior
+from Go Vivy and its remake donors. Complete feature equivalence and historical
+data compatibility are separate, substantially larger scopes.
+
+### 18.1 Source boundaries and measured size
+
+The original repository at `C:/Users/Administrator/Desktop/agent-vivy` was read
+through Git objects, without checkout changes, builds, app launches or access to
+sessions, databases, credentials or production data. `git ls-remote --heads`
+confirmed the inspected remote main/remake heads on 2026-10-27; no fetch or push
+was performed. The local main is a different source snapshot, not the remote
+main with a newer date applied to the same code.
+
+| Snapshot | Exact revision | Go product source | All selected product source | Tests and fixtures | Generated | Other counted source |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Local main | `1df588a1a8e538524a6f0e757ac02a68f14d50ca` | 131,570 | 168,875 | 118,538 | 1,867 | 1,607 |
+| Remote main | `9cd2801f8090723a652d3e835f72d83715b82121` | 184,507 | 234,319 | 186,129 | 1,972 | 4,446 |
+| Remake integration | `0059b73138b3830fd3bfc1c041b9bc8353e93a33` | 153,550 | 196,382 | 138,987 | 1,913 | 2,451 |
+| Remake archive | `495caf6eba2063a71f16e7a8066c9935ff241839` | 184,507 | 234,319 | 186,129 | 1,972 | 4,446 |
+
+Go product source is a subset of all selected product source. Counts are physical
+lines, including blank lines and comments, obtained from `git ls-tree -r` and
+`git cat-file --batch` blobs, not non-comment executable statements. Selected
+extensions: Go, TS/TSX, JS/JSX, Vue, Svelte, Rust, Python, SQL, Proto, C/C++/headers
+and shell/PowerShell/batch scripts. Markdown, JSON/YAML, lockfiles, CSS/HTML,
+binary assets, untracked files and submodule contents are outside this count.
+
+Classification is path/header based: generated-code markers, `.pb.go`,
+`_generated.go`, `.gen.ts(x)`, bindings and wailsjs; then third_party/vendor;
+then scripts/docs/agent-support/spikes and shell launchers; then `_test.go`,
+`.test/.spec` and tests/testdata/fixtures/conformance/testsupport/e2e directories;
+remaining source is product source. This separates reusable conformance helpers
+even where their filename is not `_test.go`; ordinary product files can still
+contain small test helpers. The numbers are a reproducible scope indicator,
+not an exact measure of essential runtime logic.
+
+Remote main contains 167,202 Go test/helper lines separately from its 184,507 Go
+product lines. Generated source is under 0.5% of the total selected 426,866 lines.
+The large footprint is therefore not explained by generated code. Conversely,
+test volume is not evidence that the corresponding behavior is unnecessary.
+
+The source tree also excludes external Laputa/INOFY implementations and the
+`studio` submodule. Main's go.mod pins Laputa garden/mentle/laputa and redirects
+them to sibling Go modules. Their native implementation does not automatically
+become reusable Rust or Python code. These counts understate a complete product
+ecosystem migration, rather than including it implicitly.
+
+### 18.2 Remake is primarily a split of existing source
+
+All 18 remote remake refs were checked: 16 donor branches plus integration and
+archive. Relative to shared original base `202aac3885cb1479998127f0fb9004bea54aca57`,
+the 16 donors change 624 distinct selected source paths and contain 626 distinct
+`(path, resulting blob)` versions, including deletion markers. Of those, 617
+exactly match the corresponding remote-main path/blob. This is source-identity
+evidence, not proof that the branches integrate or pass together. This donor
+comparison excludes source snippets under docs and agent-support directories.
+
+The nine different versions concern engine/tool adaptation and ordering,
+Plan/work control, and associated tests. They are not nine whole missing
+features. Archive has the same counted source categories as remote main;
+integration has the same product/test source as base A, with additional support
+scripts. Adding every branch's full line count would massively double count.
+
+The pinned [remake index](https://github.com/ProjectViVy/agent-vivy/blob/0059b73138b3830fd3bfc1c041b9bc8353e93a33/docs/superpowers/plans/remake-20261019/index.md)
+explicitly calls these donor branches, not build/product-accepted features.
+R10-R24 wait for accepted core/contracts; R25 is a warming-history handoff.
+Those are the recorded states at the inspected commit, not a fresh runtime test.
+Remake contributes behavioral requirements and regression examples, not a second
+entire product that must be added to main's migration inventory.
+
+### 18.3 What accounts for the footprint
+
+Remote-main product source under the same classifier:
+
+| Area | Lines | Migration implication |
+| --- | ---: | --- |
+| `internal/runtime` | 49,537 | Interactive runs, durable work, child agents, workflow, reports, context, memory, tools and recovery coexist here. This is much more than an LLM loop. |
+| `internal/storage` | 29,661 | SQLite and PostgreSQL, multiple product stores, journal/history, recovery and paired migrations. One minimal local backend avoids reproducing both implementations. |
+| `ui` | 32,687 | Browser product and its configuration. Reusing React presentation still requires adapting transport, stores and feature assumptions. |
+| `sdk/tui` | 16,413 | A substantial terminal product lives inside sdk; the whole sdk directory cannot fairly be called assembly overhead. Rig's terminal is the replacement candidate. |
+| `internal/rpc` | 12,301 | Control/query/event projection for the broad product, including a 7,345-line `control.go`. A smaller product exposes fewer commands. |
+| `internal/app` | 8,558 | Composition and lifecycle, including a 2,458-line app.go and many feature bridges. |
+| `plugins` | 24,508 | Multiple channels, UI modules, ACP, notebook, workflows, memory, persona and other integrations. |
+
+These are disjoint examples, not the full sum. The 28,064-line sdk product total
+includes the 16,413-line TUI as well as assembly, frontend, Ports and launch code.
+The runtime Service alone is 5,752 lines, with shared state for admissions,
+reviews, Goal, tools, bundles, Recap and shutdown. This concentration makes
+cross-feature adaptation expensive even when an individual tool is small.
+
+The architectural diagnosis is scope accumulation plus the cross-product cost
+of state, interfaces and compatibility: every feature gains persistence,
+RPC, UI, module wiring, lifecycle and regression work. Broad provider/channel
+support, two storage backends, three product faces and a distribution/plugin
+platform multiply that cost. This inspection does not establish what fraction
+is duplicate or removable dead code; no blanket deletion percentage is justified.
+
+Pinned source anchors: [runtime Service](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/service.go),
+[engine wiring](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/engine.go),
+[storage contracts](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/storage/contracts.go)
+and [Go dependencies](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/go.mod).
+
+### 18.4 Suggested minimum behavior selection
+
+This table is assessment advice against the owner's saved direction, not approval
+to delete or implement features. Retain the behavior and failure invariants;
+do not port an old subsystem merely because its branch name survives.
+
+| Remake area | Minimum replacement or disposition |
+| --- | --- |
+| core-fixes | Translate applicable correctness regressions: one terminal outcome, cancellation, cleanup, failed/unknown effects and recovery. Do not carry all old Eino glue. |
+| provider | Use the existing gateway/Rig path. Keep the configured model identifier, streaming, tool-call fidelity and credential redaction; defer the old provider catalog/routing breadth. |
+| notebook | Start with ordinary workspace files and Python libraries when needed; defer a notebook database/editor and its separate provenance/RPC system. |
+| reports | Keep one requested report workflow as a Python capability if useful; defer the complete report product/settings/publication system. |
+| toolkits | Replace the initial need with discoverable Python capabilities, explicit dependencies and MCP configuration. Defer content-package acquisition, release, rollback, revocation and management UI. Python alone does not implement that package lifecycle. |
+| bml | Use the selected partitioned MemPalace long-term-memory direction; do not maintain a second authoritative BML store. Historical BML import is separate. |
+| recap | Preserve durable's ACTMEM/Recap intent: versioned working state, source association, commit before discarding context, bounded recall and correction. Use mysoul's later results as behavioral reference without imposing them on coding. |
+| cognition | Retain only concrete durable task/continuity responsibilities. Defer Mission and autonomous cognition/evolution machinery as first-release gates. |
+| skill-evolution | Keep ordinary skill discovery/use. Reviewed or automatic mutation is a later independent capability. |
+| persona | Preserve Laputa as the sole persona authority; implement the minimum consuming boundary. Its Go implementation is not already present in this Rust runtime. MemPalace L0 remains excluded. |
+| workflow | Express specific useful compositions in Python; defer INOFY compatibility, general DAG storage, revisions and visual editing. |
+| acp | Defer unless an actual client requires it. No ACP compatibility promise is needed to validate the two harnesses. |
+| tool-parallelism | Reuse framework support for bounded independent calls when required; preserve ordering and cancellation for effectful work. |
+| chat-ui | Keep a usable entry, streaming, stop, failures and resume visibility; existing TUI is the first entry. A browser surface is a separate selected slice, not implied full UI migration. |
+| misc | Select fixes relevant to the new code and Windows distribution; no bulk replay of maintenance commits. |
+| warming | Defer until measured latency/cost warrants it; no separate nudge/warming/steering framework prerequisite. |
+
+The minimum useful replacement is two distinct harnesses using one workspace:
+classic interactive coding; durable task admission/checkpoint/wake/abort; one
+trimmed Python capability/MCP loop usable by each; Laputa persona plus durable
+ACTMEM and domain-partitioned long-term recall. Keep compilation-based recipe
+selection and one model gateway. Exclude complete old UI/settings parity,
+multi-channel delivery, Studio, public SDK/Port compatibility, generalized
+workflow/evolution platforms and legacy database/checkpoint import from the
+initial estimate. These omitted features remain possible later scope, not
+requirements the owner has agreed to discard permanently.
+
+### 18.5 Reuse and the remaining hard boundaries
+
+Current vivy-test already supplies assembly, launcher, gateway, classic coding
+tools, context-file loading, session/branch support, skills/trust, Plan and
+bounded Rig-native delegation. Its tracked Rust/Python source files total
+11,733 physical lines: 9,249 in implementation files and 2,484 in separate test
+files. Inline Rust tests remain in the first number, so this is not an exact
+production-only comparison or proof of equivalent coverage. Existing recorded
+checks in HANDOFF apply; no new app/gateway runs were made for this assessment.
+
+Reuse candidates are Rig's coding/session/terminal facilities; Prime's Python
+protocol/event-loop and managed MCP patterns; the Python MCP SDK; native
+MemPalace library calls; and concrete mysoul memory semantics. Pi-durable is a
+TypeScript behavior reference, not a drop-in Rust durable engine. The native
+MemPalace facade and Laputa Rust-consuming boundary remain unimplemented.
+
+The following responsibilities survive any reduction in tool-development work:
+
+1. **Durable authority:** admitted task identity, committed phase, deduplication,
+   explicit abort, persisted wake times and host restart. A cancelled waiter is
+   not a cancelled task; a timer in an exited process cannot wake anything.
+2. **Effect outcomes:** a Python/remote operation may finish just before a crash.
+   Unknown outcome must not become automatic replay. Persist logical operation
+   identity/outcome and define replay eligibility for retained operations.
+3. **Workbench lifetime:** the current worker preserves variables but cancels
+   asyncio tasks at every cell end. MCP sessions and long-lived clients need a
+   continuously serviced loop, managed resources and an unblocked cancel/control
+   path; execution/output alone does not close this loop.
+4. **Memory commits:** MemPalace retrieval is not authoritative task state.
+   Preserve Recap revision/source association and archive/commit ordering;
+   coordinate shared-workspace writes and distinguish memory partitions from
+   permission boundaries. Do not copy the original subject/session schema
+   wholesale just to retain these invariants.
+5. **Language boundary:** Python expands capability libraries, but Rust must
+   still own the chosen task lifecycle, cancellation and bounded admission of
+   outputs. Duplicating the model/agent loop in Python would defeat the target.
+
+Go's `internal/runtime/checkpoint.go` explicitly binds opaque Eino checkpoints
+to engine version and prompt identity. Such checkpoints are not portable Rig
+continuations. Reading old exported conversation text, importing structured
+memory and resuming an interrupted effect are three different compatibility
+tasks. No legacy data inspection or migration is included here.
+
+Go already has cron: `internal/runtime/cron_scheduler.go`, CronStore and matching
+RPC/UI/storage paths. Its recorded startup policy skips missed recurring
+occurrences and disables overdue one-shots; that is not pi-durable's persisted
+sleep/wake contract. A minimal new scheduler should admit due work into the
+durable harness with explicit missed-run/overlap policy, rather than invoke
+Python in an unrelated second execution path. Rust retains durable scheduling
+authority; Python can expose schedule management. Live-host or OS wake support
+must be selected before claiming tasks run while the product is closed.
+
+Pinned behavior anchors: [checkpoint binding](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/checkpoint.go),
+[Recap compaction](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/recap_compaction.go)
+and [cron lifecycle](https://github.com/ProjectViVy/agent-vivy/blob/9cd2801f8090723a652d3e835f72d83715b82121/internal/runtime/cron_scheduler.go).
+
+### 18.6 Difficulty and planning allowance
+
+**Full Go/remake feature equivalence is high difficulty and is a product rewrite.**
+Changing language/framework while preserving all data, approval checkpoints,
+protocols, interfaces and plugin behavior retains most of the expensive contract
+work. This audit does not justify a reliable full-equivalence completion date.
+It would require per-surface acceptance and data-migration investigation.
+
+**The owner's minimal two-harness replacement is medium-to-high difficulty,
+with a bounded scope.** The coding base is substantially underway; durable,
+Python lifecycle and memory commit/recovery are the main remaining work. Do not
+convert 180,000 Go lines into a Rust-line estimate or assume Python removes
+state-management work.
+
+Illustrative engineering allowance, not a measured delivery commitment: one
+experienced contributor familiar with Rust/Python, using the current experiment,
+Windows as the initial platform, one gateway, local storage, no legacy data
+compatibility and no new browser/Studio product:
+
+| Work package | Focused engineering days | Completion evidence |
+| --- | ---: | --- |
+| Verify and close the retained coding path | 3-6 | Representative real coding task, tool/model failure, stop, explicit resume and session/compaction behavior. |
+| Persistent Python capability lifecycle | 4-8 | Discovery/instructions, cross-cell async client, host callback, bounded result, failure/reuse, targeted cancel and shutdown. |
+| One managed MCP integration | 3-6 | Configure/connect/list/call, timeout/disconnect, reload/close and child-process cleanup. |
+| Minimal durable harness and scheduling | 8-15 | Admission dedup, committed checkpoint reopen, sleep/wake, explicit abort and safe treatment of interrupted effects. |
+| Laputa boundary, ACTMEM and native MemPalace | 6-12 | Persona authority, versioned Recap commit/correction, scoped remember/search/get and cross-harness partition behavior. |
+| Combined recovery and Windows packaging | 5-10 | Kill/reopen at selected boundaries, install/start diagnostics, resource cleanup and one useful end-to-end task per path. |
+| Total | 29-57 | Roughly 6-12 five-day engineering weeks; not a calendar or staffing promise. |
+
+These are judgment ranges inferred from source/contract gaps, not historical
+velocity measurements. Packages may overlap; changing the durable backend,
+Laputa integration or native-memory write contract can move the total outside
+the range. A coding-plus-Python demonstration can precede the two-harness
+replacement, but does not establish the promised persistent companion/memory
+behavior. A browser face, channels, compatibility/import or autonomous evolution
+would need their own estimate after selection.
+
+The recommended next commitment is one bounded vertical slice with measured
+failure/recovery evidence, then re-estimate the remaining packages. Continue
+the saved order: establish coding and durable foundations separately, close
+the trimmed Prime capability loop, then the durable memory slice. Treat the
+old regressions as a source of obligations; do not require restoring every
+layer built to serve the old product's much broader ambitions.
+
+Verification for this assessment: source/ref identity and physical-line counts
+were checked; the original Go product and remake donors were not built or run.
+Documentation changes are checked separately with `git diff --check`. No source
+port, dependency installation, private-data migration or upstream push is part
+of this deliverable.
+
+### 18.7 Owner refinement and remaining integration work
+
+The owner clarified that the intended feature transfer is substantially smaller:
+retain small bundle and hook capabilities, build on existing Plan/Goal
+infrastructure, rewrite Laputa, retire BML and adopt the full upstream MemPalace
+engine. This supersedes any reading of 18.4 as deferring every bundle/hook
+feature or requiring migration of the old toolkit/cognition architecture.
+The earlier 29-57 engineering-day allowance combines new harness/memory work
+and replacement-product verification; it is not an estimate of old-code transfer
+and should not be reused as a quote for this narrower selection.
+
+Source check at Rig `55cd481a2421fd5da468b5bd6afc6ac876883599`:
+`corpus/sn/src/hook_scripts.rs` provides session_start, prompt_submit,
+before_tool, after_tool and turn_end external scripts, timeout/cancellation and
+project trust. `corpus/base/src/session_goal.rs` provides saved user-set goal
+text, prompt/status projection and restore. Neither plugin is selected in the
+current coding recipe. The delivered Vivy PlanPlugin already uses Rig's request,
+review, cancellation and saved-state boundaries. These are a strong foundation;
+a saved goal does not yet supply autonomous advancement or durable execution.
+
+Suggested remaining integration inventory, without creating new platforms:
+
+- One content-bundle import/list/enable convention for the actually retained
+  skills, prompts, hook declarations and Python/MCP configuration. Keep compiled
+  Rust selection in recipes. Exact format/lifecycle is not decided here.
+- A managed Python environment and capability lifecycle: interpreter/dependency
+  reproducibility, discoverable instructions, live asyncio/MCP resources,
+  bounded results, cancellation and shutdown. Existing shell/Python process
+  support is reusable, not a second installer/service platform requirement.
+- Durable host availability, persisted task/wake state, abort and recovery;
+  Goal's advance/finish/stop behavior uses that path when persistence is needed.
+- Rewritten Laputa's persona/context boundary, versioned ACTMEM/Recap and full
+  MemPalace integration. Preserve native write/read semantics and domain/source
+  association. Full engine availability does not activate a second persona L0
+  or make MemPalace the authoritative in-flight task store.
+- Shared workspace/task identity and coordination of conflicting writes.
+  Python's outer execute hook does not observe every operation performed by
+  libraries inside a cell; expose capability-level events only where the
+  retained product actually needs hook visibility/control.
+- One chosen daily-use entry and useful task status/results. Existing coding
+  TUI is available; a companion channel/browser face is a later explicit choice.
+
+Reusing the old web UI, all channels, LSP/ACP, historical data, general workflow,
+Studio, automatic evolution and distribution governance is not newly selected
+by this clarification. No implementation or upstream data change was made.
+
+## 19. Prime workbench investigation and proposed closure (2026-10-27)
+
+The owner requested investigation of how Prime implements its workbench before
+choosing our scope and acceptance task. Coding has passed owner-run acceptance;
+the new workbench is next, with durable implementation following its system
+validation. This section is research plus a recommendation, not an approved
+implementation specification. No product code or dependencies changed.
+
+### 19.1 Evidence and the actual execution path
+
+Inspected Prime revision: `c4c238ca025e382d96fb5f37e6328ca77fb82ef3`, already
+present under `.workspace/prime-agent`. The checkout was left unchanged. Source
+paths below are relative to it. Online retrieval of that pinned source failed;
+findings use the local revision, not an assertion about current upstream HEAD.
+
+The path is: the Rust agent calls `python_repl`; its tool adapter obtains a
+kernel from the provisioner; the Rust kernel manager exchanges JSON-line frames
+with `python -m rlm.repl`; Python executes a cell in its existing namespace and
+event loop; Python libraries and MCP clients do the work; correlated events
+return to Rust, which constructs the tool result for the next model turn.
+Python can issue a typed host request while a cell is awaiting its reply.
+The model loop remains in Rust.
+
+| Concern | Source evidence | What Prime actually does |
+| --- | --- | --- |
+| Model-facing tool | `crates/pa-core/src/tools/ipython.rs`, especially `execute_ipython` | Obtains a kernel, streams output, formats stdout/stderr/result/traceback and attachments, records status and restart information. The tool is only one part of the lifecycle. |
+| Protocol and execution | `prime-agent-runtime/src/rlm/repl.py`, `repl.md` | Protocol 3; persistent `__main__` and asyncio loop; sequential cells with top-level await; background tasks survive cell completion. `ready`, output, result, error and `done` have distinct roles. |
+| Output ownership | `repl.py` `_TaggedWriter`, `_Pump`, `_handle_execute` | Python writes inherit cell context; detached asyncio tasks retain the creating cell ID. Raw fd/subprocess output is unattributed (`id: null`). Protocol output is isolated from user stdout/stderr; synchronous cell output is drained before completion. Background output can arrive later. |
+| Duplex host calls | `repl.py` `host_request`, `_handle_request_line`; `crates/pa-core/src/kernel/manager/host_requests.rs` | Replies and interrupts bypass the ordinary cell queue. Rust dispatches registered handlers and replies with success/error envelopes. Unknown handlers fail; late replies to cancelled Python awaiters are dropped. |
+| Environment and executable Skills | `crates/pa-core/src/skills/discovery.rs`, `loader.rs`; `kernel/bootstrap/venv.rs`, `venv/skills.rs`, `runtime_code.rs`; `skills/skill-creator/references/python-skills.md` | A Python Skill adds `pyproject.toml` and `src/<import_name>/__init__.py` beside `SKILL.md`. Rust discovers metadata, manages a kernel venv using uv and installs local Skills editable. Bootstrap pre-imports modules, wraps callable `run` functions, and reports unavailable imports. Documentation and executable availability are separate. |
+| Generic MCP | `prime-agent-runtime/src/rlm/mcp.py`; `crates/pa-core/src/mcp/mod.rs` | Python owns clients/transports, per-server connection generations and cleanup. Rust supplies configuration and connection/catalog metadata through host calls. stdio and Streamable HTTP are supported in source; discovery follows pagination, filters tools and exposes live schemas. |
+| MCP lifecycle | `mcp.py` `_Generation`, `_Registry` | A dedicated lifecycle task owns the async context stack; one connection is reused across cells. Same-server calls are serialized, while distinct servers may proceed concurrently. Reload closes a generation; shutdown stops admission, cancels tracked operations and closes connections with a bounded budget. |
+| State | `repl.py` `_snapshot_state`, `_restore_state`; `kernel/manager/snapshot.rs` | Best-effort, size-bounded namespace serialization using dill, with saved/skipped/failed names. Host bootstrap restores runtime surfaces. This does not restore a running coroutine, live connection or external side effect. |
+| Cancellation and teardown | `repl.py` `_request_interrupt`; `kernel/manager/requests.rs`, `execution.rs`, `teardown.rs`; `tools/ipython.rs` | Targeted interrupt first; Rust settles an aborted call after a grace window but retains the active execution until its `done`. A stuck kernel remains busy. The UI can wait or kill/restart. Shutdown requests graceful cleanup, then falls back to process cleanup. |
+
+### 19.2 Boundaries that affect our design
+
+1. **A live loop is necessary, but not sufficient.** Existing Vivy `worker.py`
+   calls `run_until_complete` per cell and cancels remaining asyncio tasks at
+   cell end. Retaining variables alone cannot support persistent MCP clients.
+   Prime gives a connection's context stack a lifecycle task of its own; simply
+   removing our task-cancellation loop would leave ownership and cleanup unsolved.
+2. **Windows cancellation needs a host fallback.** Prime's Windows interrupt
+   schedules cancellation on the loop; synchronous code blocking that loop
+   cannot be interrupted this way. Rust's `force_abort` settles the caller; it
+   does not itself prove Python or its effects stopped. Its cell watchdog is
+   advisory, adding a note after an over-budget successful cell, not a hard
+   timeout. Our cancellation contract must distinguish request cancellation,
+   confirmed worker termination and uncertain remote effects.
+3. **Snapshot is not durable execution.** The payload and manifest are replaced
+   separately. The upstream test
+   `test_manifest_replace_failure_leaves_new_payload_old_manifest` explicitly
+   records the mixed-pair failure state. Files are restored as closed stubs;
+   unsupported values can be skipped. Do not adopt namespace snapshots as Rust
+   task checkpoints or replay unfinished cells automatically.
+4. **Protocol docs do not cover every current detail.** `repl.md` describes
+   `mcp_status` as queued work, while `_serve` dispatches it to a dedicated async
+   lane so a slow connection does not block the first Python cell. Runtime code
+   and the `kernel_mcp_settle.rs` tests are the stronger source for that behavior.
+5. **Generic MCP is not the whole Prime integration system.** The generic
+   registry supports configured servers without a custom Skill per service.
+   Prime additionally has `McpIntegration` wrappers, a service catalog, OAuth,
+   auth-file access and ACP handling. Those are separate product choices. Do
+   not import Prime's credential stores or catalog merely to reuse its clients.
+6. **Result normalization needs care.** `_parse_result` prefers structured
+   content, then text, then non-text blocks. Mixed text/image responses can lose
+   the non-text blocks in that projection. Preserve the original result envelope
+   in our adapter and expose a convenient projection separately. Existing
+   arbitrary Python calls are not automatically traced as individual tools.
+7. **The runtime package is not already a small independent component.**
+   `rlm/__init__.py` imports bash, factory and harness surfaces. The package
+   declares `mcp>=2,<3` and `tyro`; Rust bootstrap adds dill. Import laziness is
+   not dependency elimination. Reuse requires a deliberate packaging boundary,
+   pinned dependencies and preserving applicable source notices.
+
+### 19.3 Implementation approaches and recommendation
+
+| Approach | Benefit | Cost / fit |
+| --- | --- | --- |
+| Run the complete pinned Prime Python package behind our Rust adapter | Closest to the tested upstream runtime; fewer initial Python changes | Broad imported surfaces and Prime-specific host/configuration assumptions remain. Disabled APIs still need honest errors and lifecycle review. Useful for comparison, not the recommended product boundary. |
+| Adapt a bounded Prime runtime/protocol and generic MCP subset | Reuses the difficult execution, framing and connection-lifecycle work while retaining our host and product scope | We own a small adapted surface, dependency tracking and regression checks. Removing import/host coupling must be demonstrated, not assumed. **Recommended.** |
+| Independently extend the current Vivy worker to equivalent behavior | Full control over a familiar small file | Duplex requests, a continuously serviced loop, attribution, connection ownership and cancellation require substantial new mechanisms. Less reuse of the implementation just investigated. |
+
+The recommendation is an engineering proposal. No donor code is copied by this
+research. Keep Rig and `vivy-process` for existing host execution and process
+ownership. Keep one recipe-selected Python plugin; its host-facing messages
+should use explicit call/agent identities rather than Python reaching into ECS
+entities. Share only the concrete protocol/runtime pieces a later durable
+adapter needs. A second agent engine or a universal harness interface is not
+required to validate that boundary.
+
+### 19.4 Proposed first workbench scope
+
+The deliverable is one reusable local capability execution environment, first
+connected to the accepted Coding agent. The following is the proposed scope to
+select before detailed implementation design:
+
+| Include | Bounded behavior |
+| --- | --- |
+| Python environment | A dedicated, reproducibly prepared interpreter environment and explicit dependency/install workflow. Keep project test/build environments separate. Missing imports produce actionable unavailable-capability results; model calls do not silently install packages. |
+| Persistent execution | One worker/namespace per admitted agent context, sequential cells and top-level await; intermediate values survive normal cells. Managed async resources survive across cells, with explicit ownership and cleanup. No namespace sharing between agents. |
+| Small host protocol | Start/ready, execute, output/result/error/completion, targeted cancel, reset/close and registered host request/reply. Associate events with worker generation and call identity; reject stale replies. Only required host operations such as admitted MCP configuration are exposed initially. |
+| Executable capabilities | Reuse trusted Skill discovery and the `SKILL.md` plus Python-package convention where practical. Load instructions before use, inspect signatures, report import errors and prevent name collisions. Avoid a second hand-maintained capability inventory. |
+| Generic MCP | Explicitly configured stdio and Streamable HTTP connections; list/search/describe/call tools, bounded discovery, connection reuse, reload/close and startup/call deadlines. Credentials remain environment references in checked-in settings. No service catalog or interactive OAuth in this slice. |
+| Results and diagnostics | Correlated output/errors and complete MCP envelopes; bounded model-visible summaries, full large results in workspace artifacts, and references for subsequent processing. Keep failure causes and redact configured secrets. Record cell and managed MCP operations without claiming to observe every Python library effect. |
+| Lifecycle verification | Normal cell completion, code error, cancellation, hard-stop fallback, worker crash, reset, host shutdown and isolation. Track cross-cell resource/task ownership; do not treat a cancelled waiter as proof a remote operation was undone. |
+| Coding integration | Preserve direct read/edit/shell tools and native delegation. Workbench capabilities supplement that path; the existing recipe still decides whether its Rust plugin is compiled. |
+
+For restart in this first scope, recommend **fresh Python state plus preserved
+explicit file artifacts**, with a visible reset notice and reconnected clients.
+Do not silently replay cell code. Validate that ordinary conversation compaction
+does not accidentally tear down a still-owned worker; a switched/forked agent
+must not inherit another agent's live namespace. Automatic dill snapshots and
+namespace restoration can be a separately selected extension after the runtime
+contract works. This is a proposed choice, not a new owner decision.
+
+Cross-cell resources are not a new autonomous job scheduler: they live under
+their worker and owner. General background-job orchestration, agent wakeups and
+work surviving a dead host belong to later work. Initially limit host callbacks
+to actual consumers; no arbitrary Rust tool/delegation bridge is necessary.
+
+MemPalace remains the selected long-term-memory direction. Recommend its native
+library adapter as the next concrete Python consumer after generic execution and
+MCP validation, with its own bounded write/search/get/reopen checks. Its
+ingestion policy, Obsidian sync, taxonomy and memory-management UX do not need to
+be bundled into the core workbench acceptance. This research does not claim the
+native adapter's write/chunk/read equivalence is already established.
+
+Exclude from the first workbench closure: Prime's recursive agent tree, family
+messaging, factory, full daemon/supervisor, continual-harness store and automatic
+evolution; general plugin marketplace/OAuth; automatic variable snapshots;
+durable task storage, Cron/webhook scheduling, Laputa/ACTMEM redesign and full
+Obsidian synchronization. Existing native coding delegation remains available.
+
+### 19.5 Proposed acceptance loop and stopping point
+
+Use a small synthetic dataset and an isolated local MCP fixture so the main
+checks are reproducible and offline. A useful system task is: discover a local
+Python analysis capability and a configured MCP data source; read their
+instructions/schema; fetch records; retain and process them across cells;
+write a complete result artifact; return a concise answer with that artifact;
+query/process the retained data again without reconnecting unnecessarily.
+The host adapter must run this through the actual Coding agent tool path.
+
+| Gate | Observable acceptance |
+| --- | --- |
+| W1: runtime | Fresh handshake; two cells share values; a managed async resource remains usable between cells; callback reply during an awaiting cell does not deadlock; output and terminal outcome have honest identities; another agent remains isolated. |
+| W2: capability loading | A trusted local Python Skill is discovered, its instructions read and its function called; a missing dependency or colliding import is reported without breaking unrelated capabilities. Setup from the declared environment is repeatable. Section 19.8 adds model visibility, reserved names, update/removal and host-handler availability checks. |
+| W3: MCP lifecycle | Actual local stdio and local Streamable HTTP fixtures both list/describe/call; pagination, tool errors, large/mixed results, startup failure and a hanging call are covered. Reuse, reload and close leave no owned fixture processes/connections behind. Mock-only transport checks do not pass this gate. |
+| W4: host integration | The Coding path performs the complete dataset-to-artifact task. Repeat with an execution error and then a corrected cell; verify cancellation of async work and a Windows synchronous hang via bounded host fallback, followed by a usable fresh worker. Crash/reset/host exit must produce explicit outcomes, discard stale events and clean owned processes. |
+| W5: state and operating cost | Normal compaction preserves the intended live state; switch/fork isolation and restart notices match the selected policy; explicit artifacts reopen without rerunning effects. Record setup size/time, cold/warm ready and first-call times, peak memory and repeated open/close resource counts before making performance claims. |
+
+W1-W5 define the proposed core workbench stopping point. A live-model run on the
+owner's configured gateway then confirms that capability descriptions and the
+result flow are usable; scripted runs remain regression evidence. Native
+MemPalace write/search/get/reopen is a separate consumer gate, using synthetic
+data and an isolated palace, including duplicate delivery, distinct sources,
+long content and concurrent writers. It must not require a durable harness.
+Durable implementation starts after the selected workbench gates are accepted;
+its replay/wake/abort integration will need separate tests later.
+
+### 19.6 Fresh verification and remaining limits
+
+On Windows, Python 3.13.12, ran 16 existing `test_repl.ReplTest` cases from this
+pinned checkout: all passed in 4.455 seconds. No dependencies were installed.
+`PYTHONPATH` included its `prime-agent-runtime/src` and `test` directories;
+`PYTHONUTF8=1`, `PYTHONDONTWRITEBYTECODE=1`, and
+`PRIME_AGENT_CODING_AGENT_DIR` pointed to this experiment's ignored scratch.
+The initial command omitted the test directory and failed to import the test
+module; correcting the runner path produced the result above without source
+changes. The executed case names were:
+
+```text
+test_ready_handshake_and_startup_time
+test_result_echo
+test_top_level_await
+test_background_task_persists_across_cells
+test_asyncio_task_output_keeps_spawning_cell_id
+test_cell_own_direct_fd_write_is_null_but_arrives_before_done
+test_host_request_round_trip
+test_typed_host_request_raises_host_error
+test_host_request_cancelled_cell_drops_pending_future
+test_interrupt_without_pthread_kill_cancels_awaited_cell
+test_malformed_request_line
+test_syntax_error
+test_list_names
+test_shutdown_clean_exit
+test_shutdown_with_pending_host_request_exits
+test_stdin_eof_with_pending_host_request_exits
+```
+
+These run the real Python REPL subprocess and a test host, not Prime's Rust host
+or Vivy's proposed adapter. They do not pass W1-W5 for our future implementation.
+The installed MCP SDK is 1.27.0, outside Prime's declared `>=2,<3`; dill and tyro
+are absent. No MCP transport, package-bootstrap, snapshot/restore, synchronous
+Windows interrupt, full-host teardown, native MemPalace, model task or benchmark
+was run for this investigation. Those findings above are source inspection,
+not successful runtime acceptance. The single startup sample is not a measured
+performance comparison. The retained reference checkout is unchanged.
+
+### 19.7 Component transplant audit (2026-10-27)
+
+The owner next asked which components can be transplanted. This audit follows
+the actual imports, package manifests and host requests at the same pinned
+revision. "Low adaptation" below applies to named functions or mechanisms,
+not a claim that an entire source file is a standalone reusable package.
+These are candidates and recommendations; no source was copied or integrated.
+
+#### Workbench infrastructure
+
+Paths are relative to `.workspace/prime-agent` unless prefixed with `vivy-test:`.
+
+| Component / donor | Reuse assessment | Required seam and destination | First evidence needed after adaptation |
+| --- | --- | --- | --- |
+| Cell compilation/execution, tagged streams, fd capture and draining in `prime-agent-runtime/src/rlm/repl.py` | Strong donor, adaptation required | Retain persistent namespace/event loop and framing; remove explicit factory/activity and persistent-shell dependencies or supply deliberately selected resource hooks. Host start/stop stays with the recipe-selected Vivy plugin. | Cross-cell await/resource use; Python/raw-fd/background attribution; errors followed by successful reuse; bounded output and exactly one terminal outcome per request. |
+| Low-level `host_request` in `repl.py`; typed wrapper and reply parser in `rlm/__init__.py` | Small reusable bridge | Extract the bridge from the broad package initializer. Register only the host operations actually consumed. Associate pending calls with worker generation and owner; propagate cancellation deliberately. | Host reply while a cell awaits; unknown handler, host error, late reply after cancel/reset, and shutdown with outstanding requests. |
+| Request/event types and parser in `crates/pa-core/src/kernel/protocol.rs` | Mostly reusable protocol logic | Retain selected frame types and validation; remove sent-agent-message coupling to `shared.rs`. Use an explicitly versioned Vivy contract if the surface diverges; do not advertise full Prime compatibility. | Malformed/oversized frames, missing IDs, version mismatch, stale events and Unicode boundaries. |
+| `HeadTailBuffer` in `kernel/manager/requests.rs` | Low adaptation for this isolated helper | Pure string-buffer logic can be extracted with its oracle tests if existing Rig output/spill behavior does not already meet the requirement. Keep complete artifacts separate from truncated model output. | Head/tail correctness, Unicode cuts and bounded memory under repeated chunks. No performance improvement is established by inspection. |
+| Python Skill detection in `skills/discovery.rs`; import wrapper/error reporting in `kernel/bootstrap/runtime_code.rs` | Small, useful adaptation | Add Python-package metadata to the existing trusted Vivy/Rig Skill path. Reuse the import/signature/`run()` conventions without importing Prime's complete discovery precedence or runtime bootstrap header. | Trusted discovery, missing package, failing import, callable and module-only Skills, and import-name collisions. Never auto-import an untrusted project Skill. |
+| Venv/install flow in `kernel/bootstrap/venv.rs`, `venv/skills.rs`, `bootstrap/mod.rs` | Reuse workflow selectively; substantial host adaptation | Use a dedicated interpreter, install declared packages, synchronize explicit Skills and report failures. Replace Prime paths, defaults, readiness probe and cache records. Choose dependencies from the selected capabilities. | Repeatable clean setup, reuse of an existing environment, dependency/install failure and concurrent setup ownership. Existing project environments stay separate. |
+| Generic MCP `_Generation` / `_Registry`, discovery and transport paths in `rlm/mcp.py` | Strong donor, adaptation required | Keep connection-task/context-stack ownership, per-server reuse/locks, paging and bounded close. Replace host configuration/inventory and Prime auth-file/OAuth/catalog plumbing. Its only relative `mcp_base` import is `McpToolError`; that exception does not justify importing the whole legacy wrapper. | Actual stdio/HTTP fixtures, cross-cell reuse, config change/reload, timeout/cancel, startup failure, cleanup and complete mixed-content results. Pin and test the selected SDK. |
+| `emit` and display framing in `repl.py` / `__init__.py` | Useful small bridge | Map selected payloads to Rig's existing output/attachment model; Prime-specific MIME types require actual consumers. A generic display dict alone cannot make the model see an image. | Real model-visible image block or artifact reference, bounds and unsupported-content behavior. |
+| Skill command-line helper `rlm/skill.py` | Small optional component | Uses tyro to expose a Skill's `run()` as a CLI. Needed only if shell/console entrypoints are selected; direct REPL calls do not require this helper. Change `rlm.skill:cli` entrypoints when using a new package name. | Synchronous/async function invocation and CLI argument errors. |
+| `kernel/manager/*`, `provisioner.rs`, `tools/ipython.rs` as a whole | Behavioral reference; do not transplant wholesale | These combine snapshots, repair, bash activity, factory, messaging, session and UI behavior. Extend our existing host adapter with the selected protocol/lifecycle instead of linking the entire `pa-core` execution stack. | Actual Rig tool path, failure/cancel/reset and retained direct coding behavior. |
+| `rlm/bash.py`, `_winjob.py`, Rust orphan journal | Later optional shell surface; retain existing owner now | Vivy already has direct shell tools and `vivy-process` process-tree ownership. Python-level per-command handles would be a separate requirement. Prime's persistent shell path is POSIX-only; its `_winjob` source explicitly notes mocked Windows-boundary tests. Do not assume equivalence to our Windows runs. | If selected later: real Windows child/grandchild cancellation, worker crash and competing ownership/cleanup. |
+| Snapshot/restore, `harness.py`, `factory.py`, recursion and daemon APIs | Defer or retain only as reference under current scope | Namespace serialization remains optional; continual-harness memory conflicts with the selected Laputa/MemPalace ownership if adopted wholesale. Factory/recursion/daemon work exceeds the current workbench loop. | Separate requirements and acceptance before adoption. |
+
+#### Concrete extraction boundaries
+
+- `repl.py` itself imports `factory` and imports `_kill_live_handles` and
+  `_rehydrate_persistent_shells` from `bash`. Removing those imports only from
+  `__init__.py` is insufficient. Startup, shutdown, owner-death cleanup and
+  out-of-band activity dispatch must all be accounted for. Dropping shell
+  hooks must not drop owned-process cleanup; retain `vivy-process` at the host.
+- `rlm/__init__.py` imports bash, factory and harness eagerly; factory and
+  harness refer back to each other and to the host/REPL. The small typed bridge
+  should be separated from that public API aggregator, with unsupported
+  surfaces omitted honestly. Do not provide success-shaped stubs.
+- Prime's environment bootstrap installs 12 default extra packages, including
+  pandas, numpy and scipy, and its readiness probe demands spawn, harness CRUD,
+  persistent bash and catalog APIs. A reduced workbench cannot reuse that probe
+  unchanged. This is a dependency-selection issue; no install-size or startup
+  savings have been measured.
+- Current `vivy-test:plugins/vivy-python/src/lib.rs` sends numeric IDs with
+  `{id, code}`, expects `done.ok` and a Python-version array, accepts only the
+  current call's events, and caps a frame at 2 MiB. Prime uses string IDs,
+  `{type: execute, id, code}`, `done.status`, a protocol-version handshake and
+  background/null IDs; its host accepts larger display frames. Replace the
+  protocol reader and dispatcher together with the worker, and choose coherent
+  bounds on both ends. Merely substituting the worker source will fail.
+- Our worker starts with `-I`; source-only research via `PYTHONPATH` does not
+  prove production package loading. The selected runtime and Skills must be
+  installed into, or explicitly loaded through, the chosen isolated environment.
+- `vivy-process` already provides credential filtering and a Windows job-owned
+  process tree. Selected MCP credential references must be deliberately resolved
+  and passed to their consumer; do not bypass existing credential filtering to
+  make an imported Prime helper work. No private credential file was read here.
+
+#### Existing Python Skills: what their code actually contributes
+
+A read-only AST/manifest inventory found nine Python-backed packages under the
+pinned checkout's top-level `skills/`. The table covers all nine. Their
+`dependencies = []` declarations do not imply independence: several import
+`rlm` and require specific host operations. Small wrapper size is not a measure
+of the cost of implementing the host behavior.
+
+| Skill | Actual implementation / dependency | Transplant recommendation |
+| --- | --- | --- |
+| `edit` | Exact single-occurrence text replacement using pathlib; best-effort `rlm.emit` for a Prime diff MIME payload. Its CLI still points at `rlm.skill:cli`. | Easy algorithmic donor, but existing Rig/Vivy editing already covers this need. Keep the direct tool; do not add a second edit path just to demonstrate Python Skills. |
+| `websearch` | Local Python logic calls Serper over httpx; supports `SERPER_API_KEY` but also reads Prime `auth.json`. Package declares `prime-agent-runtime` for its CLI. Some failures become result strings. | Optional capability candidate, not a generic search engine. Adapt credentials/setup text, dependency/entrypoint and failure reporting. No live Serper run or provider selection is implied. |
+| `attach-image` | Pillow validates/resizes/encodes images; `model.info` checks vision and `emit` sends a Prime attachment payload. Package declares Pillow and runtime. | Image-processing helpers are reusable. End-to-end use needs a Rig model-info/attachment adapter; existing direct attachment support remains useful. Candidate after the display bridge, not copy-and-run. |
+| `compact` | Thin wrappers for `compact.status` and `compact.run`; host performs compaction at a turn boundary. | Map to existing Rig behavior only if Python-driven compaction is wanted. Copying this package supplies no compaction engine. |
+| `agent-message` | `agent_message.send` host request plus display receipts; routing and parent/sibling/child identity are host-owned. | Defer the Python bridge; preserve existing native Rig delegation/message behavior. Do not import Prime family routing merely for this Skill. |
+| `agent-observe` | Host requests `agent_observe.list`, `.get`, `.recent`; no standalone agent registry. | Optional future adapter over the actually assembled native agents. No automatic compatibility with Prime's identities/history. |
+| `goal` | Host requests `goal.get`, `.create`, `.complete`. | Defer with the unwired autonomous Goal behavior. The Skill is not an implementation of task persistence or autonomous advancement. |
+| `refine` | Host requests `refine.status` and `.run`. | Exclude from this transplant; automatic evolution remains outside the current Vivy workbench scope. |
+| `rlm-heartbeat` | Host requests `rlm_heartbeat.list/create/update/delete` and delivery-mode arguments. | Defer to separately designed background/durable work. The package does not contain the scheduler. |
+
+The top-level `mcp` Skill is Markdown guidance, not a tenth Python package;
+its executable implementation is the generic runtime module above. Rewrite its
+instructions to match selected local connections and authentication, rather
+than promising Prime's `/plugins`, service catalog or login flow. The other
+Markdown-only entries (`factory`, `prime-intellect`, `skill-creator`) are
+documentation, not standalone capability engines.
+
+The earlier conceptual `analyze-data` example was illustrative. It is not one
+of these nine bundled upstream Skills and must not appear as an existing donor.
+
+#### Recommended transplant sequence and evidence boundary
+
+1. Adapt the REPL execution/output core and selected protocol/typed bridge
+   together. Retain the existing Rust plugin and process ownership, adding the
+   required event routing and cancellation fallback. Carry relevant upstream
+   REPL/protocol tests into the adapted implementation.
+2. Extend existing trusted Skill discovery with Python-package metadata;
+   adapt import/callable/error reporting and the minimum environment preparation.
+   Prove the route with one small offline capability and a broken dependency.
+   This validates the loader without importing an unrelated host subsystem.
+3. Adapt generic MCP connection management with an explicit host configuration
+   boundary; test both transports, reuse and cleanup through Coding. Preserve
+   full result envelopes and use bounded projections for the model.
+4. Add selected useful consumers. Native MemPalace remains the planned memory
+   direction; websearch and image attachment are optional donor candidates.
+   Their selection should follow actual use cases, not inclusion upstream.
+
+The first three items are the proposed reusable workbench foundation. The
+existing W1-W5 acceptance gates still apply; this audit does not authorize the
+implementation or add Prime's nine Skills as a compulsory feature list.
+
+This follow-up performed read-only Python AST/manifest analysis and source
+inspection. The AST inventory was checked against the implementations and host
+call sites; it is not proof that dynamic imports have been eliminated. No
+extracted runtime, dependency install, package import/execution, build or new
+runtime test was performed. The 16 REPL passes in 19.6 remain earlier evidence
+for the intact upstream runtime, not for a reduced transplant. No performance
+claim follows from the module inventory. Prime's MIT notice was inspected;
+retain applicable notices with any future copied source. Only this repository's
+research/design/handoff records are updated.
+
+### 19.8 Python-side tool loading (2026-10-27)
+
+The owner supports the selective transplant direction and asks to investigate
+loading tools inside Python, using Prime as evidence rather than assuming a
+particular mechanism. This is part of the workbench design scope. The contract
+below is a recommendation, not an implemented loader or a new plugin platform.
+Source observations use the same pinned Prime revision as 19.7.
+
+#### What Prime actually loads
+
+| Surface | Loading and invocation | How the model discovers it |
+| --- | --- | --- |
+| Markdown Skill | Discover metadata; read `SKILL.md` on demand. No executable module follows merely from having a Skill. | Dynamic prompt lists name, description and file path; `/skill:name` expands instructions. |
+| Python-backed Skill | Detect `pyproject.toml` plus the required `src/<import_name>/__init__.py`; install editable in the managed venv; eagerly import into each kernel at bootstrap. Bind the module by import name; if it has `run`, wrap it as an async callable. A module without `run` remains usable through its functions. | Prompt additionally includes type and `python_import`; read instructions and inspect `help`, `dir` or signatures as needed. This does not register every function as a separate model-facing tool. |
+| Ordinary Python library | Installed into the interpreter environment; cell or Skill code imports it explicitly. The bootstrap does not bind aliases such as `pd` for all default packages. | Environment guidance and the capability's instructions; installation alone does not describe a useful workflow to the model. |
+| Runtime / host bridge | Bootstrap binds `rlm`, `bash` and `mcp`; Python wrappers can send typed host requests. The executable host behavior must exist separately. | Core prompt describes selected entrypoints. `runtime_wiring.rs` filters three controller-backed bundled Skills when their required host handlers are absent; this is a specific mapping, not a universal dependency solver. |
+| Generic MCP tools | `mcp` is prebound, but a connection is opened and its schemas discovered on demand. `list_tools`, `search_tools`, `describe_tool` and `call_tool` operate through the connection registry. Tools are not all injected as Python globals. | Connection inventory, bounded name/description search, then the requested tool's input schema. Prime's service catalog is separate from live tool discovery. |
+
+Evidence paths, relative to `.workspace/prime-agent`:
+
+- `crates/pa-core/src/skills/{discovery,loader,mod}.rs`: detection, precedence,
+  collisions, Python metadata and prompt formatting.
+- `crates/pa-core/src/kernel/bootstrap/{mod,runtime_code,venv}.rs` and
+  `skills/skill-creator/references/python-skills.md`: environment preparation,
+  pre-import, callable wrapper and update contract.
+- `crates/pa-core/src/session_engine/{runtime_wiring,skills_unavailable_notice}.rs`
+  and `kernel/provisioner.rs`: host-handler filtering, bootstrap error reports
+  and generation-checked model notices.
+- `prime-agent-runtime/src/rlm/{mcp,mcp_base}.py` and
+  `crates/pa-core/src/prompts/layers/core.md`: MCP discovery/calling and guidance.
+
+Prime also has `McpIntegration` in `mcp_base.py`: subclasses expose tools through
+`__getattr__` and open a fresh session per call. That is a different mechanism
+from the generic registry's reusable connections. Prefer the generic registry
+for this scope; do not port both or generate a package for every MCP server.
+
+#### Availability and updates are separate concerns
+
+- A failed Skill import binds an unavailable placeholder and reports its cause
+  to the host. The live provisioner posts a model notice rather than waiting
+  for an attempted call to reveal the failure. It does not simply remove the
+  Skill's metadata from every prompt surface.
+- Editable installation does not reload a live Python module. Prime's authoring
+  reference specifies source changes taking effect on the next kernel start;
+  changing `pyproject.toml` triggers reinstall. Its bootstrap uses
+  `import_module`, not a general hot-reload mechanism.
+- Generic MCP compares host-resolved connection configuration with the current
+  generation, reusing it when unchanged and replacing it when changed.
+  `mcp.reload(server)` closes the selected connection; later use recreates it.
+  This does not reload Python Skill code.
+- `disable_model_invocation` filters the prompt inventory; Python runtime
+  metadata extraction filters by Python kind, not this flag. Hiding a Skill
+  from automatic model discovery is not an import prohibition.
+- Prime's shared venv cache carries previously installed Skills forward across
+  sessions. A session's selected/prebound list is not the complete set of
+  packages importable from that environment. Do not claim package isolation
+  from prompt filtering or from separate worker namespaces.
+- Skill-name collisions use first-wins diagnostics; distinct Skills with the
+  same Python import name produce a warning and remain in the discovered list.
+  Bootstrap then deduplicates import names. This does not prove that the
+  resulting imported package is the intended one in every conflicting setup.
+
+#### Recommended first loading contract for vivy-test
+
+Keep the existing trusted Skill discovery path and derive executable metadata
+from its selected results. Add only the loading behavior needed by the selected
+Python workbench plugin; YAML still selects compiled Rust capabilities. Runtime
+package/connection settings configure that compiled capability, not replace
+recipe selection. Do not scan and execute arbitrary `.py` files as tools.
+
+For the first small Skill set, follow Prime's bootstrap pre-import convention
+with a startup deadline and per-Skill failures. Reserve workbench-owned names
+and reject ambiguous Python bindings before installation/import, keeping other
+capabilities usable. Report preparation/loading/ready/unavailable states from
+actual discovery and bootstrap results; do not maintain another independent
+capability catalog. Preserve manual-invocation metadata without treating it as
+a security boundary. Imports execute trusted package code.
+
+Use explicit imports for ordinary libraries, selected host-backed wrappers only
+where their host handler exists, and lazy generic MCP discovery. Advertise
+concise entrypoints and obtain detailed instructions/signatures/schemas on
+demand. A new runtime registry API is not required merely to expose these facts.
+
+Recommend applying Skill source/dependency changes at an explicit worker
+restart boundary and MCP changes through its connection lifecycle. State what
+will be reset and clean up old resources before replacement. Do not promise
+transparent live-module reload or automatic namespace persistence. Removal must
+remove the selected binding and model advertisement after restart; whether an
+old package remains installed is a separate environment policy and must be
+reported honestly. Shared-environment mutation/concurrent preparation remains
+part of the environment design, not solved by separate worker processes.
+
+Extend W2 with callable and module-only Skills, ordinary library imports,
+untrusted discovery, failed dependency/import, reserved-name and import-name
+conflicts, a missing host handler, and update/removal across restart. Check that
+the model's description matches actual availability and that a failed Skill
+leaves an unrelated one usable. W3 covers MCP discovery/schema/call plus
+connection reuse and reload; W4 checks the combined route through Coding.
+
+This follow-up inspected source and documentation only. It did not install
+packages, run loading/MCP tests or change product code. The earlier 16 upstream
+REPL passes are not evidence that these proposed loading gates have passed.
+
+### 19.9 Closure scope and implementation ownership (2026-10-27)
+
+Accepted by the owner on 2026-10-27 after reviewing required closure, omissions,
+deferrals and local implementation versus transplantation. This consolidates
+19.4, 19.7 and 19.8 into the selected first release boundary and supersedes their
+earlier proposal status for these choices. Detailed adapter contracts and the
+implementation plan remain to be written. No product implementation or runtime
+acceptance follows from recording this decision.
+"Adapt" means copying a bounded donor with dependency cuts, applicable notices
+and regression evidence; it never means replacing our worker executable alone.
+
+| Required closure | Observable stopping point | Implementation ownership |
+| --- | --- | --- |
+| Environment and delivery | A clean supported Windows setup prepares the declared runtime/Skills; warm reuse works; missing dependencies and interrupted/competing setup have explicit outcomes. Normal execution does not silently install packages. | Adapt Prime's venv/install workflow. Locally implement package layout, dependency selection, configuration, setup ownership and launch integration. Keep project build environments separate. |
+| Persistent execution | Sequential cells share values; top-level await and managed resources work across cells; a code error does not poison later cells. | Adapt the REPL execution/event-loop core. Remove factory, harness and shell coupling deliberately; do not independently rebuild the entire REPL. |
+| Host protocol | Versioned ready/execute/output/error/done and host request/reply work in both directions, including replies during an awaiting cell. Old-worker events cannot complete a new call. | Adapt protocol types and Python bridge. Rework the existing Rust reader/dispatcher and Rig tool adapter for call, worker-generation and agent ownership. The present protocol is incompatible. |
+| Capability loading | Trusted Skill discovery, preparation, imports, model guidance, failure reporting and update/removal all agree. Libraries and MCP use their separate loading paths. | Extend existing Vivy/Rig discovery; adapt Prime's metadata/import/callable helpers. Locally implement conflict rules, actual availability reporting and minimal host-handler wiring. |
+| MCP lifecycle | Real stdio and Streamable HTTP fixtures discover/describe/call, reuse connections and close on reload/cancel/exit; errors remain errors. | Adapt the generic connection registry and lifecycle tasks. Supply local configuration/credential adapters, preserve complete result envelopes and verify the selected SDK. Do not port the catalog/auth application. |
+| Results and artifacts | The model gets bounded useful output and honest errors; complete large results remain available as explicit artifacts. Mixed MCP content is retained and unsupported rendering is stated. | Reuse Rig output/spill facilities and selected Prime framing/buffering helpers. Locally implement envelope/projection and artifact/attachment mapping. Rich rendering of every MIME type is unnecessary. |
+| Cancellation and cleanup | Async cancellation, synchronous Windows hang, crash, reset and host exit all settle calls honestly and clean owned local resources; a fresh worker works afterward. | Retain `vivy-process` ownership. Adapt Python cooperative shutdown; locally implement bounded escalation, pending-call cleanup and stale-event rejection. A cancelled remote call may have uncertain effects; do not retry it silently. |
+| State boundaries | Workers are isolated per owning agent; normal compaction preserves the intended live worker; switch/fork/reset/restart behavior is explicit. | Extend existing per-agent worker ownership and Rig lifecycle integration. Use fresh state after process restart with preserved explicit artifacts and a visible notice; no automatic cell replay. |
+| Diagnostics and system acceptance | Ready/busy/failed/reset state and actionable causes are visible through existing surfaces. Coding completes the dataset-to-artifact scenario and its failure/cancel/reset variants. Record cold/warm setup and execution cost plus repeated cleanup counts. | Reuse upstream focused tests and existing Rig logging/UI mechanisms. Write Vivy integration and lifecycle checks; no new dashboard or claim to trace arbitrary Python effects. Existing coding acceptance remains accepted. |
+
+Close a separate final consumer slice before moving to durable: native
+MemPalace write/search/get/close/reopen against synthetic data in an isolated
+palace, including source identity, long content, duplicate delivery and competing
+writers. Reuse the native library and previously investigated adapter behavior
+where compatible; write the small Vivy-facing Python adapter and integration
+checks. Prime's workbench does not supply this memory implementation. This
+consumer gate is separate from generic runtime acceptance and does not expand
+into ingestion policy, persona memory, taxonomy or Obsidian synchronization.
+
+#### Omit from this workbench; retain existing capabilities where applicable
+
+- Do not transplant Prime's second agent/model loop, factory/recursive agent
+  tree, family-message routing, full daemon, continual harness or evolution.
+  Keep native Rig delegation; this exclusion does not remove it.
+- Do not add a second read/edit/shell implementation or Prime's persistent bash
+  system. Keep the working direct coding tools and process owner.
+- Do not add both generic MCP and legacy per-service `McpIntegration` wrappers,
+  the service catalog/marketplace, OAuth/login system, a universal plugin SDK or
+  a second manually maintained capability catalog.
+- Do not require all nine bundled Python Skills, all default scientific
+  packages, CLI wrappers, a new workbench UI or comprehensive MIME rendering.
+  Select libraries and concrete tools when the accepted scenario needs them.
+
+#### Defer without abandoning the later product direction
+
+- Automatic namespace snapshots, transparent module hot reload and live Python
+  resource migration. First close explicit restart and artifact recovery.
+- Durable checkpoint/replay, autonomous jobs, Cron/webhook wakeups and work
+  surviving host death. These belong to the next harness phase; persistent MCP
+  connections and managed cross-cell tasks still belong in this workbench.
+- Full memory ingestion/synchronization, Laputa/ACTMEM redesign, image/search
+  product integrations and extra platforms. Each needs a concrete consumer
+  requirement and its own evidence rather than blocking the first Windows loop.
+
+The selected order is execution/protocol/lifecycle, then loading/environment,
+then MCP/results, then combined Coding acceptance, then the bounded native-memory
+consumer. W1-W5 remain the core stopping gates. No additional feature inventory
+should become a prerequisite merely because Prime implements it. This synthesis
+uses the inspected code and previous evidence; no new runtime verification or
+product implementation occurred in this follow-up.
+
+### 19.10 Deeper donor and integration audit (2026-10-28)
+
+The owner requested a further investigation before implementation, including
+missed requirements and component ownership. This section supplements the
+accepted 19.9 scope; recommendations and open choices below do not amend it.
+Prime source is `.workspace/prime-agent` at
+`c4c238ca025e382d96fb5f37e6328ca77fb82ef3`. Paths below are relative to that
+checkout unless prefixed `vivy-test/`. This is source analysis, not a test of an
+extracted runtime or of a delivered workbench.
+
+#### Details that change the integration design
+
+| Topic | Inspected behavior and consequence for this experiment |
+| --- | --- |
+| Protocol and deadlock | `prime-agent-runtime/src/rlm/repl.md`, `repl.py` and `crates/pa-core/src/kernel/protocol.rs` specify version 3, string request IDs, a ready handshake and typed events. Execute requests are serialized; `host_reply` and interrupt bypass that queue. A host that waits for `done` without concurrently answering a host request deadlocks. Negotiate or reject a version mismatch before executing, and settle all pending calls on EOF, crash or malformed frames. |
+| Output attribution | `repl.py` duplicates the original stdout for protocol frames, redirects native stdout/stderr to pipes and fences them before `done`. Python writes carry a context ID; background asyncio tasks retain their originating cell ID; raw fd, C-extension, subprocess and ordinary thread output have no provable cell ID. Ordering is per stream, not global. `manager/events.rs` routes unmatched output to a bounded background buffer. A dispatcher must keep reading while idle and avoid attributing unknown or late output to the current cell. |
+| Bounded frames and complete results | `repl.py` chunks Python stream writes, caps expression `repr` at 1,048,576 characters and refuses display/host payloads above its encoded cap. `manager/execution.rs` also clips outputs; `manager/events.rs` can drop oversized attachments. `vivy-test/plugins/vivy-python/src/lib.rs` currently limits collected text to 10 MiB before spilling it. Consequently neither upstream truncation nor the current spill establishes the accepted complete-artifact guarantee: data lost before spill cannot be recovered. Define bounded transport, disk-backed streaming or explicit file artifacts at the producer, report size/write failures and state precisely which outputs are complete. Arbitrary Python object `repr` need not become a lossless serialization. |
+| Concurrent requests and cancellation | `repl.py` tracks in-flight IDs and parks an early targeted interrupt. It handles interrupts through the handoff to `done`; an untargeted interrupt can affect a queued request. The existing Vivy mutex serializes calls and its future-drop cancellation kills the process. Define separately cancellation while queued, during startup, during execution, and after completion; never let a dropped queued waiter kill another call. Preserve the real completed result when cancellation races completion. |
+| Idle and child cleanup | Prime has an owner watchdog and process teardown tests; EOF alone cannot unblock a synchronous Python hang. Vivy's `OwnedChild` and credential-policy-triggered worker reset are existing responsibilities to preserve. Validate abrupt host exit and descendant cleanup on the actual Windows path; do not assume graceful async cleanup runs after forced termination or that killing a local process rolls back a remote request. |
+| Initialization | `kernel/bootstrap/venv.rs`, `venv/runtime_source.rs`, `dir_lock.rs` and `venv/skills.rs` show a local packaged sidecar, `uv`-managed Python/venv, runtime identity, a shared version cache, editable Skills and a cross-process lock. Prime also installs snapshot-related and default packages outside our accepted minimum. Keep a separate explicit prepare step, select only needed dependencies, and validate interrupted preparation, competing processes, stale locks, missing package payload, offline failure and warm reuse. Source identity for cache invalidation is not species-hash enforcement. |
+| Python package metadata | Prime's `venv/skills.rs` parses selected `pyproject.toml` lines by hand and recursively resolves sibling dependencies. This is evidence of its mechanism, not a robust general Python dependency resolver to copy verbatim; markers, unusual formatting, cycles and name normalization need explicit treatment if supported. Prefer the chosen installer/standards-aware parser; constrain and document the supported input. Test import-name conflicts separately from distribution-name conflicts. |
+| MCP lifecycle | `prime-agent-runtime/src/rlm/mcp.py` uses an owning event loop, per-server generation, lifecycle task/`AsyncExitStack`, serialized calls, startup/call/shutdown deadlines, config comparison and close-before-replace. Discovery follows pages and rejects repeated or malformed cursors rather than advertising a partial inventory. A cancelled first open must close what it acquired. Reuse this lifecycle selectively, including failure isolation; replacing it with a per-call context would lose connection and cross-cell behavior. |
+| MCP configuration and secrets | The same module requests config through the host bridge, resolves stdio environment and HTTP headers, handles diagnostic redaction and has SDK-signature-dependent HTTP paths. The inspected `httpx2` branch explicitly disables redirects; verify any selected SDK branch rather than generalizing that guarantee. A thin local host adapter must define allowed connection configuration and credential references, scrub subprocess environment, prevent credential disclosure in inventory/errors, and test redirect/endpoint behavior. No OAuth service is needed for the accepted scope. |
+| Packaging and version risk | `prime-agent-runtime/pyproject.toml` declares Python >=3.11 and `mcp>=2,<3`; its package initializer imports factory, bash and harness, while `repl.py` contains snapshot and bash branches. `mcp.py` also depends on host request helpers and handles SDK variants. Extract a coherent reduced package with an explicit dependency manifest, not individual loose functions. The previously observed local MCP 1.27.0 does not establish compatibility with Prime's declared range; select and lock an available SDK only after testing both transports. Keep the upstream MIT notice for copied code. |
+| Live workers and session boundaries | `vivy-test/plugins/vivy-python/src/lib.rs` binds a worker by Rig `Entity`, prunes removed agents, and stops on app exit or credential-policy generation change. Entity identity alone does not prove behavior across compaction, session switch, fork or resume. Inspect and test those actual Rig transitions before choosing ownership hooks; a process restart begins fresh state under the accepted decision. |
+
+#### Concrete donor boundaries and local ownership
+
+| Slice | Copy/adapt candidate | Remove or implement locally | Evidence still needed |
+| --- | --- | --- | --- |
+| Python execution | `repl.py` compile/execute, event loop, tagged writers, fd pumps, host-request routing, interrupt and shutdown mechanisms; selected `test/test_repl.py` cases. | Cut snapshot/restore, factory, persistent bash and unrelated host actions; preserve the coupled output fence and request tracking. Define supported platform fallback and artifact path before adapting caps. | Reduced-package imports, Unicode/fd writes, idle late events, hung sync code, interrupt races and forced cleanup on Windows. |
+| Protocol/host | `kernel/protocol.rs`, `manager/{events,execution,requests,host_requests}.rs` as behavior and selective type/parser donors; protocol fixtures and frame-cap tests. | Implement Vivy dispatcher, request/generation routing, backpressure, bounded frame parsing, exactly-once settlement, Rig output/error bridge and lifecycle integration. Do not import Prime's manager wholesale. | Mismatched versions, invalid/oversized frames, out-of-order/old generation events, host request during execute, EOF and cancellation races. |
+| Skill loading | `skills/{discovery,loader}.rs`, `kernel/bootstrap/runtime_code.rs`, `venv/skills.rs` and `test/test_repl.py` as reference for metadata, pre-import and per-Skill failure. | Extend existing Vivy Skill discovery; own name validation, duplicate and reserved-name policy, trust, dependency preparation, actual availability and reset notices. Do not copy the simplistic dependency reader as a general solution. | Callable and module-only Skills, dependency errors, collision/removal/update, discovery versus actual import, one failed Skill leaving others usable. |
+| Environment delivery | `bootstrap/venv/{runtime_source,version,probe,uv}.rs` and `bootstrap/dir_lock.rs` for patterns; packaging tests. | Choose project-local package layout, install/lock strategy, setup entrypoint and cache scope; do not carry Prime's full package list or automatic install on ordinary execution. | Clean and warm Windows setup, offline/missing dependency, partial install, two preparers, stale lock, changed runtime, live-worker interaction and install failure diagnostics. |
+| Generic MCP | `rlm/mcp.py` registry, generation, pagination, context ownership, shutdown and focused `test/test_mcp.py` cases. | Replace Prime's inventory/config/auth host calls with a narrow Vivy adapter; remove marketplace and OAuth routes; preserve complete SDK result envelopes before rendering. Pin and verify selected SDK, credentials and redirects. | Real local stdio and Streamable HTTP, pagination, schema, mixed content and `isError`, reuse, open/reload/cancel races, server death, redaction and resource cleanup. |
+| Output/artifacts | Prime framing and Rig `OutputLimit`/`Spill` as building blocks. | Own a loss-accounted result envelope and artifact writer with explicit capacity/error semantics; make raw/unattributed and late output distinguishable. | Unicode and high-volume streaming, truncation notices, artifact write failure, mixed text/structured/binary payloads, no silent loss or invented attribution. |
+| System integration | Existing Rig tools, `vivy-process`, the Coding route and existing acceptance fixtures. | Adapt lifecycle hooks and actual model guidance; create local synthetic fixtures and end-to-end tests. Keep native coding and delegation paths. | W1-W5, actual session lifecycle, real gateway model behavior and repeatable cleanup/cost measurements. |
+
+Prime's `test_mcp.py` names provide useful targeted cases: generation reuse and
+replacement, config failure preserving the cached generation, reload racing a
+first open, startup cleanup, call timeout and stdio environment scrubbing.
+`kernel_startup_join.rs` covers joined boot and cancellation of a waiter;
+`kernel_protocol_frame_caps.rs` covers an oversized unterminated line;
+`kernel_teardown.rs` covers ownership on drop. These are donor test ideas, not
+claims that their harnesses or assertions can be copied unchanged. Tests for
+Prime's snapshot/restore, factory and daemon are outside the first extraction
+unless they expose a dependency that must be severed.
+
+#### Questions to settle during detailed design
+
+1. Choose the exact worker/session ownership key and queue/cancellation rules
+   after tracing Rig's compaction, switch, fork and resume hooks. Decide how late
+   and unowned output remains accessible without contaminating a later result.
+2. Choose the package/install format, prepared-environment location, cache
+   invalidation and installer availability, including Windows paths with spaces,
+   Unicode and offline behavior. Specify whether preparation can modify an
+   environment used by a running worker and how failures remain recoverable.
+3. Define frame and queue limits, artifact retention/location, size limits and
+   producer-side handling before truncation. Distinguish complete MCP envelopes,
+   captured streams, explicit files and inherently abbreviated Python `repr`.
+4. Define the minimum config/host request schema, environment-variable credential
+   resolution, redaction, allow/deny behavior if selected, endpoint changes,
+   subprocess environment and selected SDK compatibility for both transports.
+5. Decide concrete local fixtures and exact observable assertions for W1-W5;
+   add queued-cancel, startup/teardown races, pagination failure, mixed content,
+   artifact write failure and abrupt host/child exit. These refine accepted gates,
+   not a requirement to implement all Prime features.
+
+No new execution, dependency installation, live MCP, benchmark or gateway test
+was performed for this audit. The 16 earlier upstream REPL passes remain the
+only runtime evidence described in 19.6. The findings warrant detailed adapter
+contracts and a plan; they do not establish a compatible transplant or change
+the workbench-before-MemPalace-before-durable order.
+
+### 19.11 Workbench and native MemPalace integration research (2026-10-28)
+
+The owner requested focus on the workbench and MemPalace closure; do not begin
+durable research in this slice. This section develops testable integration
+questions within the accepted 19.9 scope. Interface names and strategies below
+are candidates, not implemented or additional owner decisions.
+
+#### Pinned upstream and actual native-library seam
+
+MemPalace source inspected read-only at `f41e8e75ddaadf5588d5127715fa531d79eadb45`
+(`mempalace` project version 3.12.0). This is the previously recorded upstream
+reference, not the original Vivy checkout, a product dependency, or live user
+data. Its package declares Python >=3.10 and core dependencies including
+ChromaDB >=1.5.4,<2; its multilingual model can be downloaded on first use.
+Prime's candidate runtime requires >=3.11. Merely installing a package does not
+prove the selected embedding model is present offline, or that a mismatched
+model can safely open an existing palace. The pinned `palace/collection.py`
+checks configured collection name and embedding identity; preserve those
+checks rather than bypassing them. Source: `pyproject.toml`,
+`mempalace/palace/collection.py` and `mempalace/searcher/query.py`.
+
+The machine's default interpreter reports installed MemPalace 3.5.0, ChromaDB
+1.5.8 and MCP 1.27.0. Those versions do not match the pinned 3.12.0 source or
+Prime's declared MCP >=2,<3. This was an import-spec/package-metadata check,
+not an import of the pinned engine or a behavioral test. Do not use that
+environment as evidence that the chosen integrated dependency set works. Prepare
+a dedicated environment and pin an actual tested package/version combination;
+verify both offline fixtures and the real configured embedding path.
+
+| Operation | What the inspected engine provides | Consequence for the Vivy-facing facade |
+| --- | --- | --- |
+| Open | `palace.get_collection(palace_path, collection_name=None, create=..., backend=..., read_only=...)` resolves the configured drawers collection, backend and embedding identity. | Pass an explicit isolated path and selected configuration; do not silently create a differently named collection invisible to search. Respect the backend's actual read-only behavior. |
+| Write | `mcp_server/tools_write.py::tool_add_drawer` validates input, calculates an ID, checks for an existing write, chunks large content, stores `parent_drawer_id`/`chunk_index`, uses a batch upsert and checks the inserted ID. These are MCP-handler semantics, not supplied by one generic collection `upsert`. | A direct facade must reuse suitable safe lower-level code or implement the missing bounded write semantics. Do not import `mempalace.mcp_server`: its initializer redirects process stdout and fd 1 and loads fragments into a shared namespace. Copying a fragment is not a standalone supported API. |
+| Search | `searcher.search_memories` accepts an explicit palace, optional wing/room/source filter and a result limit; vector and optional lexical strategies differ. It returns a dict and search hits, not an unconditional full logical document. | Return bounded hits with source and logical handles where available; keep retrieval status and any fallback/truncation explicit. Search relevance and exact-match correctness are different assertions. |
+| Full read | `tool_get_drawer` resolves logical groups and joins ordered chunk documents; it also handles single and legacy records. | A native adapter needs a compatible logical-get path that detects missing/duplicate/out-of-order chunks and does not present an incomplete record as complete. Check actual search-hit to logical-ID mapping. |
+| Close/reopen | `backends/chroma.py::close_palace` closes and evicts the cached client for the palace; `close` drains clients for that backend. | Establish who owns cached backend handles and whether search shares them before closing. Test a same-process reopen and a new-process reopen on Windows; do not assume dropping a Python variable releases a database lock. |
+
+#### Identity and write correctness
+
+Upstream `ids.make_drawer_id_from_content(wing, room, content)` and
+`tool_add_drawer` derive the logical ID from partition and content, not
+`source_file`. The handler's already-exists check can therefore collapse equal
+text from distinct sources in the same wing/room before the second source is
+recorded. Conversely, `make_drawer_id_from_chunk` uses source and chunk index
+with the partition in its ID. These are different upstream recipes, not a
+drop-in source-preserving `remember` API. Do not pretend this is fixed by using
+only a semantic room for each topic.
+
+Recommended contract to validate: each admitted source event has an explicit
+stable identity independent of text; retrying the same event with the same
+payload resolves to one logical record, while two source events with identical
+text remain separately attributable. A repeated event with changed content or
+partition must have an explicit conflict or revision policy, not silently
+overwrite another source. Evaluate using the upstream source/chunk ID helper
+and standard metadata versus an adapter-owned namespaced ID; whichever is
+selected must be tested against native search, logical get and close/reopen.
+This is an adapter design requirement, not a change to the upstream ID recipe.
+
+Upstream comments describe one batch upsert for chunks and infer completeness
+from its last row. Test the selected backend's actual behavior; do not infer a
+cross-operation transaction or crash-proof idempotency solely from that comment.
+The adapter should report an uncertain outcome when a worker is terminated
+during a write, then offer an explicit identity-based lookup before the caller
+decides whether to retry. Preserve a source ID, partition, ordered chunk
+metadata and complete content independently of model-facing output limits.
+
+`ChromaCollection` uses `mine_palace_lock` around mutations, and the lock is
+nonblocking and keyed from a normalized palace path; on Windows it locks byte 0
+with `msvcrt`. These mechanisms are important reusable engine behavior, not
+proof that two independently opened Python workers may hold Chroma handles or
+perform a multi-step check-then-write transaction safely. Test simultaneous
+processes, same-event and different-event writes, contention and retry, exit of
+the holder, read during a write, and reopen. Choose either a narrowly scoped
+single writer or an engine-supported lock boundary based on evidence; do not
+introduce a second Vivy database or claim exactly-once delivery.
+
+#### Workbench-to-memory contract to evaluate
+
+1. **Preparation:** recipe selects the Python workbench at build time; explicit
+   setup prepares the trimmed Prime-derived runtime plus a pinned MemPalace
+   distribution and required embedding assets. Record interpreter, package,
+   backend, model identity and preparation result. Normal cells do not install
+   packages or silently fetch a model. Define a clear offline-missing-asset error.
+2. **Discovery and admission:** expose one small trusted Python-backed memory
+   capability with instructions and actual readiness. The caller chooses an
+   admitted palace/wing/room and supplies source identity and content; no
+   automatic ingestion, ambient personal data scan or persona injection.
+   These partitions organize recall; they are not security ACLs.
+3. **Execution:** a cell invokes the in-process facade. Since the inspected
+   collection/search APIs are synchronous, a slow embedding or database call
+   can block Prime's single Python event loop. Evaluate an owned bounded executor
+   for blocking work, its cross-thread library safety, and shutdown behavior;
+   cancellation of an awaiting coroutine does not stop a running thread or undo
+   a commit. Windows process-kill escalation remains the final fallback.
+4. **Results:** `remember` returns explicit status and logical handle; `search`
+   returns bounded hits and source associations; `get` returns full content or
+   an explicit file artifact with completeness and errors. Exact names, data
+   shapes, retention and size policy remain design choices. Do not confuse a
+   search excerpt or truncated `repr` with the full stored content.
+5. **Lifecycle:** normal compaction should keep the live per-agent worker;
+   explicit restart/exit destroys it but not committed palace data or explicit
+   artifacts. Each process must close owned clients before graceful stop; forced
+   termination still needs a later reopen/lock-release test. Rig's inspected
+   `host/exit.rs` uses launcher-mediated exit/relaunch for session switch and
+   reload, and `vivy-python` currently kills workers on app exit. This supports
+   fresh state after these paths but is source evidence, not a run of each path.
+
+#### Small acceptance fixtures and unresolved choices
+
+Use only temporary synthetic data, no existing palace or credentials. First
+exercise the native adapter independently; then drive the same facade through
+the actual Python worker and Coding. Suggested fixtures:
+
+| Case | Observable result |
+| --- | --- |
+| Scoped write/search/get | Write synthetic source A under a chosen wing/room; search within that scope yields its handle/source; `get` returns exactly the original content. Another partition is excluded when filtered. |
+| Long content | Use Unicode and content crossing several chunks; search finds a hit, logical get joins all chunks in order, and file artifact/full content equals the original after reopen. |
+| Duplicate versus source identity | Repeat event A and confirm one logical event; write identical content as event B in the same wing/room and confirm both source associations survive. Changed content for event A follows the declared revision/conflict rule. |
+| Failure and competing writers | Run two isolated worker processes against one synthetic palace, test same and different events, contention, interruption during a write and post-failure inspection. An error or uncertain outcome is acceptable only when reported honestly and the palace remains readable. |
+| Lifecycle and integration | Close/reopen in-process and in a fresh process, verify Windows locks release; restart the workbench and confirm variables reset while previously committed memory is retrieved. Repeat through Coding and report cleanup and cold/warm time, disk and memory costs. |
+| Environment failures | Missing pinned package/model assets, embedding identity mismatch, denied path, corrupt/incomplete chunks and malformed IDs produce actionable errors without modifying a different palace or publishing incomplete content. |
+
+Resolve the exact source/event ID schema and revision policy; source-to-logical
+mapping and compatibility with upstream search; backend/lock and handle
+ownership; embedding model preparation and offline fixture strategy; executor
+and cancellation semantics; and the artifact size/retention contract before
+implementation. The accepted MemPalace consumer gate is bounded to these
+write/search/get/reopen behaviors; Obsidian synchronization and automatic
+ingestion remain separate, not implied by this test. Workbench W1-W5 still
+precede that consumer gate.
+
+This follow-up inspected pinned source and local package metadata only. No
+engine write, model download, package installation, new test palace, MCP server,
+memory benchmark or integrated workbench execution was run. Upstream test
+names and comments are design evidence, not successful local verification.
