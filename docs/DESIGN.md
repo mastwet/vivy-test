@@ -153,6 +153,14 @@ implementation and system validation before starting the durable harness. This
 supersedes the earlier requirement to establish both harnesses first; their
 separate lifecycle responsibilities remain unchanged.
 
+The owner next requested Prime implementation research before selecting the
+workbench scope and acceptance task. Research section 19 in
+[the existing workbench investigation](research/2026-10-25-hybrid-agent-workbench-decisions.md#19-prime-workbench-investigation-and-proposed-closure-2026-10-27)
+records the runtime/host/Skills/MCP boundaries, 16 fresh Windows REPL tests and
+a proposed first scope with W1-W5 acceptance gates. Selective Prime reuse,
+fresh-state restart and the separate native-memory consumer gate are proposals,
+not yet approved implementation choices. No product implementation starts here.
+
 1. Preserve the accepted coding path and use it as the first workbench consumer.
 2. Close a trimmed Prime-style capability loop: discover a Python capability,
    load its instructions, execute it, return a bounded useful result, handle

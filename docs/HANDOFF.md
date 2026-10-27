@@ -176,6 +176,15 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
+Latest scope instruction: investigate Prime's workbench first, then select the
+scope and closure. [Research section 19](research/2026-10-25-hybrid-agent-workbench-decisions.md#19-prime-workbench-investigation-and-proposed-closure-2026-10-27)
+now records the pinned source path, reuse alternatives, proposed runtime/Skills/
+MCP scope and W1-W5 acceptance loop. Sixteen upstream REPL tests passed on Windows;
+MCP transport and the Vivy adapter were not run. Next resolve that proposed
+scope into the workbench design; do not restart a broad inventory or ask the
+owner to invent a task before the scope is clear. The proposal is not a shipped
+workbench or an approved implementation specification.
+
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
 The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize
 the new Python workbench: close its design, implement the selected runtime and
