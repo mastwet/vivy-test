@@ -20,6 +20,13 @@ current scope. No second harness or new memory implementation is delivered yet.
 
 ### Saved discussion checkpoint (2026-10-27)
 
+Latest owner acceptance (2026-10-27): the agent completed a real coding task by
+fixing one of its own bugs. The owner confirmed the chain was stable and
+explicitly accepted it. The initial real-task coding gate is closed; proceed
+to the bounded durable foundation, followed by the trimmed Python capability
+loop. This is owner-run acceptance, separate from the historical automated
+checks. Do not require another coding demonstration before that next slice.
+
 The owner asked to save today's decisions before further work. Resume from
 DESIGN's current two-harness section and **Python-native memory candidate and
 research checkpoint**, not the older full Prime/evolution direction. The order
@@ -95,8 +102,8 @@ semantics are not yet designed or implemented; see DESIGN.
 Current state: the builder, gateway, native Windows launcher, Git Bash process
 adapter and auxiliary Python workbench are implemented. DESIGN's "Windows coding
 species and Python workbench" section records implementation evidence. The owner
-reported a successful manual run; that is not a newly recorded automated gateway
-test. Gateway model facts (delivery step 1) are implemented and checked against
+accepted the real-task coding path as recorded above. Gateway model facts
+(delivery step 1) are implemented and checked against
 the scripted gateway. DESIGN's 2026-10-27 two-path decision supersedes conflicting
 scope and ordering in its older "Delivery slices and stopping points" record.
 The later owner-approved collaborative Plan addition is implemented in
@@ -167,8 +174,10 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 ## Suggested next implementation task
 
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
-Work separately on the classic-Pi coding harness and the pi-durable-referenced
-durable harness; select a bounded acceptance case for each before implementation.
+The classic-Pi coding path has passed owner-run real-task acceptance. Continue
+with the pi-durable-referenced durable harness, selecting a bounded acceptance
+case and file commit/recovery design before implementation. Preserve the working
+coding path and its existing regression checks.
 `pi-durable` is a TypeScript reference, not a Rust integration already present.
 Then connect the trimmed Prime Python capability loop. Reuse existing coding
 verification, but do not treat session resume as proof of durable task replay,

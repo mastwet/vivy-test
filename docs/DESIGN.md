@@ -9,8 +9,11 @@ Saved checkpoint, 2026-10-27: **Separate durable and coding harnesses**, its
 shared-workspace/memory boundaries and the native-library investigation below
 are the current direction. They supersede conflicting scope and sequencing in the dated
 hybrid design below. Dated implementation sections preserve earlier evidence; they
-do not establish the newly designed capabilities. The owner has since reported
-a successful manual test; that report does not supply a new automated test record.
+do not establish the newly designed capabilities. On 2026-10-27 the owner
+explicitly accepted the real-task coding path: the agent fixed one of its own
+bugs, and the owner reported a stable end-to-end chain. This closes the initial
+real-task coding acceptance gate. Evidence is owner-run acceptance; earlier
+automated checks remain separately recorded.
 
 The later **Collaborative Plan mode** section records the owner-approved Plan
 addition and its verification. This does not expand the parked Goal/evolution work.
@@ -165,11 +168,14 @@ libraries or protocol code when both paths need them, without first creating a
 universal harness or shared authoritative conversation store. A common gateway
 or workbench does not imply common recovery or replay semantics.
 
-Initial checks should demonstrate a real multi-step coding task with failure and
-cancellation; durable admission deduplication, reopen from a committed checkpoint,
-sleep/wake and explicit abort; then one useful Python capability through each
-selected path. Memory and full background companionship are subsequent durable
-slices, not prerequisites for proving the coding workbench.
+The initial real-task coding gate is accepted by the owner (2026-10-27): the
+agent fixed one of its own bugs and the owner confirmed the chain was stable.
+Retain existing failure/cancellation checks as regression evidence; another
+real-task coding demonstration is not a prerequisite to the next slice.
+Next establish durable admission deduplication, reopen from a committed
+checkpoint, sleep/wake and explicit abort; then one useful Python capability
+through each selected path. Memory and full background companionship are
+subsequent durable slices, not prerequisites for proving the coding workbench.
 
 Evidence: this clarification is a design decision, not a delivered second harness.
 The inspected sources are `.workspace/pi/packages/durable/README.md`, its
@@ -278,7 +284,9 @@ Research references and evidence for resuming this discussion:
 
 Open choices: the Rust durable implementation, the exact Prime runtime subset,
 the native MemPalace write/read seam, domain taxonomy and source-identity mapping,
-and each harness's initial acceptance case. These are not implemented decisions.
+and the durable harness's bounded initial acceptance case. Coding's initial
+real-task gate is accepted as recorded above. The remaining choices are not
+implemented decisions.
 Resume with those bounded choices; do not restart a full-platform or RLM parity
 effort. No product code, dependency or memory data was changed by this checkpoint.
 
