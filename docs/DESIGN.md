@@ -1,5 +1,56 @@
 # Decisions and assembly direction
 
+## Automatic workbench preparation: agreed direction (2026-10-28)
+
+The owner chooses project-scoped remembered consent: after the first approval,
+automatically repair missing dependencies within that approved scope. Ask again
+when adding dependencies/Skills, changing their declared sources or enabling
+native memory beyond the existing grant. Store consent in ignored local project
+state, independently of session history. A skipped prompt grants nothing; do
+not repeat it on each new session or each footer rotation. Keep a manual setup
+entry available. Headless operation must report missing approval explicitly,
+without hanging on an invisible dialog or treating absence of input as consent.
+
+Initialization has three outcomes shared by the setup UI and footer:
+
+| Outcome | Meaning | Display |
+| --- | --- | --- |
+| `not_init` | Never initialized, disabled, or initial setup declined/skipped/cancelled without a fault | `Mem not init`; ordinary rotation, setup remains available |
+| `error` | Detection, installation, asset download, opening or validation failed | `Mem error`; pin the workbench page and retain the cause/retry entry |
+| `ready` | Deterministic preparation and validation succeeded | `Mem ready`; show recovery for five seconds, then ordinary rotation |
+
+Checking/preparing are transient progress, not a fourth final outcome. Do not
+label a failure as not initialized, or a deliberate skip as an error. Skipping
+a retry does not erase an existing failure. Preserve a previously usable
+environment when preparation is cancelled or fails. Initialization readiness
+and worker lifecycle (not started/running/stopped) remain separate facts.
+
+MemPalace setup must be a program-owned script workflow, never a model-generated
+sequence of tool calls. Reuse `vivy_workbench.prepare.prepare`, `prepare_assets`
+and `memory.probe`: resolve the approved configuration, prepare dependencies,
+download/verify model assets, open the isolated native engine, perform synthetic
+write/read/semantic-search checks in a separate probe palace, close resources,
+then publish the ready environment. Report structured progress and completion
+to the host, which owns cancellation, errors, confirmation UI and status updates.
+The current probe already checks write/read; semantic search must join this
+initialization gate. With the current embedded library architecture, successful
+"connection" means verified local engine/model/storage readiness, not a remote
+MemPalace service or merely a successful import.
+
+Startup detects readiness in the background, using cached identity and bounded
+local checks for an unchanged environment; it never downloads assets or performs
+database probes every five seconds. An unapproved unprepared project gets a
+setup prompt; a previously approved repair goes through the same fixed workflow.
+Successful publication is adopted by a new worker immediately; an existing
+worker is replaced only at a safe call boundary with an explicit state-reset
+notice. Wire outcomes into the existing footer and `/python status`, from the
+same authoritative state. More, Fast, Good, Frugal: extend existing preparation,
+locking, publication, process ownership and terminal UI rather than introducing
+another installer, agent loop or initialization service.
+
+This section records the agreed design direction only. Automatic detection,
+consent dialogs and repair are not implemented by this documentation change.
+
 ## Workbench footer rotation (owner-approved, 2026-10-28)
 
 Rotate the compact terminal's right-side telemetry and Python/memory status every
