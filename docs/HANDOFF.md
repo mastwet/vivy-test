@@ -185,6 +185,14 @@ then the bounded native MemPalace consumer gate, then durable. Scope acceptance
 is not runtime acceptance: sixteen upstream REPL tests passed on Windows, but
 MCP transport and the proposed Vivy adapter were not run.
 
+The 2026-10-28 deeper Prime donor audit is in research section 19.10. It adds
+protocol/output attribution and loss boundaries, startup/cancellation races,
+environment locking and package metadata, MCP pagination/credential/lifecycle
+concerns, a component-by-component extraction map and focused verification
+cases. In particular, upstream `repr` and current Vivy collection can truncate
+before a spill, so the accepted complete-artifact contract needs producer-side
+design. This is source inspection only; no new runtime result or scope change.
+
 The subsequent component audit is in research section 19.7. It identifies the
 REPL/protocol/bridge, executable-Skill loading and generic MCP lifecycle as donor
 candidates, and maps all nine bundled Python Skills to their actual host or

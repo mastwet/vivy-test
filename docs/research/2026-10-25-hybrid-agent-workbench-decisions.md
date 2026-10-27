@@ -1768,3 +1768,77 @@ consumer. W1-W5 remain the core stopping gates. No additional feature inventory
 should become a prerequisite merely because Prime implements it. This synthesis
 uses the inspected code and previous evidence; no new runtime verification or
 product implementation occurred in this follow-up.
+
+### 19.10 Deeper donor and integration audit (2026-10-28)
+
+The owner requested a further investigation before implementation, including
+missed requirements and component ownership. This section supplements the
+accepted 19.9 scope; recommendations and open choices below do not amend it.
+Prime source is `.workspace/prime-agent` at
+`c4c238ca025e382d96fb5f37e6328ca77fb82ef3`. Paths below are relative to that
+checkout unless prefixed `vivy-test/`. This is source analysis, not a test of an
+extracted runtime or of a delivered workbench.
+
+#### Details that change the integration design
+
+| Topic | Inspected behavior and consequence for this experiment |
+| --- | --- |
+| Protocol and deadlock | `prime-agent-runtime/src/rlm/repl.md`, `repl.py` and `crates/pa-core/src/kernel/protocol.rs` specify version 3, string request IDs, a ready handshake and typed events. Execute requests are serialized; `host_reply` and interrupt bypass that queue. A host that waits for `done` without concurrently answering a host request deadlocks. Negotiate or reject a version mismatch before executing, and settle all pending calls on EOF, crash or malformed frames. |
+| Output attribution | `repl.py` duplicates the original stdout for protocol frames, redirects native stdout/stderr to pipes and fences them before `done`. Python writes carry a context ID; background asyncio tasks retain their originating cell ID; raw fd, C-extension, subprocess and ordinary thread output have no provable cell ID. Ordering is per stream, not global. `manager/events.rs` routes unmatched output to a bounded background buffer. A dispatcher must keep reading while idle and avoid attributing unknown or late output to the current cell. |
+| Bounded frames and complete results | `repl.py` chunks Python stream writes, caps expression `repr` at 1,048,576 characters and refuses display/host payloads above its encoded cap. `manager/execution.rs` also clips outputs; `manager/events.rs` can drop oversized attachments. `vivy-test/plugins/vivy-python/src/lib.rs` currently limits collected text to 10 MiB before spilling it. Consequently neither upstream truncation nor the current spill establishes the accepted complete-artifact guarantee: data lost before spill cannot be recovered. Define bounded transport, disk-backed streaming or explicit file artifacts at the producer, report size/write failures and state precisely which outputs are complete. Arbitrary Python object `repr` need not become a lossless serialization. |
+| Concurrent requests and cancellation | `repl.py` tracks in-flight IDs and parks an early targeted interrupt. It handles interrupts through the handoff to `done`; an untargeted interrupt can affect a queued request. The existing Vivy mutex serializes calls and its future-drop cancellation kills the process. Define separately cancellation while queued, during startup, during execution, and after completion; never let a dropped queued waiter kill another call. Preserve the real completed result when cancellation races completion. |
+| Idle and child cleanup | Prime has an owner watchdog and process teardown tests; EOF alone cannot unblock a synchronous Python hang. Vivy's `OwnedChild` and credential-policy-triggered worker reset are existing responsibilities to preserve. Validate abrupt host exit and descendant cleanup on the actual Windows path; do not assume graceful async cleanup runs after forced termination or that killing a local process rolls back a remote request. |
+| Initialization | `kernel/bootstrap/venv.rs`, `venv/runtime_source.rs`, `dir_lock.rs` and `venv/skills.rs` show a local packaged sidecar, `uv`-managed Python/venv, runtime identity, a shared version cache, editable Skills and a cross-process lock. Prime also installs snapshot-related and default packages outside our accepted minimum. Keep a separate explicit prepare step, select only needed dependencies, and validate interrupted preparation, competing processes, stale locks, missing package payload, offline failure and warm reuse. Source identity for cache invalidation is not species-hash enforcement. |
+| Python package metadata | Prime's `venv/skills.rs` parses selected `pyproject.toml` lines by hand and recursively resolves sibling dependencies. This is evidence of its mechanism, not a robust general Python dependency resolver to copy verbatim; markers, unusual formatting, cycles and name normalization need explicit treatment if supported. Prefer the chosen installer/standards-aware parser; constrain and document the supported input. Test import-name conflicts separately from distribution-name conflicts. |
+| MCP lifecycle | `prime-agent-runtime/src/rlm/mcp.py` uses an owning event loop, per-server generation, lifecycle task/`AsyncExitStack`, serialized calls, startup/call/shutdown deadlines, config comparison and close-before-replace. Discovery follows pages and rejects repeated or malformed cursors rather than advertising a partial inventory. A cancelled first open must close what it acquired. Reuse this lifecycle selectively, including failure isolation; replacing it with a per-call context would lose connection and cross-cell behavior. |
+| MCP configuration and secrets | The same module requests config through the host bridge, resolves stdio environment and HTTP headers, handles diagnostic redaction and has SDK-signature-dependent HTTP paths. The inspected `httpx2` branch explicitly disables redirects; verify any selected SDK branch rather than generalizing that guarantee. A thin local host adapter must define allowed connection configuration and credential references, scrub subprocess environment, prevent credential disclosure in inventory/errors, and test redirect/endpoint behavior. No OAuth service is needed for the accepted scope. |
+| Packaging and version risk | `prime-agent-runtime/pyproject.toml` declares Python >=3.11 and `mcp>=2,<3`; its package initializer imports factory, bash and harness, while `repl.py` contains snapshot and bash branches. `mcp.py` also depends on host request helpers and handles SDK variants. Extract a coherent reduced package with an explicit dependency manifest, not individual loose functions. The previously observed local MCP 1.27.0 does not establish compatibility with Prime's declared range; select and lock an available SDK only after testing both transports. Keep the upstream MIT notice for copied code. |
+| Live workers and session boundaries | `vivy-test/plugins/vivy-python/src/lib.rs` binds a worker by Rig `Entity`, prunes removed agents, and stops on app exit or credential-policy generation change. Entity identity alone does not prove behavior across compaction, session switch, fork or resume. Inspect and test those actual Rig transitions before choosing ownership hooks; a process restart begins fresh state under the accepted decision. |
+
+#### Concrete donor boundaries and local ownership
+
+| Slice | Copy/adapt candidate | Remove or implement locally | Evidence still needed |
+| --- | --- | --- | --- |
+| Python execution | `repl.py` compile/execute, event loop, tagged writers, fd pumps, host-request routing, interrupt and shutdown mechanisms; selected `test/test_repl.py` cases. | Cut snapshot/restore, factory, persistent bash and unrelated host actions; preserve the coupled output fence and request tracking. Define supported platform fallback and artifact path before adapting caps. | Reduced-package imports, Unicode/fd writes, idle late events, hung sync code, interrupt races and forced cleanup on Windows. |
+| Protocol/host | `kernel/protocol.rs`, `manager/{events,execution,requests,host_requests}.rs` as behavior and selective type/parser donors; protocol fixtures and frame-cap tests. | Implement Vivy dispatcher, request/generation routing, backpressure, bounded frame parsing, exactly-once settlement, Rig output/error bridge and lifecycle integration. Do not import Prime's manager wholesale. | Mismatched versions, invalid/oversized frames, out-of-order/old generation events, host request during execute, EOF and cancellation races. |
+| Skill loading | `skills/{discovery,loader}.rs`, `kernel/bootstrap/runtime_code.rs`, `venv/skills.rs` and `test/test_repl.py` as reference for metadata, pre-import and per-Skill failure. | Extend existing Vivy Skill discovery; own name validation, duplicate and reserved-name policy, trust, dependency preparation, actual availability and reset notices. Do not copy the simplistic dependency reader as a general solution. | Callable and module-only Skills, dependency errors, collision/removal/update, discovery versus actual import, one failed Skill leaving others usable. |
+| Environment delivery | `bootstrap/venv/{runtime_source,version,probe,uv}.rs` and `bootstrap/dir_lock.rs` for patterns; packaging tests. | Choose project-local package layout, install/lock strategy, setup entrypoint and cache scope; do not carry Prime's full package list or automatic install on ordinary execution. | Clean and warm Windows setup, offline/missing dependency, partial install, two preparers, stale lock, changed runtime, live-worker interaction and install failure diagnostics. |
+| Generic MCP | `rlm/mcp.py` registry, generation, pagination, context ownership, shutdown and focused `test/test_mcp.py` cases. | Replace Prime's inventory/config/auth host calls with a narrow Vivy adapter; remove marketplace and OAuth routes; preserve complete SDK result envelopes before rendering. Pin and verify selected SDK, credentials and redirects. | Real local stdio and Streamable HTTP, pagination, schema, mixed content and `isError`, reuse, open/reload/cancel races, server death, redaction and resource cleanup. |
+| Output/artifacts | Prime framing and Rig `OutputLimit`/`Spill` as building blocks. | Own a loss-accounted result envelope and artifact writer with explicit capacity/error semantics; make raw/unattributed and late output distinguishable. | Unicode and high-volume streaming, truncation notices, artifact write failure, mixed text/structured/binary payloads, no silent loss or invented attribution. |
+| System integration | Existing Rig tools, `vivy-process`, the Coding route and existing acceptance fixtures. | Adapt lifecycle hooks and actual model guidance; create local synthetic fixtures and end-to-end tests. Keep native coding and delegation paths. | W1-W5, actual session lifecycle, real gateway model behavior and repeatable cleanup/cost measurements. |
+
+Prime's `test_mcp.py` names provide useful targeted cases: generation reuse and
+replacement, config failure preserving the cached generation, reload racing a
+first open, startup cleanup, call timeout and stdio environment scrubbing.
+`kernel_startup_join.rs` covers joined boot and cancellation of a waiter;
+`kernel_protocol_frame_caps.rs` covers an oversized unterminated line;
+`kernel_teardown.rs` covers ownership on drop. These are donor test ideas, not
+claims that their harnesses or assertions can be copied unchanged. Tests for
+Prime's snapshot/restore, factory and daemon are outside the first extraction
+unless they expose a dependency that must be severed.
+
+#### Questions to settle during detailed design
+
+1. Choose the exact worker/session ownership key and queue/cancellation rules
+   after tracing Rig's compaction, switch, fork and resume hooks. Decide how late
+   and unowned output remains accessible without contaminating a later result.
+2. Choose the package/install format, prepared-environment location, cache
+   invalidation and installer availability, including Windows paths with spaces,
+   Unicode and offline behavior. Specify whether preparation can modify an
+   environment used by a running worker and how failures remain recoverable.
+3. Define frame and queue limits, artifact retention/location, size limits and
+   producer-side handling before truncation. Distinguish complete MCP envelopes,
+   captured streams, explicit files and inherently abbreviated Python `repr`.
+4. Define the minimum config/host request schema, environment-variable credential
+   resolution, redaction, allow/deny behavior if selected, endpoint changes,
+   subprocess environment and selected SDK compatibility for both transports.
+5. Decide concrete local fixtures and exact observable assertions for W1-W5;
+   add queued-cancel, startup/teardown races, pagination failure, mixed content,
+   artifact write failure and abrupt host/child exit. These refine accepted gates,
+   not a requirement to implement all Prime features.
+
+No new execution, dependency installation, live MCP, benchmark or gateway test
+was performed for this audit. The 16 earlier upstream REPL passes remain the
+only runtime evidence described in 19.6. The findings warrant detailed adapter
+contracts and a plan; they do not establish a compatible transplant or change
+the workbench-before-MemPalace-before-durable order.
