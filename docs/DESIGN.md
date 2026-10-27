@@ -34,7 +34,7 @@ addition and its verification. This does not expand the parked Goal/evolution wo
 | Skip species hashes and a standalone SDK | No content-addressed species identity, sealed manifests, attestation, or public SDK release work. |
 | Hybrid direct tools and Python workbench | Frequent coding tools remain direct; MCP and programmable composition live in Python. |
 | Native delegation; optional Python orchestration later | Recipe-selected Rig wrapper provides single tasks, bounded parallel batches and chains. Python/apixis remains a later composition direction. See the dated subagent delivery record. |
-| A trimmed Prime capability loop follows the harness foundations | Prioritize Python tools and MCP; recursion, factory, full daemon and automatic evolution are not prerequisites. |
+| Validate the Python workbench before starting durable | Coding has passed real-task acceptance. Close the new workbench's design and system validation first; then establish durable and verify its workbench integration. |
 
 The full Pi baseline is a coverage target, not the first delivery's acceptance
 gate. Gateway-first access intentionally defers Pi's broad direct-provider and
@@ -147,13 +147,22 @@ a new multi-agent society, universal permissions platform or shared agent loop.
 
 ### Delivery order and the Prime capability loop
 
-1. Establish the coding and durable harnesses as separate, small deliverables,
-   each checked against its own reference. Parallel ownership, if subsequently
-   used, must keep writes isolated; this decision does not start implementation.
-2. Build a trimmed Prime-style capability loop: discover a Python capability,
+Owner sequencing update, 2026-10-27: the new Python workbench is the immediate
+priority because coding and future agent paths need it. Complete its design,
+implementation and system validation before starting the durable harness. This
+supersedes the earlier requirement to establish both harnesses first; their
+separate lifecycle responsibilities remain unchanged.
+
+1. Preserve the accepted coding path and use it as the first workbench consumer.
+2. Close a trimmed Prime-style capability loop: discover a Python capability,
    load its instructions, execute it, return a bounded useful result, handle
-   failure/cancellation, and release owned resources. Integrate and verify it
-   against each harness that consumes it.
+   failure/cancellation, and release owned resources. Define a bounded system
+   acceptance case, validate the runtime independently and through coding, and
+   record the results before moving to durable. Exact acceptance scenarios and
+   the native-memory integration slice still need design.
+3. Establish the durable harness against pi-durable's lifecycle reference,
+   then verify its integration with the validated workbench. A coding integration
+   does not establish durable replay or recovery semantics.
 
 Keep Rust focused on its path's agent execution, identities, cancellation and
 state guarantees. Python supplies libraries, tools, MCP clients and bounded
@@ -172,10 +181,12 @@ The initial real-task coding gate is accepted by the owner (2026-10-27): the
 agent fixed one of its own bugs and the owner confirmed the chain was stable.
 Retain existing failure/cancellation checks as regression evidence; another
 real-task coding demonstration is not a prerequisite to the next slice.
-Next establish durable admission deduplication, reopen from a committed
-checkpoint, sleep/wake and explicit abort; then one useful Python capability
-through each selected path. Memory and full background companionship are
-subsequent durable slices, not prerequisites for proving the coding workbench.
+Next close the workbench design and system validation described above. After
+that, establish durable admission deduplication, reopen from a committed
+checkpoint, sleep/wake and explicit abort, including its workbench boundary.
+Durable ACTMEM/Recap and full background companionship remain subsequent slices;
+native MemPalace capability validation can proceed within the workbench effort
+without introducing the durable lifecycle.
 
 Evidence: this clarification is a design decision, not a delivered second harness.
 The inspected sources are `.workspace/pi/packages/durable/README.md`, its

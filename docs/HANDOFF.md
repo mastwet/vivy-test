@@ -6,8 +6,10 @@ The owner wants a fast Rust experiment preserving Vivy's useful idea of a specie
 assembled from a YAML recipe at compile time. Rig supplies the current coding
 implementation. Model access is gateway first. The owner's 2026-10-27 direction
 is two independent harness paths: classic Pi for coding, pi-durable for durable
-execution and persistent companionship. Establish those foundations first, then
-build a trimmed Prime-style Python capability loop against each consuming path.
+execution and persistent companionship. Coding has passed real-task acceptance.
+The owner's latest priority is to close the new Python workbench's design,
+implementation and system validation first, using coding as its first consumer;
+only then start durable and verify its integration with the workbench.
 Both paths use the same workspace and may recall the same domain-partitioned
 MemPalace memory. Laputa owns persona; do not inject MemPalace's L0 identity.
 Durable's layered context and ACTMEM/Recap remain a later memory slice; do not
@@ -22,16 +24,17 @@ current scope. No second harness or new memory implementation is delivered yet.
 
 Latest owner acceptance (2026-10-27): the agent completed a real coding task by
 fixing one of its own bugs. The owner confirmed the chain was stable and
-explicitly accepted it. The initial real-task coding gate is closed; proceed
-to the bounded durable foundation, followed by the trimmed Python capability
-loop. This is owner-run acceptance, separate from the historical automated
+explicitly accepted it. The initial real-task coding gate is closed. The owner's
+subsequent sequencing decision makes the Python workbench the next deliverable,
+with durable starting after workbench system validation. This is owner-run
+acceptance, separate from the historical automated
 checks. Do not require another coding demonstration before that next slice.
 
 The owner asked to save today's decisions before further work. Resume from
 DESIGN's current two-harness section and **Python-native memory candidate and
 research checkpoint**, not the older full Prime/evolution direction. The order
-remains: establish coding and durable harness foundations separately, then close
-the trimmed Prime Python capability loop. Shared workspace/domain memory does
+is now: accepted coding foundation, new Python workbench design and system
+validation, then the separate durable foundation. Shared workspace/domain memory does
 not merge their task state or replay semantics. Keep the implementation small.
 
 The latest investigation is a native MemPalace library facade inside Python.
@@ -174,16 +177,25 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 ## Suggested next implementation task
 
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
-The classic-Pi coding path has passed owner-run real-task acceptance. Continue
-with the pi-durable-referenced durable harness, selecting a bounded acceptance
-case and file commit/recovery design before implementation. Preserve the working
-coding path and its existing regression checks.
+The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize
+the new Python workbench: close its design, implement the selected runtime and
+adapters, and validate the complete capability lifecycle independently and
+through coding before starting durable. Preserve the working coding path and
+its existing regression checks. Current worker code preserves variables but
+cancels async tasks at cell end; timeout/cancellation resets its process. The
+earlier Prime probes do not establish a delivered replacement.
+
+Define bounded acceptance scenarios for discovery/instructions, persistent
+resources, Python/MCP calls, correlated bounded results, failure, cancellation,
+reset and cleanup. The exact runtime subset, adapter contracts and native-memory
+slice remain design work. Keep future host integration explicit without adding
+a universal harness or moving authoritative task state into Python.
+
+After workbench validation, establish the pi-durable-referenced Rust harness
+and test its workbench integration under its own recovery/replay rules.
 `pi-durable` is a TypeScript reference, not a Rust integration already present.
-Then connect the trimmed Prime Python capability loop. Reuse existing coding
-verification, but do not treat session resume as proof of durable task replay,
-sleep/wake or waiter/abort semantics. No new universal harness abstraction is
-required. mysoul's memory behavior is a durable-path reference, not a dependency
-on its application, private data or runtime.
+mysoul's memory behavior remains a durable-path reference, not a dependency on
+its application, private data or runtime.
 
 The owner also requested provider-management research on 2026-10-26. See
 [provider management and plugin boundaries](research/2026-10-26-provider-management.md)
@@ -205,7 +217,7 @@ The older coding-only delivery sequence and its verification gaps remain in
 DESIGN and PI-BASELINE. Preserve the Windows launcher and Rig harness/TUI while
 checking that path; keep actual gateway evidence distinct from mock checks.
 Those coding records do not establish or select the durable implementation.
-The current two-path harness work precedes the trimmed Prime capability loop;
+The validated Python workbench now precedes the durable implementation;
 automatic evolution, persona growth and PEN remain separate future scope.
 
 Use existing authorized gateway configuration without printing credentials. If
