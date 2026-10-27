@@ -72,7 +72,7 @@ _SECRET_KEY_PATTERN = re.compile(r"token|secret|password|credential|authorizatio
 
 
 class McpStartupError(RuntimeError):
-    """A stdio server failed while completing the MCP startup handshake."""
+    """A transport failed while completing the MCP startup handshake."""
 
 
 
@@ -162,7 +162,7 @@ class _Generation:
         self._stderr: _StderrTail | None = None
         self._stderr_secrets: tuple[str, ...] = ()
         self._stderr_disclosable = True
-        self._diagnostic_private_values: tuple[str, ...] = ()
+        self._diagnostic_private_values = _private_config_values(config)
         self._close_requested = asyncio.Event()
         self._lifecycle: asyncio.Task[None] | None = None
 
@@ -196,54 +196,51 @@ class _Generation:
             raise
 
     async def _run_lifecycle(self, ready: asyncio.Future[None]) -> None:
-        startup_failure: Exception | None = None
+        failure: BaseException | None = None
         try:
-            try:
-                async with asyncio.timeout(self.startup_timeout):
-                    read, write = await self._open_transport()
-                    from mcp import ClientSession
-
-                    self.session = await self.stack.enter_async_context(
-                        ClientSession(read, write, read_timeout_seconds=timedelta(seconds=max(self.startup_timeout, self.call_timeout)))
-                    )
-                    try:
-                        await self.session.initialize()
-                        await self.discover()
-                    except Exception as exc:
-                        if self._stderr is None or _is_exception_group(exc):
-                            raise
-                        startup_failure = exc
-                    if startup_failure is None and self._stderr is not None:
-                        self._stderr.stop_capture()
-            except BaseException as exc:
-                if not ready.done():
-                    ready.set_exception(exc)
-                return
-
-            if startup_failure is not None:
-                if not ready.done():
-                    ready.set_exception(self._startup_error(startup_failure))
-                return
-
+            async with asyncio.timeout(self.startup_timeout):
+                read, write = await self._open_transport()
+                from mcp import ClientSession
+                self.session = await self.stack.enter_async_context(
+                    ClientSession(read, write, read_timeout_seconds=timedelta(seconds=max(self.startup_timeout, self.call_timeout)))
+                )
+                await self.session.initialize()
+                await self.discover()
+                if self._stderr is not None:
+                    self._stderr.stop_capture()
             ready.set_result(None)
             await self._close_requested.wait()
+        except BaseException as exc:
+            failure = exc
         finally:
             try:
-                try:
-                    async with asyncio.timeout(_SHUTDOWN_TIMEOUT):
-                        await self.stack.aclose()
-                except TimeoutError:
-                    pass
+                async with asyncio.timeout(_SHUTDOWN_TIMEOUT):
+                    await self.stack.aclose()
+            except BaseException as exc:
+                # AnyIO cancels its parent when a transport child fails. The
+                # actual HTTP/network cause appears when its task group exits.
+                if failure is None or isinstance(failure, asyncio.CancelledError):
+                    failure = exc
             finally:
                 if self._stderr is not None:
                     self._stderr.close()
                 self.closed = True
+            if not ready.done():
+                if isinstance(failure, asyncio.CancelledError):
+                    ready.cancel()  # caller cancellation, without a transport cause
+                else:
+                    ready.set_exception(self._startup_error(failure or RuntimeError('startup ended before readiness')))
+            elif failure is not None and not isinstance(failure, (asyncio.CancelledError, TimeoutError)):
+                raise self._startup_error(failure, stage='shutdown')
 
-    def _startup_error(self, exc: Exception) -> McpStartupError:
-        assert self._stderr is not None
+    def _startup_error(self, exc: BaseException, *, stage='startup') -> McpStartupError:
+        def describe(error):
+            if _is_exception_group(error):
+                return '; '.join(describe(child) for child in error.exceptions)
+            return f'{type(error).__name__}: {error}'
         if self._stderr_disclosable:
             original = _sanitize_diagnostic(
-                f"{type(exc).__name__}: {exc}",
+                describe(exc),
                 self._stderr_secrets,
                 self._diagnostic_private_values,
                 byte_limit=1024,
@@ -252,11 +249,11 @@ class _Generation:
             original = f"{type(exc).__name__}: details omitted for safe redaction"
         stderr = (
             self._stderr.tail(self._stderr_secrets, self._diagnostic_private_values)
-            if self._stderr_disclosable
+            if self._stderr_disclosable and self._stderr is not None
             else ""
         )
         detail = f" Stderr tail:\n{stderr}" if stderr else ""
-        return McpStartupError(f"MCP stdio server failed during startup ({original}).{detail}")
+        return McpStartupError(f"MCP {self.config.get('type')} server failed during {stage} ({original}).{detail}")
 
     async def _open_transport(self):
         kind = self.config.get("type")
@@ -640,7 +637,7 @@ async def search_tools(
 
     With ``connection_id`` only that connection is searched and its errors
     propagate. Without it, at most ``_MAX_TOOL_SEARCH_SERVERS`` connections the
-    host reports as connected are searched in host order; per-connection
+    host reports as configured and enabled are searched in host order; per-connection
     failures are reported as fixed, redaction-safe summaries, not raised.
 
     Returns ``{"tools": [{connectionId, name, description}, ...], "searched":
@@ -659,7 +656,7 @@ async def search_tools(
     candidates = [
         entry["connectionId"]
         for entry in await list_connections()
-        if entry.get("status") == "connected"
+        if entry.get("enabled", True)
     ]
     scoped = candidates[:_MAX_TOOL_SEARCH_SERVERS]
     tools: list[dict[str, Any]] = []

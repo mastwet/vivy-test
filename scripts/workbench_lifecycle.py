@@ -53,6 +53,22 @@ class Gateway(Handler):
         if last['role'] == 'tool':
             return self.reply(body, text='CYCLE_DONE ' + text_of(last))
         user = next(text_of(m) for m in reversed(body['messages']) if m['role']=='user')
+        if 'QUEUE_CLOSE' in user:
+            codes = ["from pathlib import Path;import asyncio;Path('queue_started').write_text('started');await asyncio.sleep(30)",
+                     "from pathlib import Path;Path('queued_after_close').write_text('must not execute')"]
+            calls = [{'id':f'queued_{i}', 'type':'function', 'function':{'name':'python_repl','arguments':json.dumps({'code':code})}} for i,code in enumerate(codes)]
+            self.send_response(200)
+            self.send_header('content-type','text/event-stream' if body.get('stream') else 'application/json')
+            self.end_headers()
+            if body.get('stream'):
+                for i,call in enumerate(calls):call['index']=i
+                event={'id':'queued','object':'chat.completion.chunk','created':0,'model':body['model'],'choices':[{'index':0,'delta':{'role':'assistant','tool_calls':calls},'finish_reason':'tool_calls'}]}
+                self.wfile.write(b'data: '+json.dumps(event).encode()+b'\n\ndata: [DONE]\n\n')
+            else:
+                event={'id':'queued','object':'chat.completion','created':0,'model':body['model'],'choices':[{'index':0,'message':{'role':'assistant','tool_calls':calls},'finish_reason':'tool_calls'}]}
+                self.wfile.write(json.dumps(event).encode())
+            self.wfile.flush()
+            return
         if 'REMOVED' in user:
             code = "assert 'dataset_skill' not in globals()\nassert not any(s['name']=='dataset-fixture' for s in workbench.list_skills())\nprint('REMOVAL_CONFIRMED')"
         elif 'WARM' in user:
@@ -109,6 +125,17 @@ def main():
     agent = JsonAgent(binary, root, env)
     cold, warm, cleanup, resident, pids = [], [], [], [], []
     try:
+        for action in ('close','reset'):
+            (root/'queue_started').unlink(missing_ok=True)
+            (root/'queued_after_close').unlink(missing_ok=True)
+            agent.send('QUEUE_CLOSE')
+            deadline=time.monotonic()+15
+            while not (root/'queue_started').exists() and time.monotonic()<deadline:time.sleep(.05)
+            assert (root/'queue_started').exists(), 'first queued cell did not start'
+            agent.send('/python '+action)
+            agent.until(lambda e:'Python closed' in e.get('text',''))
+            agent.until(lambda e:e['type']=='turn_end')
+            assert not (root/'queued_after_close').exists(), 'queued call ran after '+action
         for iteration in range(20):
             start = time.monotonic()
             agent.send(f'CYCLE {iteration}')

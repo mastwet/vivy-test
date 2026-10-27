@@ -38,7 +38,10 @@ PROTOCOL_VERSION = 1
 _STREAM_FRAME_TEXT_CAP = 64 * 1024
 # The host truncates results at a smaller per-execution maxChars, so this only
 # bounds a pathological repr or exception text in transit.
-_RESULT_TEXT_CAP = 128 * 1024
+# JSON can expand one Unicode character to twelve ASCII bytes. An error has
+# both evalue and traceback, so two 64 Ki-character fields fit the 2 MiB host
+# frame cap even in that worst case. Preserve full text before these caps.
+_RESULT_TEXT_CAP = 64 * 1024
 _RESULT_TRUNCATION_MARKER = f"\n[... result truncated at {_RESULT_TEXT_CAP} characters ...]"
 # Oversized display and host_request payloads fail the cell instead of wedging host memory.
 _PAYLOAD_CAP = 1024 * 1024
@@ -562,7 +565,7 @@ def _error_event(cell_id: str, exc: BaseException) -> dict[str, Any]:
     return {
         "event": "error",
         "id": cell_id,
-        "ename": type(exc).__name__,
+        "ename": type(exc).__name__[:512],
         "evalue": _cap_text(_safe_str(exc)),
         "traceback": _cap_traceback_lines([_cap_text(line) for line in lines]),
     }

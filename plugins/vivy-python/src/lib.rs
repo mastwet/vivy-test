@@ -154,14 +154,14 @@ fn prune_workers(mut workers: ResMut<Workbenches>, agents: Query<(), With<Agent>
             worker.refresh_credential_policy();
             true
         } else {
-            worker.stop();
+            worker.retire();
             false
         }
     });
 }
 fn stop_workers(workers: Res<Workbenches>) {
     for worker in workers.0.values() {
-        worker.stop();
+        worker.retire();
     }
 }
 
@@ -170,9 +170,14 @@ struct Workbench {
     worker: Mutex<Option<Worker>>,
     control: Mutex<Option<Control>>,
     active_cancel: Mutex<Option<Arc<Cancellation>>>,
+    retired: AtomicBool,
     policy_generation: AtomicU64,
 }
 impl Workbench {
+    fn retire(&self) {
+        self.retired.store(true, Ordering::SeqCst);
+        self.stop();
+    }
     fn refresh_credential_policy(&self) {
         let generation = vivy_process::credential_policy_generation();
         if self.policy_generation.load(Ordering::Acquire) != generation {
@@ -333,11 +338,19 @@ impl PythonTool {
         if cancellation.cancelled.load(Ordering::SeqCst) {
             return Err(error("call cancelled before execution".into()));
         }
-        *self
-            .state
-            .active_cancel
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(cancellation.clone());
+        {
+            let mut active = self
+                .state
+                .active_cancel
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if self.state.retired.load(Ordering::SeqCst) {
+                return Err(error(
+                    "this workbench was closed/reset; queued code was not executed".into(),
+                ));
+            }
+            *active = Some(cancellation.clone());
+        }
         let generation = vivy_process::credential_policy_generation();
         if self.state.policy_generation.load(Ordering::Acquire) != generation {
             *slot = None;
@@ -360,15 +373,18 @@ impl PythonTool {
         let reply = worker
             .execute(&args.code, timeout, self.live.as_ref(), cancellation)
             .map_err(error)?;
-        if !cancellation.finish() {
-            return Err(error("call cancelled; worker closed".into()));
+        {
+            let mut active = self
+                .state
+                .active_cancel
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if self.state.retired.load(Ordering::SeqCst) || !cancellation.finish() {
+                return Err(error("call cancelled; worker closed".into()));
+            }
+            *slot = Some(worker);
+            *active = None;
         }
-        *slot = Some(worker);
-        *self
-            .state
-            .active_cancel
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = None;
         let (kept, dropped) = OutputLimit::default().tail(&reply.0);
         let mut text = if fresh {
             "[Fresh Python workbench; previous process/session variables are not restored.]\n"
@@ -396,6 +412,53 @@ impl PythonTool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn closing_a_workbench_rejects_already_bound_queued_handlers() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        let marker = std::env::temp_dir().join(format!("vivy-retire-{}", std::process::id()));
+        let queued_marker = marker.with_extension("queued");
+        let _ = std::fs::remove_file(&marker);
+        let _ = std::fs::remove_file(&queued_marker);
+        let active = tool.clone();
+        let code = format!(
+            "import pathlib,asyncio;pathlib.Path({}).write_text('started');await asyncio.sleep(30)",
+            json!(marker)
+        );
+        let running = std::thread::spawn(move || call(&active, &code, None));
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !marker.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(marker.exists());
+        let queued = tool.clone();
+        let code = format!(
+            "import pathlib;pathlib.Path({}).write_text('must not run')",
+            json!(queued_marker)
+        );
+        let waiting = std::thread::spawn(move || call(&queued, &code, None));
+        tool.state.retire();
+        assert!(running.join().unwrap().is_err());
+        let queued_result = waiting.join().unwrap();
+        let wrote = queued_marker.exists();
+        let _ = std::fs::remove_file(marker);
+        let _ = std::fs::remove_file(queued_marker);
+        assert!(
+            queued_result.is_err() && !wrote,
+            "retired handler restarted a worker and executed queued code"
+        );
+        assert!(
+            call(&PythonTool::for_directory(std::env::temp_dir()), "42", None)
+                .unwrap()
+                .contains("42")
+        );
+    }
+    #[test]
+    fn a_large_unicode_exception_preserves_the_namespace() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        call(&tool, "value=42", None).unwrap();
+        assert!(call(&tool, "raise ValueError(chr(0x1f600) * 100000)", None).is_err());
+        assert!(call(&tool, "value", None).unwrap().contains("42"));
+    }
     #[test]
     fn an_idle_crash_starts_fresh_on_the_next_call() {
         let tool = PythonTool::for_directory(std::env::temp_dir());

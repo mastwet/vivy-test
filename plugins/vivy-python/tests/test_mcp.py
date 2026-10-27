@@ -5,6 +5,8 @@ import socket
 import subprocess
 import sys
 import unittest
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).parents[1]
@@ -47,6 +49,11 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(failure.exception.result['isError'])
         await mcp.reload('fixture')
         self.assertEqual((await mcp.call_tool('fixture', 'dataset'))['structuredContent']['rows'][0]['value'], 20)
+
+    async def test_unscoped_search_uses_configured_lazy_connections(self):
+        result = await mcp.search_tools('dataset')
+        self.assertEqual(result['searched'], ['fixture'])
+        self.assertEqual(result['tools'][0]['name'], 'dataset')
 
     async def test_parallel_first_open_and_close(self):
         results = await asyncio.gather(*(mcp.list_tools('fixture') for _ in range(5)))
@@ -104,6 +111,26 @@ class McpTests(unittest.IsolatedAsyncioTestCase):
         finally:
             p.terminate()
             p.wait(5)
+
+    async def test_http_authentication_failure_preserves_status_and_redacts(self):
+        class Rejected(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.send_response(401)
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+            def log_message(self, *args):
+                pass
+        server = ThreadingHTTPServer(('127.0.0.1', 0), Rejected)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.config = {'type': 'http', 'url': f'http://127.0.0.1:{server.server_port}/mcp',
+                       'headers': {'Authorization': 'Bearer private-fixture-value'}}
+        try:
+            with self.assertRaisesRegex(mcp.McpStartupError, '401') as failure:
+                await mcp.list_tools('fixture')
+            self.assertNotIn('private-fixture-value', str(failure.exception))
+        finally:
+            await asyncio.to_thread(server.shutdown)
+            server.server_close()
 
 
 if __name__ == '__main__':

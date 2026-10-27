@@ -11,7 +11,8 @@ before continuing. Durable has not started.
 
 Verification commands belong to this repository: root `cargo test --workspace`,
 focused Cargo tests for `plugins/vivy-python` and `plugins/vivy-basics`, and
-`python -m unittest discover -s plugins/vivy-python/tests`. Native tests require
+`python -m unittest discover -s plugins/vivy-python/tests` using the prepared
+interpreter (with locked MCP/native dependencies installed). Native tests require
 an explicitly prepared isolated root in `VIVY_MEMORY_TEST_ROOT`; without it they
 are reported as skipped. The real memory acceptance venv and assets are ignored
 under the implementation worktree's `.workspace/memory-acceptance`.
@@ -23,12 +24,22 @@ gateway is scripted; `--real` uses an explicitly configured endpoint and credent
 and must never be reported as passing based on its default mode. Keep test data
 synthetic and separate from any existing user's palace or session directories.
 
-Outstanding at this checkpoint: whole-branch review, compaction-specific retention
-confirmation, final close-latency measurement and actual StepFun acceptance. The
-owner authorized `Desktop/keys.txt`; it identifies api.stepfun.com and
-step-3.7-flash. No key is committed or printed. TLS handshake currently fails with
-both agent and independent curl, through proxy and direct. A network-status question
-is pending; do not change endpoints, expose secrets or claim M3 complete.
+The independent review found five Important issues; all were reproduced and fixed.
+Final verification passes 13 Rust workbench tests and 36 Python tests including
+9 native tests, actual queued-call close/reset, compaction retention, 20-cycle
+ownership, Windows Python terminal and original Coding smoke. Maximum close command
+plus process-exit confirmation is 0.256 seconds. Complete scripted joint acceptance
+now independently inspects artifacts and reopens memory; it passes in 84.28 seconds.
+
+Outstanding: the owner deferred actual-provider verification to a later manual
+test while changing provider. Stop StepFun retries. Earlier attempts failed TLS
+before receiving a model response. The authorized credential was not committed or
+printed. Configure the replacement through the existing provider workflow, use an
+isolated synthetic test root, then run the joint scenario. `--real` takes an
+OpenAI-compatible endpoint via `OPENAI_BASE_URL`, an explicit `VIVY_TEST_MODEL`
+and `RIG_SECRET_GATEWAY`. For another compiled protocol, perform the same recorded
+workflow through that provider's existing configuration. Do not
+claim M3 complete or start durable before that system gate is accepted.
 
 ## Goal and current state
 

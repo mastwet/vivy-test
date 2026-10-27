@@ -30,6 +30,16 @@ CELLS = [
 MEMORY_CELL = "assert workbench.readiness['memory']=='ready'\nrecord=await memory.remember(content, source_id=SOURCE, event_id='dataset', wing='coding', room='acceptance')\nassert (await memory.remember(content, source_id=SOURCE, event_id='dataset', wing='coding', room='acceptance'))['deduplicated']\nassert (await memory.get(record['id']))['content']==content\nassert (await memory.search('数据总和', source_id=SOURCE, wing='coding', room='acceptance'))[0]['id']==record['id']\nawait memory.close()\nprint('MEMORY_COMPLETE')"
 
 
+def validate_events(events, native_memory):
+    results = [event for event in events if event.get('type') == 'tool_result']
+    required = ['DISCOVERED', 'ARTIFACT_COMPLETE', 'STATE_SURVIVED']
+    if native_memory:
+        required.append('MEMORY_COMPLETE')
+    for marker in required:
+        assert any(event.get('ok') is True and marker in event.get('output','') for event in results), f'Missing successful execution evidence: {marker}'
+    assert any(event.get('ok') is False and 'EXPECTED_ORDINARY_ERROR' in event.get('output','') for event in results), 'Expected ordinary-error recovery was not exercised'
+
+
 class Gateway(Handler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers['content-length'])))
@@ -124,13 +134,14 @@ def main():
     server = ThreadingHTTPServer(('127.0.0.1', 0), Gateway)
     server.records, server.memory = [], bool(memory)
     server.cells = list(CELLS)
+    source_id = 'coding-acceptance-' + str(time.time_ns())
     if memory:
-        server.cells.append('SOURCE=' + repr('coding-acceptance-' + str(time.time_ns())) + '\n' + MEMORY_CELL)
+        server.cells.append('SOURCE=' + repr(source_id) + '\n' + MEMORY_CELL)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     if args.real:
         assert os.environ.get('RIG_SECRET_GATEWAY'), 'Configure RIG_SECRET_GATEWAY for the explicitly authorized endpoint'
         endpoint = os.environ['OPENAI_BASE_URL']
-        model = os.environ.get('VIVY_TEST_MODEL', 'step-3.7-flash')
+        model = os.environ['VIVY_TEST_MODEL']
     else:
         endpoint, model = f'http://127.0.0.1:{server.server_port}/v1', 'org/workbench-test'
     settings = f'[trust]\ndefault="never"\n[gateway]\nbase_url={json.dumps(endpoint)}\nmodel={json.dumps(model)}\n[python]\n'
@@ -154,7 +165,14 @@ def main():
         agent.send(prompt)
         agent.until(lambda e: e['type']=='turn_end', timeout=300)
         transcript = json.dumps(agent.events, ensure_ascii=False)
-        assert 'MEMORY_COMPLETE' in transcript if memory else 'ARTIFACT_COMPLETE' in transcript, transcript[-6000:]
+        validate_events(agent.events, bool(memory))
+        expected_content = 'Synthetic dataset sum: 42. 完整结果。\n' * 5000
+        assert any(path.read_bytes() == expected_content.encode() for path in (root/'.vivy/workbench/artifacts').rglob('*.artifact')), 'Complete artifact was not independently found'
+        if memory:
+            code = ("import sys,asyncio;sys.path.insert(0,sys.argv[1]);from vivy_workbench.memory import Memory\n"
+                    "async def verify():\n m=Memory(sys.argv[2])\n try:\n  result=await m.get(source_id=sys.argv[3],event_id='dataset')\n  assert result['content']==('Synthetic dataset sum: 42. 完整结果。\\n'*5000)\n finally: await m.close()\nasyncio.run(verify())")
+            verification_env = {key:value for key,value in environment.items() if not key.upper().startswith('RIG_SECRET_')}
+            subprocess.run([manifest['executable'],'-I','-c',code,str(REPO/'plugins/vivy-python/python'),str(memory),source_id],env=verification_env,check=True,timeout=60)
         if not args.real:
             assert 'WORKBENCH_ACCEPTED' in transcript, transcript[-6000:]
             agent.send('/python reset')

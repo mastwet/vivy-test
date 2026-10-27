@@ -70,7 +70,7 @@ fn command(In(args): In<CommandArgs>, world: &mut World) {
             job.cancel.stop();
         }
         if let Some(worker) = world.resource_mut::<Workbenches>().0.remove(&args.agent) {
-            worker.stop();
+            worker.retire();
         }
         world.write_message(Notice::info(args.agent, "Python closed; variables reset. Explicit artifacts and committed memories are preserved. Next use starts fresh; changed dependencies require /python prepare."));
     } else if action == "prepare" {

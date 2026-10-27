@@ -386,7 +386,9 @@ impl Worker {
 fn host_reply(settings: &PythonSettings, request: &Value) -> Value {
     match request["kind"].as_str() {
         Some("mcp.list_connections") => {
-            json!({"ok":true,"result":{"connections":settings.connections.keys().map(|id| json!({"connectionId":id,"name":id})).collect::<Vec<_>>()}})
+            let mut names = settings.connections.keys().collect::<Vec<_>>();
+            names.sort();
+            json!({"ok":true,"result":{"connections":names.into_iter().map(|id| json!({"connectionId":id,"name":id,"enabled":settings.connections[id].get("enabled").and_then(Value::as_bool).unwrap_or(true)})).collect::<Vec<_>>()}})
         }
         Some("mcp.config") => {
             let name = request["payload"]["server"].as_str().unwrap_or("");

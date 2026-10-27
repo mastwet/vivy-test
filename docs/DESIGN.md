@@ -8,8 +8,9 @@ The full pinned native MemPalace engine is an optional consumer through a thin
 async facade. This supersedes the earlier statements that the replacement and
 native facade were only proposals. Durable remains deferred. The delivery plan
 is [Python workbench integration](plans/2026-10-28-python-workbench.md); usage is
-in the README. System acceptance remains open until the actual gateway gate and
-the whole-branch review are closed.
+in the README. Implementation and local review verification are complete. The
+owner deferred actual-provider acceptance to a later manual run while changing
+provider; that gate remains open before declaring the entire system accepted.
 
 More, Fast, Good, Frugal guided the implementation: one embedded Python package,
 one existing Rig execution path, one shared trusted Skill inventory, existing
@@ -29,13 +30,13 @@ Recorded verification on Windows, CPython 3.13.12, Rust 1.97.1 and pinned Rig:
 
 | Gate | Evidence and remaining limits |
 | --- | --- |
-| W1 runtime | 11 Rust workbench tests pass: persistent state, independent owners, Unicode, late output attribution, ordinary errors, queued/running cancellation, timeout, crash/idle-crash recovery and credential policy changes. |
+| W1 runtime | 13 Rust workbench tests pass: persistent state, independent owners, Unicode, late output attribution, ordinary errors, queued/running cancellation, explicit retirement, timeout, crash/idle-crash recovery and credential policy changes. |
 | W2 preparation/loading | Real uv prepare, cancel, retry and warm reuse pass through Coding JSON. Corrupt pointer repair, failed install preserving the old pointer and lock contention pass. Trusted callable/module/lazy Markdown and unavailable-binding cases are tested. |
-| W3 MCP | Actual stdio and Streamable HTTP pass, including pagination, repeated cursor failure, parallel lazy open, close during open, reload, call timeout, failed startup, filtered environment, full envelopes and isError. Joint integration caught and fixed the host connectionId contract. |
+| W3 MCP | Actual stdio and Streamable HTTP pass, including pagination, repeated cursor failure, parallel lazy open, close during open, reload, call timeout, failed startup with preserved HTTP 401 cause, filtered environment, full envelopes and isError. Unscoped search includes configured lazy connections. |
 | W4 Coding | Scripted gateway drives Skill discovery, actual MCP dataset, cross-cell processing, complete artifact, deliberate exception, retained state and reset. Headless Python workflow passes; omitted Python has no crate in the normal graph and no model tool. Windows terminal status/output/cancel/fresh/reset/exit passes. |
-| W5 lifecycle/cost | Twenty real worker + MCP + spawned-child cycles pass with no surviving owned PIDs after reset/close. Crash/timeout recovery and removed Skill refresh also pass. Compaction-specific retention and final measured close latency are being rechecked. |
-| M1/M2 native memory | Full Python suite: 32 tests pass, including 9 native tests with real assets/Chroma. Covers identity dedup/conflicts, distinct sources, complete long text/reopen, chunk loss, filters, noncreating reads, wrong stored dimension, competing writers, bounded foreign lock and cancelled waiter without replay. |
-| M3 joint model | Scripted Coding-to-native chain passes (125.03 s, including a 5,000-line memory write). Actual StepFun has not passed: both the agent and independent curl fail TLS handshake before a model response, via configured proxy and direct connection. Authorized credential was read from the owner's file without logging its value. |
+| W5 lifecycle/cost | Twenty real worker + MCP + spawned-child cycles pass with no surviving owned PIDs after reset/close. Actual queued-call close/reset rejects the old queued write. Compaction retains live Python state. Crash/timeout recovery and removed Skill refresh also pass. Maximum measured close command plus process-exit confirmation is 0.256 s. |
+| M1/M2 native memory | Full Python suite: 36 tests pass, including 9 native tests with real assets/Chroma. Covers identity dedup/conflicts, distinct sources, complete long text/reopen, chunk loss, filters, noncreating reads, wrong stored dimension, competing writers, bounded foreign lock and cancelled waiter without replay. |
+| M3 joint model | Final scripted Coding-to-native chain passes (84.28 s, including a 5,000-line memory write and independent artifact inspection/native reopen-read). Actual provider acceptance is deferred by the owner for a manual run after switching provider. StepFun attempts failed TLS before a response; no compatibility claim is made. The authorized credential was never logged. |
 
 Supporting regression: root Cargo workspace tests and 60 vivy-basics tests pass;
 original Coding smoke, Plan Windows terminal, headless delegation and recipe
@@ -47,14 +48,56 @@ bytes / 97 packages; pinned model cache 329,871,566 bytes. These are logical siz
 not physical allocated bytes (uv can share cached files). Cached preparation took
 8.05 s for the core fixture and 11.82 s for the native dependency environment;
 native assets/probe publication in the joint fixture took 18.41 s. The initial
-20-cycle run measured median cold Coding+Python+MCP call 1.15 s, warm call 0.105 s
-and worker RSS 60,411,904 bytes. Network/cache conditions affect preparation costs.
+20-cycle final rerun measured median cold Coding+Python+MCP call 0.956 s, warm call
+0.093 s and worker RSS 60,211,200 bytes. Network/cache conditions affect these costs.
 
 One upstream limitation is visible: Chroma emits a legacy embedding-function
 deprecation, and MemPalace initially records dimension zero for the core embedder.
 The adapter performs the real 384-dimensional embeddinggemma probe, validates the
 prepared identity and stored dimension, and records the concrete identity on write.
 No fallback MiniLM model, server import, existing palace migration or L0 injection.
+
+### Final review and implementation rulings
+
+One independent whole-branch review of `66d1a8c..e6a00e0` found five Important
+issues and no Critical or Minor issues. Each was reproduced by a failing test,
+fixed in one author pass and verified by the complete relevant suites; no second
+review was substituted for those checks:
+
+| Finding | Fix and evidence |
+| --- | --- |
+| Queued handlers restarted a workbench after close/reset | Permanently retire the removed Arc and synchronize admission with active cancellation. Rust regression and actual two-call Coding close/reset both reject the queued file write. |
+| Large Unicode exceptions exceeded the protocol frame | Preserve full text first; size error fields for worst-case JSON expansion and cap exception type names. The 100,000-emoji exception retains existing variables. |
+| Unscoped MCP search silently searched nothing | Search configured enabled lazy connections using the host inventory, in deterministic order. Actual stdio search regression passes. |
+| HTTP startup 401 became CancelledError | Unwind transport task groups before publishing failure; preserve the sanitized underlying status and distinguish caller cancellation. Real loopback 401 regression passes. |
+| Real-mode marker matching could pass failed execution | Require successful tool-result outputs, exercise the expected ordinary error, inspect the complete artifact and independently reopen/read the expected source/event. Argument-only/failed-result counterexamples now fail. |
+
+Rulings carried from implementation and review:
+
+- Use a native Windows task ledger with the English numbered plan instead of
+  task-extraction wrappers; the cost is manual bookkeeping. The standard review
+  package script was used for the final review.
+- Publish environment pointers atomically without renaming venvs; embedded
+  absolute paths stay valid, at the cost of retaining unused environments.
+- Bind upstream state paths and own temporary/cache directories; this isolates
+  locks and fixes reproduced access failures. Upstream upgrades must revalidate
+  that seam; owned caches and failed environments need explicit disk maintenance.
+- Pin the full engine and immutable embeddinggemma assets, including SOCKS support
+  in the dependency lock. The optional installation/cache costs are measured above.
+- Use native vector search for the bounded facade. Its chunk limit precedes
+  logical-record deduplication, so fewer distinct records may be returned; broader
+  hybrid ranking and ingestion remain explicit future consumers of the full engine.
+- Respect the owner's deferred manual provider gate. Local fixtures are complete
+  evidence only for local behavior; actual provider compatibility stays unverified.
+- Windows is the only platform accepted here. Additional platforms require runs.
+- Interrupted native writes remain uncertain rather than promising rollback;
+  callers inspect the same source/event and do not automatically replay it.
+- Trusted Python/Skills/plugins are not sandboxed. Durable, replay, existing-palace
+  migration, OAuth, automatic ingestion and persona changes remain excluded.
+
+These rulings address every behavior the reviewer declined to judge. No deferred
+minor findings remain. Durable work must still wait for the owner's final system
+acceptance, including the replacement provider's manual run.
 
 Recorded on 2026-10-24. This is an experiment brief, not an implemented API or a
 production compatibility promise. The user's decisions are fixed below; the

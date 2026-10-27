@@ -1,6 +1,8 @@
 # Python workbench integration
 
-Status: approved for implementation; gates below are not yet passed.
+Status: implementation and whole-branch review fixes complete; local W1–W5 and
+M1/M2 verification recorded in DESIGN.md. The owner deferred the actual-provider
+M3 gate to a manual run after switching provider. Durable remains deferred.
 
 Authority: DESIGN.md and research/2026-10-25-hybrid-agent-workbench-decisions.md
 sections 19.9–19.11, plus the approved conversation plan. Durable is deferred.

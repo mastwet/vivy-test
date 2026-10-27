@@ -315,7 +315,8 @@ conflicts. Identical content from different sources remains distinct. Inputs are
 limited to 1 MiB per explicit event; complete reads validate ordered chunks and
 their content hash. The facade uses the native drawers collection's vector search
 with explicit source/wing/room filters, not MemPalace's broader ingestion or hybrid
-search orchestration. Each worker serializes synchronous engine work off the
+search orchestration. `limit` caps matching chunks before logical-record deduplication,
+so it can return fewer distinct memories. Each worker serializes synchronous engine work off the
 asyncio loop; cross-process locking surrounds open, operation and close, including
 reads. Lock contention fails before writing. Interrupted synchronous writes can
 have committed: inspect the same source/event explicitly; never replay blindly.
