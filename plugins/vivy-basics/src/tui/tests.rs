@@ -346,6 +346,60 @@ fn the_wheel_is_asked_for_with_the_screen_and_given_back_on_the_way_out() {
 }
 
 #[test]
+fn a_screen_drawn_at_another_size_is_drawn_again() {
+    // Windows' ConPTY reports the console buffer's size in the resize event,
+    // so the frame that learned of a resize can have been laid out at the old
+    // size while the terminal is already at the new one.
+    assert_eq!(
+        moved_screen(Some((120, 40)), Some((104, 32))),
+        Some(Rect::new(0, 0, 104, 32))
+    );
+    assert_eq!(
+        moved_screen(Some((104, 32)), Some((120, 40))),
+        Some(Rect::new(0, 0, 120, 40))
+    );
+    assert_eq!(
+        moved_screen(Some((120, 40)), Some((120, 40))),
+        None,
+        "the screen already has that size"
+    );
+    assert_eq!(
+        moved_screen(Some((120, 40)), None),
+        None,
+        "without a terminal the frame stands"
+    );
+    assert_eq!(
+        moved_screen(None, Some((120, 40))),
+        None,
+        "nothing drawn yet is not a resize"
+    );
+}
+
+#[test]
+fn the_size_a_frame_was_laid_out_at_is_its_panels_extent() {
+    let mut frame = TuiFrame::default();
+    assert_eq!(laid_out(&frame), None, "nothing drawn yet");
+    frame.screen = Rect::new(0, 0, 120, 40);
+    frame.areas = vec![
+        (Entity::PLACEHOLDER, Rect::new(0, 0, 120, 36)),
+        (Entity::PLACEHOLDER, Rect::new(0, 36, 120, 3)),
+        (Entity::PLACEHOLDER, Rect::new(0, 39, 120, 1)),
+        (Entity::PLACEHOLDER, Rect::default()),
+    ];
+    assert_eq!(laid_out(&frame), Some((120, 40)));
+    frame.areas = vec![
+        (Entity::PLACEHOLDER, Rect::new(0, 0, 80, 20)),
+        (Entity::PLACEHOLDER, Rect::new(0, 20, 80, 3)),
+        (Entity::PLACEHOLDER, Rect::new(0, 23, 80, 1)),
+    ];
+    assert_eq!(
+        laid_out(&frame),
+        Some((80, 24)),
+        "a frame laid out before a resize keeps that size"
+    );
+}
+
+#[test]
 fn native_paste_preserves_unicode_and_newlines_without_submitting() {
     use rig_tui::{KeyInput, PendingInput, crossterm::event::Event};
     let (mut app, _) = screen_app();

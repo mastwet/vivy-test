@@ -16,7 +16,7 @@ use rig_tui::{
     AsideRenderer, Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus,
     KeyInput, MainEditor, MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw,
     StatusItems, StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
-    TranscriptSource, TuiKeys, TuiPanel, TuiSystems, TuiViewPlugin,
+    TranscriptSource, TuiFrame, TuiKeys, TuiPanel, TuiSystems, TuiTestScreen, TuiViewPlugin,
     crossterm::event::{Event, MouseEventKind},
 };
 
@@ -69,7 +69,13 @@ impl Plugin for VivyTuiPlugin {
             )
             // Rig reads the mouse and leaves it to nothing; the wheel is
             // the transcript's, in every scope, before any binding.
-            .add_systems(TuiKeys, wheel_scrolls.in_set(InputSystems::Filter))
+            .add_systems(
+                TuiKeys,
+                (wheel_scrolls, resize_redraws).in_set(InputSystems::Filter),
+            )
+            // Before the frame decides whether to draw: a resize that Rig
+            // did not learn of would leave the screen as it was.
+            .add_systems(Update, keep_the_screen_size)
             .add_systems(PostUpdate, prioritize_status.in_set(StatusSystems::Edit))
             .add_systems(PostUpdate, prepare.in_set(TuiSystems::Prepare))
             // The native widget has already drawn its text and caret. Change
@@ -118,6 +124,8 @@ fn prepare(
                 renderer.render = Arc::new(move |view| looks::welcome(view, columns));
             }
         }
+        // The new renderer draws in the next frame, which a resize needs.
+        redraw.write(RequestRedraw);
     }
 }
 
@@ -197,6 +205,75 @@ fn scroll(event: &Event) -> Option<InputAction> {
 
 fn asks_to_scroll(item: &KeyInput) -> bool {
     matches!(item, KeyInput::Event(event) if scroll(event).is_some())
+}
+
+/// Draws again after a resize even when it ends at the size the view already
+/// has: the terminal clipped or cleared the screen meanwhile, so a frame that
+/// is not drawn leaves it looking wrong.
+fn resize_redraws(events: Res<PendingInput>, mut redraw: MessageWriter<RequestRedraw>) {
+    if events.0.iter().any(is_resize) {
+        redraw.write(RequestRedraw);
+    }
+}
+
+fn is_resize(item: &KeyInput) -> bool {
+    matches!(item, KeyInput::Event(Event::Resize(..)))
+}
+
+/// Draws the screen again when the frame it drew is not the size the
+/// terminal has. Rig takes its screen size from the resize event, and on
+/// Windows ConPTY that event reports the console buffer's size, which stays
+/// as the app found it; it can also arrive after the window settled, or not
+/// at all. Either way the frame drawn may be laid out at another size, and
+/// without a change the view would never draw the frame that fixes it.
+fn keep_the_screen_size(
+    size: Option<ResMut<TerminalSize>>,
+    drawn: Option<Res<TuiFrame>>,
+    test: Option<Res<TuiTestScreen>>,
+    mut redraw: MessageWriter<RequestRedraw>,
+) {
+    // A test's screen is the size the test set; the terminal answers nothing.
+    if test.is_some() {
+        return;
+    }
+    let (Some(mut size), Some(drawn)) = (size, drawn) else {
+        return;
+    };
+    let Some(next) = moved_screen(laid_out(&drawn), reported_size()) else {
+        return;
+    };
+    if size.0 != next {
+        size.0 = next;
+    }
+    redraw.write(RequestRedraw);
+}
+
+/// The screen the terminal reports now, when it reports one.
+fn reported_size() -> Option<(u16, u16)> {
+    rig_tui::crossterm::terminal::size().ok()
+}
+
+/// The size the last frame laid its panels out at: the bottom and right
+/// edges of the areas it drew. A frame laid out before a resize and drawn
+/// after it reports the panel layout, not the frame, which is what a re-laid
+/// frame has to replace.
+fn laid_out(frame: &TuiFrame) -> Option<(u16, u16)> {
+    let mut size = (0, 0);
+    for (_, area) in &frame.areas {
+        size = (size.0.max(area.right()), size.1.max(area.bottom()));
+    }
+    match size {
+        (0, _) | (_, 0) => None,
+        (width, height) => Some((width, height)),
+    }
+}
+
+/// The space to draw in again, when the screen last drawn, at `drawn`, is not
+/// the size the terminal reports: the next frame lays out and draws at it.
+fn moved_screen(drawn: Option<(u16, u16)>, reported: Option<(u16, u16)>) -> Option<Rect> {
+    let (width, height) = reported?;
+    let (drawn_width, drawn_height) = drawn?;
+    ((drawn_width, drawn_height) != (width, height)).then(|| Rect::new(0, 0, width, height))
 }
 
 fn input_chrome(

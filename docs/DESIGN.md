@@ -753,5 +753,29 @@ and its Cargo feature; omitting it excludes rig-tui without a runtime enable
 flag. The underlying .rig paths, protocol names and environment variables stay
 compatible. The same Plan, subagent and session mechanisms remain in use.
 
+### Window resizes (2026-10-28)
+
+The owner reported that resizing the window, or some input events, damaged the
+screen. On Windows, ConPTY reports the console buffer's size in the resize
+event, which stays as the app found it; the changed size lives in the window
+that `crossterm::terminal::size` reads. Rig redraws only when its resize
+event changes the size it knows, so a resize could leave the last frame's
+layout, a blank screen or a stale welcome banner until some other change drew
+again. `VivyTuiPlugin` now draws again after every resize event, and
+`keep_the_screen_size` compares the extent of the panels the last frame drew
+with the size the terminal reports and asks for the frame that fixes a stale
+one; the welcome re-fit also asks for its frame. Verified on the Windows
+ConPTY terminal: a shrink no longer empties the screen, a shrink, grow and
+restore keep the footer on the last row at 120x40 and 50x20 (a checkpoint in
+`scripts/branding_tui.py`), and the plan review redraws at the resized size.
+
+Two cases remain, both Rig's rather than the recipe's: a frame whose panels
+are laid out at one size and drawn at another can mix two rows, because
+`layout` queries the backend while `render` uses ratatui's own viewport; and a
+resize that ends at the size the view already has, arriving after the view's
+last frame, leaves nothing for the view to compare. Both need one size source
+per frame — and, for the second, a frame that is not caused by an event — in
+rig-tui. They reproduced with the pre-fix binary as well.
+
 [rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
 [rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md
