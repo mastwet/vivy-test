@@ -8,12 +8,36 @@ try {
     $repoRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
     Set-Location -LiteralPath $repoRoot
 
-    $targetDirectory = 'C:\vt'
-    $agent = Join-Path $targetDirectory 'debug\vivy.exe'
-    $species = Join-Path $targetDirectory 'debug\coding-agent.exe'
-    if (-not (Test-Path -LiteralPath $agent -PathType Leaf) -or
-        -not (Test-Path -LiteralPath $species -PathType Leaf)) {
-        throw "Build the coding agent first. From this folder run: `$env:CARGO_TARGET_DIR = 'C:\vt'; cargo run -p vivy -- build recipes/coding-agent.yaml"
+    # A build can be in CARGO_TARGET_DIR, in the checkout's own target, or in
+    # .generated\target when CARGO_TARGET_DIR was not set. Prefer the one
+    # directory that holds both executables: a launcher from one build and a
+    # species from another can disagree about the recipe.
+    $roots = @()
+    if ($env:CARGO_TARGET_DIR) { $roots += $env:CARGO_TARGET_DIR }
+    $roots += @('.generated\target', 'target', 'C:\vt')
+    $builds = @($roots | Where-Object { $_ } | ForEach-Object {
+        $root = if ([System.IO.Path]::IsPathRooted($_)) { $_ } else { Join-Path $repoRoot $_ }
+        Join-Path ([System.IO.Path]::GetFullPath($root).TrimEnd('\')) 'debug'
+    } | Select-Object -Unique)
+
+    $built = $builds | Where-Object {
+        (Test-Path -LiteralPath (Join-Path $_ 'vivy.exe') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $_ 'coding-agent.exe') -PathType Leaf)
+    } | Select-Object -First 1
+
+    if ($built) {
+        $agent = Join-Path $built 'vivy.exe'
+        $targetDirectory = Split-Path -Parent $built
+    } else {
+        $agent = $builds | ForEach-Object { Join-Path $_ 'vivy.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        $species = $builds | ForEach-Object { Join-Path $_ 'coding-agent.exe' } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if (-not $agent -or -not $species) {
+            $searched = ($builds | ForEach-Object { "  $_" }) -join "`n"
+            throw "The coding agent is not built yet. Build it once from this folder:`n  `$env:CARGO_TARGET_DIR = 'C:\vt'; `$env:CARGO_PROFILE_DEV_DEBUG = '0'; cargo run -p vivy -- build recipes/coding-agent.yaml`nLooked for vivy.exe and coding-agent.exe in:`n$searched"
+        }
+        $targetDirectory = Split-Path -Parent (Split-Path -Parent $species)
     }
 
     $env:CARGO_TARGET_DIR = $targetDirectory
@@ -27,8 +51,8 @@ try {
         $values = @([System.IO.File]::ReadAllLines($credentialFile, [System.Text.Encoding]::UTF8) |
             ForEach-Object { $_.Trim() } |
             Where-Object { $_.Length -gt 0 })
-        if ($values.Count -ne 3) {
-            throw 'The Desktop key file must have three non-empty lines: gateway URL, model ID, and API key.'
+        if ($values.Count -lt 3 -or $values.Count -gt 4) {
+            throw 'The Desktop key file must have three or four non-empty lines: gateway URL, model ID, API key, and optionally the Rig dialect (such as `deepseek`).'
         }
 
         $endpoint = $null
@@ -45,6 +69,7 @@ try {
         $env:RIG_HOME = $rigHome
         $env:VIVY_BOOTSTRAP_GATEWAY_URL = $values[0]
         $env:VIVY_BOOTSTRAP_GATEWAY_MODEL = $values[1]
+        $env:VIVY_BOOTSTRAP_GATEWAY_DIALECT = if ($values.Count -eq 4) { $values[3] } else { $null }
         $env:RIG_SECRET_GATEWAY = $values[2]
         Write-Host 'Loaded the Desktop gateway hint; existing provider settings take priority and the API key stays in process memory.'
     } else {

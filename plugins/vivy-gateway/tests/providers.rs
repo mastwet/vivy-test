@@ -3,7 +3,7 @@ use rig_harness::prelude::*;
 use vivy_gateway::store::SettingsFile;
 use vivy_gateway::{
     ProvidersPlugin,
-    config::{Credential, parse},
+    config::{Credential, ProvidersConfig, parse},
 };
 
 const CONFIG: &str = r#"
@@ -181,9 +181,13 @@ fn an_unrelated_setting_error_does_not_disable_valid_providers() {
 #[test]
 fn bootstrap_import_is_initial_only_and_can_be_persisted_without_the_key() {
     let mut config = parse("").unwrap();
-    assert!(config.bootstrap("http://127.0.0.1:9/v1", "org/first"));
+    assert!(config.bootstrap("http://127.0.0.1:9/v1", "org/first", None));
     assert_eq!(config.default_model.as_deref(), Some("gateway/org/first"));
-    assert!(!config.bootstrap("http://127.0.0.1:8/v1", "org/replacement"));
+    assert!(!config.bootstrap(
+        "http://127.0.0.1:8/v1",
+        "org/replacement",
+        Some("deepseek".into())
+    ));
     assert_eq!(config.instances["gateway"].models[0].id, "org/first");
     assert_eq!(
         config.instances["gateway"].credential,
@@ -377,4 +381,22 @@ fn reload_observes_credentials_removed_by_another_session() {
     );
     assert!(app.world().get::<Connection>(agent).is_none());
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn bootstrap_dialect_survives_persistence_without_overriding_managed_settings() {
+    let mut config = ProvidersConfig::default();
+    assert!(config.bootstrap(
+        "https://api.deepseek.com",
+        "manual-model",
+        Some("deepseek".into())
+    ));
+    assert_eq!(
+        config.instances["gateway"].preset.as_deref(),
+        Some("deepseek")
+    );
+    let saved = toml::to_string(&config).unwrap();
+    let mut restored: ProvidersConfig = toml::from_str(&saved).unwrap();
+    assert!(!restored.bootstrap("https://other.example/v1", "replacement", None));
+    assert_eq!(restored, config);
 }

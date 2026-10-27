@@ -34,7 +34,13 @@ impl Plugin for ProvidersPlugin {
         let bootstrap = std::env::var("VIVY_BOOTSTRAP_GATEWAY_URL")
             .ok()
             .zip(std::env::var("VIVY_BOOTSTRAP_GATEWAY_MODEL").ok())
-            .is_some_and(|(url, model)| config.bootstrap(&url, &model));
+            .is_some_and(|(url, model)| {
+                config.bootstrap(
+                    &url,
+                    &model,
+                    std::env::var("VIVY_BOOTSTRAP_GATEWAY_DIALECT").ok(),
+                )
+            });
         let issue = settings
             .get::<ProvidersConfig>("providers")
             .err()

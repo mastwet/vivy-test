@@ -51,6 +51,12 @@ class View(PlanView):
             (root / (name + ".txt")).write_text(self.text(), encoding="utf-8")
             (root / (name + ".ansi")).write_bytes(self.terminal.output)
 
+    def resize(self, rows, cols):
+        """Resizes the screen first, so the redrawn bytes are read at it."""
+        self.screen.resize(rows, cols)
+        self.terminal.resize(rows, cols)
+        self.terminal.read_for(0.5)
+
 
 def scenario(binary, cols, rows, evidence):
     server = ThreadingHTTPServer(("127.0.0.1", 0), Gateway)
@@ -78,6 +84,25 @@ def scenario(binary, cols, rows, evidence):
             assert "rig v" not in initial and "█▙" not in initial
             assert "Ask vivy-test to do anything" in initial
             view.capture(evidence, "startup")
+
+            # A resize must redraw at the new size. Windows' ConPTY reports the
+            # console buffer's size in the resize event, which stays as the app
+            # found it, so the view asks the terminal for the size it has now
+            # and draws again when the frame it drew is not that size.
+            smaller = (max(16, rows - 8), max(40, cols - 16))
+            view.resize(*smaller)
+            view.wait("footer follows a shrink", lambda text:
+                      "idle" in text.splitlines()[-1] and "org/model-1" in text.splitlines()[-1])
+            view.capture(evidence, "shrunk")
+            roomier = (rows + 2, cols + 10)
+            view.resize(*roomier)
+            view.wait("footer follows a grow", lambda text:
+                      "idle" in text.splitlines()[-1] and "org/model-1" in text.splitlines()[-1])
+            view.capture(evidence, "grown")
+            view.resize(rows, cols)
+            view.wait("footer follows the original size", lambda text:
+                      "idle" in text.splitlines()[-1] and "org/model-1" in text.splitlines()[-1])
+            view.capture(evidence, "restored")
 
             command(terminal, view, "/plan")
             view.wait("plan marker", lambda text: "PLAN" in text.splitlines()[-1])

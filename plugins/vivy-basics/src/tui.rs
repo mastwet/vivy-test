@@ -4,6 +4,7 @@
 use std::sync::Arc;
 
 use bevy_ecs::message::MessageMutator;
+
 use rig_harness::prelude::*;
 use rig_tui::ratatui::{
     layout::{Constraint, Rect},
@@ -12,12 +13,24 @@ use rig_tui::ratatui::{
     widgets::{Block, Clear, Paragraph, Widget},
 };
 use rig_tui::{
-    AsideRenderer, Editor, InlineStrip, InputContext, KeyFocus, MainEditor, MainPane, PaneKeys,
-    PanelCanvas, Placement, RequestRedraw, StatusItems, StatusLine, StatusSystems, TerminalSize,
-    TerminalWrite, Theme, TranscriptPane, TranscriptSource, TuiPanel, TuiSystems, TuiViewPlugin,
+    AsideRenderer, Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus,
+    KeyInput, MainEditor, MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw,
+    StatusItems, StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
+    TranscriptSource, TuiFrame, TuiKeys, TuiPanel, TuiSystems, TuiTestScreen, TuiViewPlugin,
+    crossterm::event::{Event, MouseEventKind},
 };
 
 mod looks;
+
+/// The wheel reported to us, in SGR form, and nothing else about the mouse:
+/// no motion, no clicks. The view owns no mouse, so the sequence is a
+/// [`TerminalWrite`], and leaving the terminal undoes it.
+const WHEEL_ON: &[u8] = b"\x1b[?1000h\x1b[?1006h";
+const WHEEL_OFF: &[u8] = b"\x1b[?1000l\x1b[?1006l";
+
+/// Rows one wheel notch moves the transcript: what a terminal's wheel
+/// usually does, and a third of Rig's page keys.
+const NOTCH: usize = 3;
 
 /// A compact coding screen with vivy-test branding and a persistent footer.
 #[derive(Default)]
@@ -45,7 +58,25 @@ impl Plugin for VivyTuiPlugin {
             MainPane,
             PaneKeys,
         ));
-        app.add_systems(PostUpdate, prioritize_status.in_set(StatusSystems::Edit))
+        app.add_systems(Startup, ask_for_wheel)
+            // Written after the frame, before the view lets the terminal go
+            // and before the exit-time title restore that ends the output.
+            .add_systems(
+                Last,
+                release_wheel
+                    .before(OnAppExitSystems)
+                    .run_if(on_message::<AppExit>),
+            )
+            // Rig reads the mouse and leaves it to nothing; the wheel is
+            // the transcript's, in every scope, before any binding.
+            .add_systems(
+                TuiKeys,
+                (wheel_scrolls, resize_redraws).in_set(InputSystems::Filter),
+            )
+            // Before the frame decides whether to draw: a resize that Rig
+            // did not learn of would leave the screen as it was.
+            .add_systems(Update, keep_the_screen_size)
+            .add_systems(PostUpdate, prioritize_status.in_set(StatusSystems::Edit))
             .add_systems(PostUpdate, prepare.in_set(TuiSystems::Prepare))
             // The native widget has already drawn its text and caret. Change
             // only its chrome before composition; overlays still draw last.
@@ -93,6 +124,8 @@ fn prepare(
                 renderer.render = Arc::new(move |view| looks::welcome(view, columns));
             }
         }
+        // The new renderer draws in the next frame, which a resize needs.
+        redraw.write(RequestRedraw);
     }
 }
 
@@ -125,6 +158,122 @@ fn prioritize_status(mut statuses: Query<&mut StatusItems>) {
             *items = next;
         }
     }
+}
+
+/// Asks the terminal for the wheel once the view holds it, so a notch
+/// scrolls the transcript instead of leaving the mouse to the terminal.
+fn ask_for_wheel(mut writes: MessageWriter<TerminalWrite>) {
+    writes.write(TerminalWrite(WHEEL_ON.to_vec()));
+}
+
+/// Gives the terminal's mouse back on the way out, so the shell after this
+/// one is not asked for reports it never wanted.
+fn release_wheel(mut writes: MessageWriter<TerminalWrite>) {
+    writes.write(TerminalWrite(WHEEL_OFF.to_vec()));
+}
+
+/// Turns each wheel notch into the scroll rows it means, before the keys
+/// reach the view; other mouse events, which nothing binds, stay dropped.
+fn wheel_scrolls(mut events: ResMut<PendingInput>) {
+    if !events.0.iter().any(asks_to_scroll) {
+        return;
+    }
+    let mut next = Vec::with_capacity(events.0.len());
+    for item in std::mem::take(&mut events.0) {
+        match item {
+            KeyInput::Event(event) => match scroll(&event) {
+                Some(action) => next.extend(std::iter::repeat_n(KeyInput::Action(action), NOTCH)),
+                None => next.push(KeyInput::Event(event)),
+            },
+            item => next.push(item),
+        }
+    }
+    events.0 = next;
+}
+
+/// The scroll a wheel event asks for, else nothing.
+fn scroll(event: &Event) -> Option<InputAction> {
+    match event {
+        Event::Mouse(mouse) => match mouse.kind {
+            MouseEventKind::ScrollUp => Some(InputAction::ScrollUp),
+            MouseEventKind::ScrollDown => Some(InputAction::ScrollDown),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn asks_to_scroll(item: &KeyInput) -> bool {
+    matches!(item, KeyInput::Event(event) if scroll(event).is_some())
+}
+
+/// Draws again after a resize even when it ends at the size the view already
+/// has: the terminal clipped or cleared the screen meanwhile, so a frame that
+/// is not drawn leaves it looking wrong.
+fn resize_redraws(events: Res<PendingInput>, mut redraw: MessageWriter<RequestRedraw>) {
+    if events.0.iter().any(is_resize) {
+        redraw.write(RequestRedraw);
+    }
+}
+
+fn is_resize(item: &KeyInput) -> bool {
+    matches!(item, KeyInput::Event(Event::Resize(..)))
+}
+
+/// Draws the screen again when the frame it drew is not the size the
+/// terminal has. Rig takes its screen size from the resize event, and on
+/// Windows ConPTY that event reports the console buffer's size, which stays
+/// as the app found it; it can also arrive after the window settled, or not
+/// at all. Either way the frame drawn may be laid out at another size, and
+/// without a change the view would never draw the frame that fixes it.
+fn keep_the_screen_size(
+    size: Option<ResMut<TerminalSize>>,
+    drawn: Option<Res<TuiFrame>>,
+    test: Option<Res<TuiTestScreen>>,
+    mut redraw: MessageWriter<RequestRedraw>,
+) {
+    // A test's screen is the size the test set; the terminal answers nothing.
+    if test.is_some() {
+        return;
+    }
+    let (Some(mut size), Some(drawn)) = (size, drawn) else {
+        return;
+    };
+    let Some(next) = moved_screen(laid_out(&drawn), reported_size()) else {
+        return;
+    };
+    if size.0 != next {
+        size.0 = next;
+    }
+    redraw.write(RequestRedraw);
+}
+
+/// The screen the terminal reports now, when it reports one.
+fn reported_size() -> Option<(u16, u16)> {
+    rig_tui::crossterm::terminal::size().ok()
+}
+
+/// The size the last frame laid its panels out at: the bottom and right
+/// edges of the areas it drew. A frame laid out before a resize and drawn
+/// after it reports the panel layout, not the frame, which is what a re-laid
+/// frame has to replace.
+fn laid_out(frame: &TuiFrame) -> Option<(u16, u16)> {
+    let mut size = (0, 0);
+    for (_, area) in &frame.areas {
+        size = (size.0.max(area.right()), size.1.max(area.bottom()));
+    }
+    match size {
+        (0, _) | (_, 0) => None,
+        (width, height) => Some((width, height)),
+    }
+}
+
+/// The space to draw in again, when the screen last drawn, at `drawn`, is not
+/// the size the terminal reports: the next frame lays out and draws at it.
+fn moved_screen(drawn: Option<(u16, u16)>, reported: Option<(u16, u16)>) -> Option<Rect> {
+    let (width, height) = reported?;
+    let (drawn_width, drawn_height) = drawn?;
+    ((drawn_width, drawn_height) != (width, height)).then(|| Rect::new(0, 0, width, height))
 }
 
 fn input_chrome(

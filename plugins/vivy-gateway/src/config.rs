@@ -201,13 +201,14 @@ pub fn valid_id(id: &str) -> bool {
 impl ProvidersConfig {
     /// The native launcher supplies only a first-run gateway hint; managed
     /// instances always win and the credential remains an environment reference.
-    pub fn bootstrap(&mut self, url: &str, model: &str) -> bool {
+    pub fn bootstrap(&mut self, url: &str, model: &str, dialect: Option<String>) -> bool {
         if self.instances.contains_key("gateway") || url.is_empty() || model.is_empty() {
             return false;
         }
         let legacy = super::GatewaySettings {
             base_url: url.into(),
             model: model.into(),
+            dialect,
             ..Default::default()
         };
         self.add_legacy(&legacy);

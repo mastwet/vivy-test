@@ -39,14 +39,31 @@ the session's saved directory. Add the build directory to your PATH if desired.
 ### One-click Windows start
 
 Double-click `start.cmd` to open the interactive coding terminal in this
-checkout with the Windows console set to UTF-8. It uses the existing
-`C:\vt\debug` build and does not build automatically. If `Desktop\keys.txt` or
-`Desktop\key.txt` exists, it reads three non-empty lines (gateway URL, model
-ID, API key). The host imports the first gateway into the ignored
-`.workspace\launch-home\settings.toml`; existing managed provider settings take
+checkout with the Windows console set to UTF-8. It reuses an existing build and
+does not build automatically: it looks for `vivy.exe` and `coding-agent.exe` in
+`%CARGO_TARGET_DIR%\debug`, `.generated\target\debug`, `target\debug` and
+`C:\vt\debug`, preferring a directory that holds both. If `Desktop\keys.txt` or
+`Desktop\key.txt` exists, it reads three or four non-empty lines (gateway URL,
+model ID, API key, and optionally the Rig dialect such as `deepseek`). It
+supplies a first-run hint to the host, which persists it in the ignored
+`.workspace/launch-home/settings.toml`; existing managed provider settings take
 priority. The key passes through `RIG_SECRET_GATEWAY` in process memory. Sessions
 use that isolated `RIG_HOME`. Without a Desktop key file, the launcher uses
 `RIG_HOME` (default `~/.rig`). An empty home can start and configure providers.
+
+`vivy.exe` records this checkout's path at compile time, so a copied or moved
+tree keeps pointing at the old location even when its `target` directory came
+along. Rebuild after a move: `cargo clean -p vivy` and `cargo build -p vivy`.
+
+### One-click Windows build
+
+Double-click `build.cmd` after a recipe or source change; `start.cmd` only
+launches what is already built. It builds into the `CARGO_TARGET_DIR` that
+`start.cmd` looks at first, else `.generated\target`, keeps
+`CARGO_PROFILE_DEV_DEBUG=0`, and prints the built binary. It takes an optional
+recipe path, defaulting to `recipes/coding-agent.yaml`. It stops before
+compiling when that build's `vivy.exe` or agent is still running, because
+Windows cannot replace a running executable.
 
 ## Providers and runtime settings
 
@@ -121,6 +138,31 @@ entered manually; automatic model discovery is not included.
 Existing `[gateway]` settings remain supported as `gateway/<model>` with
 `RIG_SECRET_GATEWAY`. A provider save migrates that table into the same instance
 collection. An explicit `providers.instances.gateway` takes priority.
+
+### A provider's own API, with no gateway in between
+
+`[gateway]` is any OpenAI-compatible endpoint, so a provider's own API serves
+as one: nothing is proxied, and the vendor's base URL replaces the gateway's.
+Rig ships DeepSeek's request handling as the `deepseek` dialect — it drops a
+forced tool choice while the model thinks, takes strict tools under `/beta`,
+refuses `json_schema` response formats, and reads `reasoning_content` back —
+so name it rather than leaving the generic `gateway` dialect:
+
+```toml
+[gateway]
+base_url = "https://api.deepseek.com"
+model = "deepseek-v4-flash"     # or deepseek-v4-pro, or the deepseek-flash alias
+models = ["deepseek-v4-pro"]    # optional: more ids for /model and Alt+P
+dialect = "deepseek"
+```
+
+The key stays the agent's `gateway` secret `RIG_SECRET_GATEWAY`, which the
+launcher reads from the third line of the Desktop key file; the same
+`dialect = "deepseek"` is its optional fourth line.
+
+An explicit `--model` takes precedence; a resumed session keeps its model;
+otherwise the configured gateway model is selected. Its raw model ID is sent
+unchanged. Build and execution children do not inherit `RIG_SECRET_*`.
 
 `/new`, `/resume <id>`, `/session`, and `/quit` use Rig's terminal and session
 mechanisms. A session switch in print mode returns Rig's exit code 75 rather

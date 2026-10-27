@@ -92,6 +92,13 @@ class Terminal:
             time.sleep(0.3)
             self._write(ENTER)
 
+    def resize(self, rows, cols):
+        """Gives the terminal a new size, as a window drag does."""
+        if os.name == "nt":
+            self.process.setwinsize(rows, cols)
+            return
+        fcntl.ioctl(self.fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
     def _write(self, text):
         if os.name == "nt":
             self.process.write(text.decode("utf-8") if isinstance(text, bytes) else text)

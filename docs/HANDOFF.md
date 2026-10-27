@@ -2,8 +2,10 @@
 
 ## Active workbench checkpoint (2026-10-28)
 
-Implementation is on `feat/python-workbench`, in `.workspace/python-workbench`,
-based on `66d1a8c`. The earlier 2026-10-27 sections below are historical: the new
+Implementation is integrated into `main`, including the remote one-click build
+and terminal scroll/resize changes. The ignored `.workspace/python-workbench`
+worktree retains local acceptance environments and evidence. The earlier
+2026-10-27 sections below are historical: the new
 owned Python runtime, Rust dispatcher, explicit environment preparation, trusted
 Skill loading, generic MCP, complete artifacts and native MemPalace facade now
 exist. Read DESIGN's latest checkpoint, README's workbench usage and the plan
@@ -30,6 +32,18 @@ Final verification passes 13 Rust workbench tests and 36 Python tests including
 ownership, Windows Python terminal and original Coding smoke. Maximum close command
 plus process-exit confirmation is 0.256 seconds. Complete scripted joint acceptance
 now independently inspects artifacts and reopens memory; it passes in 84.28 seconds.
+
+Merged-main verification also passes root workspace tests, 33 gateway tests,
+78 basics tests, 13 Rust workbench tests, and all 36 Python/native tests.
+The rebuilt main-checkout launcher and Coding binary pass the Windows branding
+terminal at 120x40 and 50x20 (including resize), Python terminal lifecycle and
+original Coding smoke. Formatting, PowerShell parsing and diff checks pass.
+The optional Desktop dialect enters the same first-run provider bootstrap and
+is covered for persistence and preservation of existing managed settings.
+
+For another machine, pull `main`, build with `build.cmd`, launch with `start.cmd`,
+then run `/python prepare` (including native memory preparation as described in
+README). Local virtual environments, model caches and credentials are not shipped.
 
 Outstanding: the owner deferred actual-provider verification to a later manual
 test while changing provider. Stop StepFun retries. Earlier attempts failed TLS
