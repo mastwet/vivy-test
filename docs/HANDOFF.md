@@ -192,6 +192,13 @@ library dependencies. The current Vivy worker protocol is incompatible with a
 drop-in Prime worker; host routing must change with it. Keep `vivy-process` and
 existing direct tools. No transplant has been implemented or validated yet.
 
+The owner supports this selective-reuse direction and requested investigation of
+Python-side tool loading. Section 19.8 records the source findings and a bounded
+loading contract. Resolve that contract in the design: installed packages,
+bound Python names and model-visible capabilities are distinct; Skill code
+updates and MCP connection reload have different lifecycles. Extend W2 with
+namespace conflicts, unavailable capabilities and update/removal behavior.
+
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
 The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize
 the new Python workbench: close its design, implement the selected runtime and

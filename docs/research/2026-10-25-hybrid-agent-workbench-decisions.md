@@ -12,9 +12,11 @@ checkout and does not authorize implementation or change the accepted scope.
 Latest workbench investigation, 2026-10-27: section 19 traces the pinned Prime
 implementation, records a fresh Windows REPL test run, and proposes a bounded
 workbench scope and acceptance loop. The owner prioritizes workbench validation
-before durable. The proposed implementation choices below are not yet selected.
+before durable. The owner subsequently supports the selective-reuse direction;
+the detailed implementation contract remains design work.
 Section 19.7 adds the component-level transplant audit, including all nine
 Python-backed Skills found in this pinned checkout's top-level `skills/`.
+Section 19.8 adds Python-side tool loading, explicitly requested by the owner.
 
 Scope: Preserve this conversation's findings and latest direction in both repositories.
 
@@ -1425,7 +1427,7 @@ The host adapter must run this through the actual Coding agent tool path.
 | Gate | Observable acceptance |
 | --- | --- |
 | W1: runtime | Fresh handshake; two cells share values; a managed async resource remains usable between cells; callback reply during an awaiting cell does not deadlock; output and terminal outcome have honest identities; another agent remains isolated. |
-| W2: capability loading | A trusted local Python Skill is discovered, its instructions read and its function called; a missing dependency or colliding import is reported without breaking unrelated capabilities. Setup from the declared environment is repeatable. |
+| W2: capability loading | A trusted local Python Skill is discovered, its instructions read and its function called; a missing dependency or colliding import is reported without breaking unrelated capabilities. Setup from the declared environment is repeatable. Section 19.8 adds model visibility, reserved names, update/removal and host-handler availability checks. |
 | W3: MCP lifecycle | Actual local stdio and local Streamable HTTP fixtures both list/describe/call; pagination, tool errors, large/mixed results, startup failure and a hanging call are covered. Reuse, reload and close leave no owned fixture processes/connections behind. Mock-only transport checks do not pass this gate. |
 | W4: host integration | The Coding path performs the complete dataset-to-artifact task. Repeat with an execution error and then a corrected cell; verify cancellation of async work and a Windows synchronous hang via bounded host fallback, followed by a usable fresh worker. Crash/reset/host exit must produce explicit outcomes, discard stale events and clean owned processes. |
 | W5: state and operating cost | Normal compaction preserves the intended live state; switch/fork isolation and restart notices match the selected policy; explicit artifacts reopen without rerunning effects. Record setup size/time, cold/warm ready and first-call times, peak memory and repeated open/close resource counts before making performance claims. |
@@ -1596,3 +1598,106 @@ for the intact upstream runtime, not for a reduced transplant. No performance
 claim follows from the module inventory. Prime's MIT notice was inspected;
 retain applicable notices with any future copied source. Only this repository's
 research/design/handoff records are updated.
+
+### 19.8 Python-side tool loading (2026-10-27)
+
+The owner supports the selective transplant direction and asks to investigate
+loading tools inside Python, using Prime as evidence rather than assuming a
+particular mechanism. This is part of the workbench design scope. The contract
+below is a recommendation, not an implemented loader or a new plugin platform.
+Source observations use the same pinned Prime revision as 19.7.
+
+#### What Prime actually loads
+
+| Surface | Loading and invocation | How the model discovers it |
+| --- | --- | --- |
+| Markdown Skill | Discover metadata; read `SKILL.md` on demand. No executable module follows merely from having a Skill. | Dynamic prompt lists name, description and file path; `/skill:name` expands instructions. |
+| Python-backed Skill | Detect `pyproject.toml` plus the required `src/<import_name>/__init__.py`; install editable in the managed venv; eagerly import into each kernel at bootstrap. Bind the module by import name; if it has `run`, wrap it as an async callable. A module without `run` remains usable through its functions. | Prompt additionally includes type and `python_import`; read instructions and inspect `help`, `dir` or signatures as needed. This does not register every function as a separate model-facing tool. |
+| Ordinary Python library | Installed into the interpreter environment; cell or Skill code imports it explicitly. The bootstrap does not bind aliases such as `pd` for all default packages. | Environment guidance and the capability's instructions; installation alone does not describe a useful workflow to the model. |
+| Runtime / host bridge | Bootstrap binds `rlm`, `bash` and `mcp`; Python wrappers can send typed host requests. The executable host behavior must exist separately. | Core prompt describes selected entrypoints. `runtime_wiring.rs` filters three controller-backed bundled Skills when their required host handlers are absent; this is a specific mapping, not a universal dependency solver. |
+| Generic MCP tools | `mcp` is prebound, but a connection is opened and its schemas discovered on demand. `list_tools`, `search_tools`, `describe_tool` and `call_tool` operate through the connection registry. Tools are not all injected as Python globals. | Connection inventory, bounded name/description search, then the requested tool's input schema. Prime's service catalog is separate from live tool discovery. |
+
+Evidence paths, relative to `.workspace/prime-agent`:
+
+- `crates/pa-core/src/skills/{discovery,loader,mod}.rs`: detection, precedence,
+  collisions, Python metadata and prompt formatting.
+- `crates/pa-core/src/kernel/bootstrap/{mod,runtime_code,venv}.rs` and
+  `skills/skill-creator/references/python-skills.md`: environment preparation,
+  pre-import, callable wrapper and update contract.
+- `crates/pa-core/src/session_engine/{runtime_wiring,skills_unavailable_notice}.rs`
+  and `kernel/provisioner.rs`: host-handler filtering, bootstrap error reports
+  and generation-checked model notices.
+- `prime-agent-runtime/src/rlm/{mcp,mcp_base}.py` and
+  `crates/pa-core/src/prompts/layers/core.md`: MCP discovery/calling and guidance.
+
+Prime also has `McpIntegration` in `mcp_base.py`: subclasses expose tools through
+`__getattr__` and open a fresh session per call. That is a different mechanism
+from the generic registry's reusable connections. Prefer the generic registry
+for this scope; do not port both or generate a package for every MCP server.
+
+#### Availability and updates are separate concerns
+
+- A failed Skill import binds an unavailable placeholder and reports its cause
+  to the host. The live provisioner posts a model notice rather than waiting
+  for an attempted call to reveal the failure. It does not simply remove the
+  Skill's metadata from every prompt surface.
+- Editable installation does not reload a live Python module. Prime's authoring
+  reference specifies source changes taking effect on the next kernel start;
+  changing `pyproject.toml` triggers reinstall. Its bootstrap uses
+  `import_module`, not a general hot-reload mechanism.
+- Generic MCP compares host-resolved connection configuration with the current
+  generation, reusing it when unchanged and replacing it when changed.
+  `mcp.reload(server)` closes the selected connection; later use recreates it.
+  This does not reload Python Skill code.
+- `disable_model_invocation` filters the prompt inventory; Python runtime
+  metadata extraction filters by Python kind, not this flag. Hiding a Skill
+  from automatic model discovery is not an import prohibition.
+- Prime's shared venv cache carries previously installed Skills forward across
+  sessions. A session's selected/prebound list is not the complete set of
+  packages importable from that environment. Do not claim package isolation
+  from prompt filtering or from separate worker namespaces.
+- Skill-name collisions use first-wins diagnostics; distinct Skills with the
+  same Python import name produce a warning and remain in the discovered list.
+  Bootstrap then deduplicates import names. This does not prove that the
+  resulting imported package is the intended one in every conflicting setup.
+
+#### Recommended first loading contract for vivy-test
+
+Keep the existing trusted Skill discovery path and derive executable metadata
+from its selected results. Add only the loading behavior needed by the selected
+Python workbench plugin; YAML still selects compiled Rust capabilities. Runtime
+package/connection settings configure that compiled capability, not replace
+recipe selection. Do not scan and execute arbitrary `.py` files as tools.
+
+For the first small Skill set, follow Prime's bootstrap pre-import convention
+with a startup deadline and per-Skill failures. Reserve workbench-owned names
+and reject ambiguous Python bindings before installation/import, keeping other
+capabilities usable. Report preparation/loading/ready/unavailable states from
+actual discovery and bootstrap results; do not maintain another independent
+capability catalog. Preserve manual-invocation metadata without treating it as
+a security boundary. Imports execute trusted package code.
+
+Use explicit imports for ordinary libraries, selected host-backed wrappers only
+where their host handler exists, and lazy generic MCP discovery. Advertise
+concise entrypoints and obtain detailed instructions/signatures/schemas on
+demand. A new runtime registry API is not required merely to expose these facts.
+
+Recommend applying Skill source/dependency changes at an explicit worker
+restart boundary and MCP changes through its connection lifecycle. State what
+will be reset and clean up old resources before replacement. Do not promise
+transparent live-module reload or automatic namespace persistence. Removal must
+remove the selected binding and model advertisement after restart; whether an
+old package remains installed is a separate environment policy and must be
+reported honestly. Shared-environment mutation/concurrent preparation remains
+part of the environment design, not solved by separate worker processes.
+
+Extend W2 with callable and module-only Skills, ordinary library imports,
+untrusted discovery, failed dependency/import, reserved-name and import-name
+conflicts, a missing host handler, and update/removal across restart. Check that
+the model's description matches actual availability and that a failed Skill
+leaves an unrelated one usable. W3 covers MCP discovery/schema/call plus
+connection reuse and reload; W4 checks the combined route through Coding.
+
+This follow-up inspected source and documentation only. It did not install
+packages, run loading/MCP tests or change product code. The earlier 16 upstream
+REPL passes are not evidence that these proposed loading gates have passed.

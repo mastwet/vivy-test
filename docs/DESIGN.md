@@ -157,12 +157,17 @@ The owner next requested Prime implementation research before selecting the
 workbench scope and acceptance task. Research section 19 in
 [the existing workbench investigation](research/2026-10-25-hybrid-agent-workbench-decisions.md#19-prime-workbench-investigation-and-proposed-closure-2026-10-27)
 records the runtime/host/Skills/MCP boundaries, 16 fresh Windows REPL tests and
-a proposed first scope with W1-W5 acceptance gates. Selective Prime reuse,
-fresh-state restart and the separate native-memory consumer gate are proposals,
-not yet approved implementation choices. No product implementation starts here.
+a proposed first scope with W1-W5 acceptance gates. The owner supports selective
+Prime reuse and explicitly includes Python-side tool loading in the investigation.
+Fresh-state restart and the separate native-memory consumer gate remain proposed
+details. No product implementation starts here.
 Research section 19.7 adds the component transplant map and concrete dependency
 cuts, including existing Python Skills. It refines the reuse proposal without
 selecting extra capabilities or changing the accepted execution boundaries.
+Section 19.8 traces installation, namespace binding, model discovery and reload
+separately. Include that complete loading lifecycle in the workbench design:
+trusted Python Skills, explicit library imports, selected host bridges and lazy
+MCP discovery, with honest availability and failure reporting.
 
 1. Preserve the accepted coding path and use it as the first workbench consumer.
 2. Close a trimmed Prime-style capability loop: discover a Python capability,
