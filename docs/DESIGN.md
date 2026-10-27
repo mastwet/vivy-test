@@ -5,8 +5,9 @@
 The owner chooses project-scoped remembered consent: after the first approval,
 automatically repair missing dependencies within that approved scope. Ask again
 when adding dependencies/Skills, changing their declared sources or enabling
-native memory beyond the existing grant. Store consent in ignored local project
-state, independently of session history. A skipped prompt grants nothing; do
+native memory beyond the existing grant. Store consent under user-owned
+`RIG_HOME/initialization`, keyed by canonical project path, independently of
+session history and repository copies. A skipped prompt grants nothing; do
 not repeat it on each new session or each footer rotation. Keep a manual setup
 entry available. Headless operation must report missing approval explicitly,
 without hanging on an invisible dialog or treating absence of input as consent.
@@ -48,8 +49,41 @@ same authoritative state. More, Fast, Good, Frugal: extend existing preparation,
 locking, publication, process ownership and terminal UI rather than introducing
 another installer, agent loop or initialization service.
 
-This section records the agreed design direction only. Automatic detection,
-consent dialogs and repair are not implemented by this documentation change.
+The implementation extends the existing basics, gateway and Python plugins. Each
+compiled consumer registers its setup entry; the shared coordinator serializes
+native Rig pickers after trust, with provider first, Python second and memory
+last. `/setup` is the manual retry entry. Memory is disabled by default; explicit
+existing memory configuration remains enabled. Headless runs emit structured
+status and never wait on a picker. Existing prepared environments confer no new
+installation grant.
+
+The Python host owns a bounded startup check and one automatic preparation attempt
+for matching consent. Failed automatic preparation is remembered in user state
+and waits for explicit retry or changed scope. Fixed script stages cover managed
+toolchain, candidate environment, locked packages, trusted Skill bindings, optional
+assets/native probe and atomic publication. The scope hashes lock contents,
+interpreter configuration, bootstrap source, package-index overrides and trusted
+Skill pyprojects; grants contain hashes, not credentials. Detection does not import
+previously installed Skills when the current trust/scope differs. A new pointer
+replaces a live worker only at the next cell boundary; no cell is replayed.
+
+Windows x64 bootstrap pins uv 0.11.7 to the official release archive SHA256
+`fe0c7815acf4fc45f8a5eff58ed3cf7ae2e15c3cf1dceadbd10c816ec1690cc1`, then installs
+CPython 3.13.12 with `--no-bin --no-registry` and an application-owned install
+directory. See the [uv installer options](https://docs.astral.sh/uv/reference/installer/)
+and [Python installation reference](https://docs.astral.sh/uv/guides/install-python/).
+This adds the automatic uv bootstrap absent from Prime's Rust bootstrap; it does
+not import Prime's runtime or create a second agent loop.
+
+Provider readiness follows the effective ModelChoice and existing connector,
+including no-key providers. Save-only is locally configured but unverified.
+Explicit tests use the same Rig handler with fixed isolated requests; streaming
+and declared tool calls must both pass. Configuration changes invalidate the
+result. Errors preserve causes and saved configuration; cancellation drops the
+owned request. Provider attention shares the existing footer page.
+
+Implementation and regression evidence are recorded in HANDOFF. Durable and the
+owner-deferred external-provider acceptance remain outside this change.
 
 ## Workbench footer rotation (owner-approved, 2026-10-28)
 

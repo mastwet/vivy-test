@@ -1,5 +1,6 @@
 //! Two display pages; the original status items remain owned by their producers.
 use super::*;
+use crate::setup::{OutcomeState, ProviderStatus};
 use crate::workbench_status::{MemoryState, PythonState, WorkbenchStatus};
 use rig_tui::ratatui::layout::Layout;
 use rig_tui::{AppStatus, Side, StatusItem, Tone};
@@ -11,6 +12,7 @@ pub(super) const INTERVAL: Duration = Duration::from_secs(5);
 pub(super) struct Rotation {
     agent: Option<Entity>,
     status: Option<WorkbenchStatus>,
+    provider: Option<ProviderStatus>,
     workbench: bool,
     pub(super) next: Instant,
 }
@@ -20,6 +22,7 @@ impl Default for Rotation {
         Self {
             agent: None,
             status: None,
+            provider: None,
             workbench: false,
             next: Instant::now() + INTERVAL,
         }
@@ -34,33 +37,44 @@ pub(super) fn install(app: &mut App) {
 fn tick(
     shown: Res<ShownAgent>,
     statuses: Query<&WorkbenchStatus>,
+    providers: Query<&ProviderStatus>,
     mut panels: Query<(Entity, &mut Rotation)>,
     mut commands: Commands,
     mut redraw: MessageWriter<RequestRedraw>,
 ) {
     let status = shown.0.and_then(|agent| statuses.get(agent).ok()).copied();
+    let provider = shown
+        .0
+        .and_then(|agent| providers.get(agent).ok())
+        .filter(|p| p.0.outcome != OutcomeState::Ready || p.0.phase.is_some())
+        .cloned();
+    let available = status.is_some() || provider.is_some();
     let now = Instant::now();
     for (entity, mut page) in &mut panels {
-        let changed = page.agent != shown.0 || page.status != status;
+        let changed = page.agent != shown.0 || page.status != status || page.provider != provider;
         if page.agent != shown.0 || page.status.is_some() != status.is_some() {
             page.workbench = false;
             page.next = now + INTERVAL;
         }
-        let previous_urgent =
-            page.agent == shown.0 && page.status.is_some_and(WorkbenchStatus::urgent);
-        let urgent = status.is_some_and(WorkbenchStatus::urgent);
+        let provider_urgent =
+            |p: &ProviderStatus| p.0.outcome == OutcomeState::Error || p.0.phase.is_some();
+        let previous_urgent = page.agent == shown.0
+            && (page.status.is_some_and(WorkbenchStatus::urgent)
+                || page.provider.as_ref().is_some_and(provider_urgent));
+        let urgent = status.is_some_and(WorkbenchStatus::urgent)
+            || provider.as_ref().is_some_and(provider_urgent);
         let before = page.workbench;
-        if urgent || (previous_urgent && status.is_some()) {
+        if urgent || (previous_urgent && available) {
             page.workbench = true;
             page.next = now + INTERVAL;
-        } else if status.is_some() && now >= page.next {
+        } else if available && now >= page.next {
             page.workbench = !page.workbench;
             page.next = now + INTERVAL;
         }
         if changed || before != page.workbench {
             redraw.write(RequestRedraw);
         }
-        if status.is_some() {
+        if available {
             commands
                 .entity(entity)
                 .insert(WakeAt::after(page.next.saturating_duration_since(now)));
@@ -69,6 +83,7 @@ fn tick(
         }
         page.agent = shown.0;
         page.status = status;
+        page.provider = provider.clone();
     }
 }
 
@@ -81,11 +96,12 @@ fn workbench_items(status: WorkbenchStatus) -> [StatusItem; 2] {
         PythonState::Running => "Py running",
         PythonState::Ready => "Py ready",
         PythonState::Preparing => "Py preparing",
+        PythonState::Checking => "Py checking",
         PythonState::Error => "Py error",
     };
     let memory = match status.memory {
-        MemoryState::Off => "Mem off",
-        MemoryState::Unchecked => "Mem unchecked",
+        MemoryState::Off => "Mem not init",
+        MemoryState::Unchecked => "Mem not init",
         MemoryState::Ready => "Mem ready",
         MemoryState::Closed => "Mem closed",
         MemoryState::Error => "Mem error",
@@ -129,7 +145,26 @@ fn draw(
         if area.is_empty() {
             continue;
         }
-        let extra = page.status.filter(|_| page.workbench).map(workbench_items);
+        let extra = if page.workbench {
+            let mut items = page
+                .status
+                .map(workbench_items)
+                .map(Vec::from)
+                .unwrap_or_default();
+            if let Some(provider) = &page.provider {
+                let (text, tone) = if provider.0.phase.is_some() {
+                    ("Provider testing", Tone::Yellow)
+                } else if provider.0.outcome == OutcomeState::Error {
+                    ("Provider error", Tone::Red)
+                } else {
+                    ("Provider not init", Tone::Yellow)
+                };
+                items.push(StatusItem::new("vivy-provider", Side::Right, 5, 255).says(text, tone));
+            }
+            Some(items)
+        } else {
+            None
+        };
         let mut projected: Vec<_> = [Some(&app.0), own, turn]
             .into_iter()
             .flatten()

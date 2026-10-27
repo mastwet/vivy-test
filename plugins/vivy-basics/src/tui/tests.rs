@@ -64,7 +64,7 @@ fn workbench_footer_rotates_without_mutating_telemetry_or_input() {
     let screen = text(&app);
     let line = screen.lines().last().unwrap();
     assert!(
-        line.contains("Py prepared") && line.contains("Mem unchecked"),
+        line.contains("Py prepared") && line.contains("Mem not init"),
         "{line}"
     );
     assert!(line.contains("PLAN") && line.contains("idle") && !line.contains("ctx 12%"));

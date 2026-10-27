@@ -34,6 +34,8 @@ enum Action {
     SaveModel(Draft, Model, bool),
     DeleteModel(Draft, String),
     Save(Draft),
+    SaveAndTest(Draft),
+    Test(String),
     Delete(String),
     ConfirmDelete(String),
     PickModels(String),
@@ -322,6 +324,7 @@ fn key_state(world: &World, id: &str, instance: &Instance) -> String {
 }
 
 fn run(world: &mut World, agent: Entity, action: Action) {
+    let test_after_save = matches!(&action, Action::SaveAndTest(_));
     match action {
         Action::Root => {
             let state = world.resource::<ProvidersState>();
@@ -513,7 +516,8 @@ fn run(world: &mut World, agent: Entity, action: Action) {
                     format!("Models: {}", providers::rows(&d.id, &d.instance).len()),
                     Action::Models(d.clone()),
                 ),
-                ("Save provider".into(), Action::Save(d)),
+                ("Save only (unverified)".into(), Action::Save(d.clone())),
+                ("Save and test".into(), Action::SaveAndTest(d)),
                 ("Cancel changes".into(), Action::Root),
             ]);
             menu(
@@ -738,7 +742,7 @@ fn run(world: &mut World, agent: Entity, action: Action) {
             }
             run(world, agent, Action::Models(d));
         }
-        Action::Save(d) => {
+        Action::Save(d) | Action::SaveAndTest(d) => {
             let mut config = world.resource::<ProvidersState>().config.clone();
             if config.instances.get(&d.id) != d.original.as_ref() {
                 notice(
@@ -754,7 +758,23 @@ fn run(world: &mut World, agent: Entity, action: Action) {
             match super::save_config(world, config) {
                 Ok(()) => {
                     notice(world, agent, "Provider saved.", false);
-                    run(world, agent, Action::Detail(d.id));
+                    if test_after_save {
+                        let items = providers::rows(&d.id, &d.instance)
+                            .into_iter()
+                            .map(|row| {
+                                (row.id.clone(), Action::Test(format!("{}/{}", d.id, row.id)))
+                            })
+                            .collect();
+                        menu(
+                            world,
+                            agent,
+                            "Choose model to test",
+                            "Uses the saved provider configuration. No session content is sent.",
+                            items,
+                        );
+                    } else {
+                        run(world, agent, Action::Detail(d.id));
+                    }
                 }
                 Err(why) => {
                     notice(world, agent, &why, true);
@@ -762,6 +782,7 @@ fn run(world: &mut World, agent: Entity, action: Action) {
                 }
             }
         }
+        Action::Test(model) => super::setup::test_reference(world, agent, &model),
         Action::Delete(id) => menu(
             world,
             agent,

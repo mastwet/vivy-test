@@ -1,5 +1,29 @@
 # Handoff: continue the independent assembly experiment
 
+## Initialization closure (2026-10-28)
+
+The approved plan is `docs/plans/2026-10-28-initialization.md`. Setup now registers
+from compiled plugins, follows trust/provider/Python/optional memory, remembers
+project skips and scoped installation consent in user state, and offers `/setup`.
+Python startup detection, consented repair, managed Windows x64 uv/Python,
+structured stages, fixed native memory validation and safe next-cell environment
+adoption extend the existing workbench. Provider configuration has save-only and
+explicit streaming/tool verification with cancellation and a deadline. MemPalace
+remains opt-in. Do not restart durable or the deferred StepFun acceptance.
+
+Verified during implementation: root workspace tests (18+1+2+1), basics 82,
+gateway 13+1+6+14, Python Rust 17, and Python/native 40 before the final repair
+regression was added. The new Windows `scripts/initialization_tui.py` passes
+ordered prompts, remembered skips, manual preparation, approved repair after a
+missing interpreter, no automatic provider requests, explicit streaming/tools
+and pinned provider failure. A real isolated managed-toolchain download verified
+the pinned uv archive and installed Python 3.13.12 without system registration.
+The complete scripted Coding/Skill/MCP/native-memory workflow passes in 85.774s
+(33.006s candidate preparation); it is not real-provider verification.
+
+Final branch review and remaining terminal/omission regressions are in progress.
+Read the latest verification update before claiming this checkpoint complete.
+
 ## Footer rotation (2026-10-28)
 
 The terminal alternates right-side telemetry and Python/memory status every five

@@ -173,6 +173,7 @@ struct Workbench {
     active_cancel: Mutex<Option<Arc<Cancellation>>>,
     retired: AtomicBool,
     policy_generation: AtomicU64,
+    publication: Mutex<Option<String>>,
 }
 impl Workbench {
     fn retire(&self) {
@@ -382,6 +383,24 @@ impl PythonTool {
             error(why)
         };
         let generation = vivy_process::credential_policy_generation();
+        let project = if self.settings.project_root.as_os_str().is_empty() {
+            &self.dir
+        } else {
+            &self.settings.project_root
+        };
+        let publication =
+            management::prepared_python(&project.join(".vivy/workbench")).map_err(error)?;
+        {
+            let mut previous = self
+                .state
+                .publication
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            if *previous != publication {
+                *slot = None;
+                *previous = publication;
+            }
+        }
         if self.state.policy_generation.load(Ordering::Acquire) != generation {
             *slot = None;
             self.state
@@ -457,6 +476,33 @@ impl PythonTool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn new_publication_is_adopted_on_the_next_call_without_manual_reset() {
+        use super::*;
+        let root = std::env::temp_dir().join(format!("vivy-adoption-{}", std::process::id()));
+        std::fs::create_dir_all(root.join(".vivy/workbench")).unwrap();
+        let tool = PythonTool::for_directory(root.clone());
+        call(&tool, "old_environment_value=42", None).unwrap();
+        let output = vivy_process::command("python")
+            .args(["-I", "-c", "import sys;print(sys.executable)"])
+            .output()
+            .unwrap();
+        let executable = String::from_utf8(output.stdout).unwrap();
+        std::fs::write(
+            root.join(".vivy/workbench/current.json"),
+            json!({"executable":executable.trim()}).to_string(),
+        )
+        .unwrap();
+        let result = call(
+            &tool,
+            "assert 'old_environment_value' not in globals(); print('ADOPTED')",
+            None,
+        )
+        .unwrap();
+        assert!(result.contains("ADOPTED") && result.contains("Fresh Python workbench"));
+        tool.state.retire();
+        std::fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn status_tracks_real_worker_failure_recovery_and_memory_unavailability() {
         use vivy_basics::workbench_status::{MemoryState, PythonState};

@@ -48,6 +48,20 @@ class Gateway(Handler):
         return self.reply(body, text="SCOPE-QUESTION: Which small change?")
 
 
+def skip_initialization(terminal, view):
+    """Exercise the real skip controls before unrelated terminal scenarios."""
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        terminal.read_for(.2)
+        text = view.text()
+        if 'Initialization checks complete' in text:
+            return
+        if 'Set up ' in text and 'Skip for this project' in text:
+            terminal.type(b'\x1b[B\r', enter=False)
+            terminal.read_for(.5)
+    raise AssertionError('Initialization did not finish\n' + view.text())
+
+
 class View:
     def __init__(self, terminal):
         self.terminal = terminal
@@ -110,6 +124,7 @@ def main(binary):
         env = dict(os.environ, RIG_HOME=str(home), RIG_SECRET_GATEWAY="test-key")
         terminal = Terminal([binary], work, env)
         view = View(terminal)
+        skip_initialization(terminal, view)
         view.wait("terminal starts", lambda text: "org/model-1" in text)
 
         command(terminal, view, "/plan investigate")

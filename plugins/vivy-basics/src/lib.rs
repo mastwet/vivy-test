@@ -31,6 +31,7 @@ pub mod plan;
 pub mod prompt;
 pub mod search;
 pub mod session;
+pub mod setup;
 pub mod shell;
 pub mod skills;
 pub mod subagents;

@@ -231,7 +231,7 @@ struct TrustQuestion;
 type AnsweredQuestions = (With<TrustQuestion>, Added<Outcome>);
 
 fn ask_at_start(
-    trust: Res<ProjectTrust>,
+    mut trust: ResMut<ProjectTrust>,
     agents: MainAgentQuery,
     answerers: Answerers,
     mut done: Local<bool>,
@@ -252,6 +252,7 @@ fn ask_at_start(
         .map(|path| path.display().to_string())
         .collect();
     if !answerers.can_answer(Some(agent)) {
+        trust.undecided = false;
         let text = format!(
             "Project resources not loaded, as this project is not trusted: {}. Run with --approve, or /trust.",
             listed.join(", ")
@@ -271,6 +272,7 @@ fn ask_at_start(
 }
 
 fn answered(
+    mut trust: ResMut<ProjectTrust>,
     asks: Query<(Entity, &Outcome), AnsweredQuestions>,
     home: Res<RigHome>,
     root: Res<ProjectRoot>,
@@ -279,6 +281,7 @@ fn answered(
     mut notices: MessageWriter<Notice>,
 ) {
     for (ask, outcome) in &asks {
+        trust.undecided = false;
         commands.entity(ask).remove::<TrustQuestion>();
         let answer = Answer::of(outcome).unwrap_or_default();
         let remembered = if answer.is("always") {

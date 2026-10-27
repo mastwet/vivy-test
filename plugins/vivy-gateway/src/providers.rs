@@ -70,6 +70,7 @@ impl Plugin for ProvidersPlugin {
         app.insert_resource(super::store::SettingsFile { path, snapshot });
         app.insert_resource(BootstrapPending(bootstrap));
         protect_credentials(app.world_mut());
+        super::setup::install(app);
         app.add_systems(PostStartup, (persist_bootstrap, defaults).chain())
             .add_systems(PostUpdate, reconnect);
         #[cfg(feature = "tui")]

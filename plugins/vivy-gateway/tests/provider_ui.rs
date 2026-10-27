@@ -110,7 +110,7 @@ fn provider_and_model_crud_keys_and_explicit_defaults_persist() {
     choose(&mut app, "Back to provider");
     choose(&mut app, "Credential:");
     choose(&mut app, "No key required");
-    choose(&mut app, "Save provider");
+    choose(&mut app, "Save only");
     assert!(
         app.world()
             .resource::<Models>()
@@ -146,7 +146,7 @@ fn provider_and_model_crud_keys_and_explicit_defaults_persist() {
     choose(&mut app, "Edit provider and models");
     choose(&mut app, "Name:");
     text(&mut app, "Work account");
-    choose(&mut app, "Save provider");
+    choose(&mut app, "Save only");
     assert_eq!(
         app.world().resource::<ProvidersState>().config.instances["company"]
             .name
@@ -194,7 +194,7 @@ fn restore_removed_models_is_a_draft_action_without_a_text_prompt() {
             .any(|p| p.title == "Provider models")
     );
     choose(&mut app, "Back to provider");
-    choose(&mut app, "Save provider");
+    choose(&mut app, "Save only");
     assert!(
         app.world()
             .resource::<Models>()

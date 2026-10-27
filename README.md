@@ -264,28 +264,53 @@ asyncio loop, including top-level `await` and tasks that survive cell completion
 The default timeout is 60 seconds. Background output keeps its original call ID;
 unattributable native/thread output is retained in the event journal.
 
-Use `/python prepare` to explicitly create an environment with `uv`, install the
-hash-locked dependencies and trusted Python Skills, and probe it before publishing
-`.vivy/workbench/current.json`. Preparation is cancellable with `/python close`.
-Concurrent preparation reports busy. Failed preparation preserves the previous
-environment; ordinary Python calls never install anything. `uv` and an installed
-Python 3.11+ must be on PATH (Windows acceptance uses CPython 3.13.12).
+Startup checks the environment in the background, then guides project trust,
+provider configuration, Python and optional MemPalace in order. `/setup` reopens
+the guide; `/setup provider`, `/setup python` and `/setup memory` open one item.
+Skips and installation grants are remembered under `RIG_HOME/initialization`,
+indexed by canonical project path. They do not travel with the repository.
+MemPalace starts disabled. Consent to install does not grant project trust.
 
-`/python status` reports preparation/allocation. `/python reset` refreshes trusted
-Skill discovery and starts fresh on next use, adopting a prepared environment.
+Approving Python installs hash-locked dependencies and trusted Python Skills,
+validates them, then publishes `.vivy/workbench/current.json`. The same approved
+scope can repair automatically; changed locks, Skill metadata, sources or enabling
+memory need approval again. Failed automatic preparation is retained for manual
+retry, including after restart. `/python prepare` remains an explicit one-shot
+preparation command; it does not silently grant future automatic installation.
+`/python close` cancels. Concurrent preparation reports busy; failure preserves
+the old environment. Ordinary Python calls do not install packages.
+
+On Windows x64, missing tools can be installed into `RIG_HOME/toolchains`:
+SHA256-verified uv 0.11.7 and managed CPython 3.13.12, without modifying PATH,
+registry or the system default Python. Suitable existing tools are reused. An
+explicit broken `python.executable` produces an error; `/setup python` offers
+managed Python as an explicit alternative. Other platforms still need existing
+uv and Python; automatic bootstrap has only been validated on Windows x64.
+
+Provider editing offers **Save only (unverified)** and **Save and test**. Testing
+uses a fixed small streaming request and a harmless tool call when the model
+declares tools, never conversation content. It has a cancel control and 45-second
+deadline. Restart does not test the network automatically; failed tests retain
+the saved configuration. Models without credentials can use `source="none"`.
+
+`/python status` reports initialization and refreshes its bounded local check.
+`/python reset` refreshes trusted Skill discovery and starts fresh on next use.
 `/python close` releases this agent's worker. Neither command removes artifacts
-or committed memories. Dependency changes require another explicit prepare.
+or committed memories. A newly published environment is adopted at the next safe
+cell boundary, with a fresh-variable notice; manual reset is not required.
 Old and failed environment directories are retained; remove only unused ones
 after all workers have closed. No live-resource migration or automatic replay.
 
 The terminal's right footer alternates telemetry and Python/memory status every
 five seconds. Preparation and infrastructure errors pin the workbench page;
 recovery stays visible for five seconds. `Py prepared` means a published interpreter
-exists, while `Py ready` means a live initialized worker; `Mem unchecked` waits for
-worker initialization, and `Mem ready` reflects its native-memory binding, not a
-periodic database health query. `/python status` refreshes the environment check.
+exists, while `Py ready` means a live initialized worker. `Mem not init` is disabled
+or unvalidated; `Mem ready` means preparation validated the native engine and
+assets, independently of whether a worker is running. No periodic database health
+query runs. `/python status` refreshes the bounded environment check.
 Rotation never installs dependencies or starts Python. Activity, PLAN and stop
-hints remain visible; a recipe without Python has no workbench page or timer.
+hints remain visible; a recipe without Python has no Python detection or rotation.
+Provider missing/error/testing states share this right-hand slot.
 
 Cancellation and timeout interrupt the running cell, allow bounded unwinding,
 then terminate its owned process tree. Ordinary exceptions preserve variables.

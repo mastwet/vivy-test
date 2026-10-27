@@ -9,6 +9,32 @@ from vivy_workbench import prepare
 
 
 class PreparationTests(unittest.TestCase):
+    def test_import_failure_repairs_instead_of_republishing_broken_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root / 'empty.lock'
+            lock.write_text('', encoding='utf-8')
+            first = prepare.prepare(root, lock, offline=True)
+            damaged = dict(first, imports=['vivy_missing_fixture_module'])
+            (root/'current.json').write_text(json.dumps(damaged), encoding='utf-8')
+            self.assertEqual(prepare.check(root)['outcome'], 'error')
+            repaired = prepare.prepare(root, lock, offline=True)
+            self.assertNotEqual(first['executable'], repaired['executable'])
+            self.assertEqual(prepare.check(root)['outcome'], 'ready')
+
+    def test_detection_is_read_only_and_scope_changes_require_reprepare(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root / 'empty.lock'
+            lock.write_text('', encoding='utf-8')
+            self.assertEqual(prepare.check(root, scope='approved')['outcome'], 'not_init')
+            first = prepare.prepare(root, lock, offline=True, scope='approved')
+            self.assertEqual(prepare.check(root, scope='approved')['outcome'], 'ready')
+            self.assertEqual(prepare.check(root, scope='changed')['outcome'], 'not_init')
+            self.assertEqual(json.loads((root / 'current.json').read_text()), first)
+            (root / 'current.json').write_text('{bad', encoding='utf-8')
+            self.assertEqual(prepare.check(root, scope='approved')['outcome'], 'error')
+
     def test_corrupt_pointer_can_be_repaired_explicitly(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

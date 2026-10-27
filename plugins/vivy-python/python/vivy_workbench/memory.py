@@ -73,14 +73,24 @@ def prepare_assets(root, *, offline=False):
 def probe(root):
     """Real engine readiness before environment publication, on synthetic data."""
     import uuid
+    import shutil
     async def check():
         memory = Memory(root)
         memory.palace = str(memory.root / 'probes' / uuid.uuid4().hex)
+        palace = memory.palace
         try:
             record = await memory.remember('Synthetic workbench preparation probe.', source_id='vivy-prepare', event_id=uuid.uuid4().hex)
             assert (await memory.get(record['id']))['content'] == 'Synthetic workbench preparation probe.'
+            hits = await memory.search('Synthetic workbench preparation', source_id='vivy-prepare')
+            assert any(hit['id'] == record['id'] for hit in hits), 'Semantic search did not return the probe'
+            await memory.close()
+            memory = Memory(root)
+            memory.palace = palace
+            assert (await memory.get(record['id']))['content'] == 'Synthetic workbench preparation probe.'
         finally:
             await memory.close()
+            if Path(palace).exists():
+                shutil.rmtree(palace, ignore_errors=False)
     asyncio.run(check())
 
 

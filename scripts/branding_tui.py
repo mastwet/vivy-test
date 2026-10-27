@@ -15,7 +15,7 @@ from http.server import ThreadingHTTPServer
 
 import pyte
 from mock_gateway import Handler, text_of
-from plan_tui import View as PlanView, command
+from plan_tui import View as PlanView, command, skip_initialization
 from tui import ENTER, Terminal
 
 
@@ -79,6 +79,7 @@ def scenario(binary, cols, rows, evidence):
             terminal = Terminal([binary], work, env, rows=rows, cols=cols)
             resources.callback(terminal.close)
             view = View(terminal, cols, rows)
+            skip_initialization(terminal, view)
             view.wait("compact startup", lambda text: "vivy-test (v0.1.0)" in text and "org/model-1" in text)
             initial = view.text()
             assert "rig v" not in initial and "█▙" not in initial

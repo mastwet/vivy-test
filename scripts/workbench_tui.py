@@ -8,7 +8,7 @@ import threading
 import time
 from http.server import ThreadingHTTPServer
 from mock_gateway import Handler, text_of
-from plan_tui import View, command
+from plan_tui import View, command, skip_initialization
 from tui import Terminal
 
 
@@ -33,7 +33,7 @@ def main():
     threading.Thread(target=server.serve_forever,daemon=True).start()
     terminal=None
     try:
-        with tempfile.TemporaryDirectory(prefix='vivy-workbench-tui-') as scratch:
+        with tempfile.TemporaryDirectory(prefix='vivy-workbench-tui-', ignore_cleanup_errors=True) as scratch:
             root=Path(scratch)
             home=root/'home'
             home.mkdir()
@@ -43,7 +43,9 @@ def main():
                 if key.upper().endswith('_PROXY'): del env[key]
             terminal=Terminal([str(Path(sys.argv[1]).resolve())],root,env)
             view=View(terminal)
+            skip_initialization(terminal, view)
             view.wait('terminal ready',lambda t:'idle' in t)
+            view.wait('initial footer telemetry',lambda t:'Py ' not in t.splitlines()[-1])
             # Idle clock wakeups must rotate the footer without a keypress or a model call.
             view.wait('idle footer switches to Python',lambda t:'Py unprepared' in t.splitlines()[-1])
             switched = time.monotonic()
@@ -53,10 +55,10 @@ def main():
             view.wait('rotation keeps input draft',lambda t:'DRAFT_KEEP' in t and 'Py unprepared' in t.splitlines()[-1])
             terminal.type(b'\x15',enter=False)  # Ctrl+U clears the draft without submitting.
             command(terminal,view,'/python status')
-            view.wait('Python status visible',lambda t:'prepared=false' in t)
+            view.wait('Python status visible',lambda t:'Python initialization:' in t)
             terminal.type('STATE')
             view.wait('Python output visible',lambda t:'PYTHON_STATE_READY' in t and 'idle' in t.splitlines()[-1])
-            view.wait('live worker footer',lambda t:'Py ready' in t.splitlines()[-1] and 'Mem off' in t.splitlines()[-1])
+            view.wait('live worker footer',lambda t:'Py ready' in t.splitlines()[-1] and 'Mem not init' in t.splitlines()[-1])
             terminal.type('WAIT')
             view.wait('Python awaiting cancellation',lambda t:'PYTHON_WAITING' in t and 'Esc stop' in t)
             view.wait('running worker footer',lambda t:'Py running' in t.splitlines()[-1] and 'Esc stop' in t)
@@ -74,13 +76,14 @@ def main():
                 settings.write('\n[python]\nexecutable="C:/nonexistent-vivy-fixture/python.exe"\n')
             terminal=Terminal([str(Path(sys.argv[1]).resolve())],root,env)
             view=View(terminal)
+            skip_initialization(terminal, view)
             view.wait('failure fixture ready',lambda t:'idle' in t)
             command(terminal,view,'/python prepare')
             view.wait('preparation failure pins footer',lambda t:'Py error' in t.splitlines()[-1])
             terminal.read_for(5.5)
             assert 'Py error' in view.text().splitlines()[-1]
             command(terminal,view,'/python reset')
-            view.wait('reset clears pinned error',lambda t:'Py unprepared' in t.splitlines()[-1])
+            view.wait('worker reset preserves initialization error',lambda t:'Py error' in t.splitlines()[-1])
             command(terminal,view,'/quit')
             terminal.read_for(2)
             assert not terminal.process.isalive()

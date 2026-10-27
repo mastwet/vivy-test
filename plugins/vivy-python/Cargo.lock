@@ -3430,6 +3430,7 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
+ "sha2",
  "vivy-process",
 ]
 

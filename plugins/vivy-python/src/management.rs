@@ -2,7 +2,9 @@
 use super::*;
 use std::path::Path;
 use vivy_basics::skills::{TrustedSkillInventory, refresh_inventory};
+mod initialization;
 mod status;
+mod toolchain;
 
 const CORE: &str = include_str!("../requirements-core.lock");
 const MEMORY: &str = include_str!("../requirements-memory.lock");
@@ -10,6 +12,9 @@ const MEMORY: &str = include_str!("../requirements-memory.lock");
 struct Preparation {
     cancel: Arc<Cancellation>,
     result: Mutex<mpsc::Receiver<Result<String, String>>>,
+    stage: Arc<Mutex<String>>,
+    checking: bool,
+    last_stage: String,
 }
 #[derive(Resource, Default)]
 struct Preparations(
@@ -19,9 +24,10 @@ struct Preparations(
 );
 
 pub(super) fn install(app: &mut App) {
+    initialization::install(app);
     app.init_resource::<Preparations>()
         .add_command("python", "Python status | prepare | reset | close", command)
-        .add_systems(First, (poll, status::publish).chain())
+        .add_systems(First, (poll, initialization::tick, status::publish).chain())
         .add_systems(
             Last,
             stop_preparations
@@ -64,7 +70,6 @@ pub(super) fn prepared_python(root: &Path) -> Result<Option<String>, String> {
 
 fn command(In(args): In<CommandArgs>, world: &mut World) {
     let action = args.args.trim();
-    let root = world.resource::<ProjectRoot>().0.clone();
     if matches!(action, "reset" | "close" | "prepare" | "status" | "") {
         let mut jobs = world.resource_mut::<Preparations>();
         jobs.2 = jobs.2.wrapping_add(1);
@@ -78,6 +83,10 @@ fn command(In(args): In<CommandArgs>, world: &mut World) {
         }
     }
     if action == "close" || action == "reset" {
+        world
+            .resource_mut::<initialization::Initialization>()
+            .report
+            .phase = None;
         if let Some(job) = world.resource_mut::<Preparations>().0.remove(&args.agent) {
             job.cancel.stop();
         }
@@ -86,39 +95,11 @@ fn command(In(args): In<CommandArgs>, world: &mut World) {
         }
         world.write_message(Notice::info(args.agent, "Python closed; variables reset. Explicit artifacts and committed memories are preserved. Next use starts fresh; changed dependencies require /python prepare."));
     } else if action == "prepare" {
-        if world.resource::<Preparations>().0.contains_key(&args.agent) {
-            world.write_message(Notice::info(
-                args.agent,
-                "Python preparation is already running.",
-            ));
-            return;
-        }
-        let mut settings = world.resource::<PythonSettings>().clone();
-        settings.skills = skill_metadata(world.get_resource::<TrustedSkillInventory>());
-        let cancel = Arc::<Cancellation>::default();
-        let token = cancel.clone();
-        let (sender, receiver) = mpsc::channel();
-        let wake = world.resource::<Wake>().clone();
-        std::thread::spawn(move || {
-            let _ = sender.send(prepare(&root, &settings, &token));
-            wake.wake();
-        });
-        world.resource_mut::<Preparations>().0.insert(
-            args.agent,
-            Preparation {
-                cancel,
-                result: Mutex::new(receiver),
-            },
-        );
-        world.write_message(Notice::info(args.agent, "Preparing a new Python environment. Use /python close to cancel; existing workers keep their environment until reset."));
+        start_preparation(world, args.agent);
     } else if action.is_empty() || action == "status" {
-        let preparing = world.resource::<Preparations>().0.contains_key(&args.agent);
-        let active = world.resource::<Workbenches>().0.contains_key(&args.agent);
-        let prepared = match prepared_python(&root.join(".vivy/workbench")) {
-            Ok(value) => value.is_some().to_string(),
-            Err(error) => error,
-        };
-        world.write_message(Notice::info(args.agent, format!("Python: prepared={prepared}, agent workbench allocated={active}, preparing={preparing}. Inspect actual bindings with workbench.list_skills(); MCP opens lazily.")));
+        initialization::refresh(world);
+        let report = initialization::report(world, args.agent);
+        world.write_message(Notice::info(args.agent, format!("Python initialization: {}. /setup python configures or retries; worker lifecycle is shown separately.", serde_json::to_string(&report).unwrap_or_default())));
     } else {
         world.write_message(Notice::error(
             args.agent,
@@ -127,7 +108,56 @@ fn command(In(args): In<CommandArgs>, world: &mut World) {
     }
 }
 
-fn prepare(dir: &Path, settings: &PythonSettings, cancel: &Cancellation) -> Result<String, String> {
+fn start_preparation(world: &mut World, agent: Entity) {
+    let root = world.resource::<ProjectRoot>().0.clone();
+    if !world.resource::<Preparations>().0.is_empty() {
+        world.write_message(Notice::info(
+            agent,
+            "Python preparation is already running.",
+        ));
+        return;
+    }
+    let mut settings = world.resource::<PythonSettings>().clone();
+    settings.skills = skill_metadata(world.get_resource::<TrustedSkillInventory>());
+    let cancel = Arc::<Cancellation>::default();
+    let token = cancel.clone();
+    let (sender, receiver) = mpsc::channel();
+    let wake = world.resource::<Wake>().clone();
+    let home = RigHome::of(world).root().to_path_buf();
+    let scope = initialization::scope(world);
+    let stage = Arc::new(Mutex::new("toolchain".to_owned()));
+    let progress = stage.clone();
+    let managed = initialization::managed(world);
+    initialization::preparing(world);
+    std::thread::spawn(move || {
+        let _ = sender.send(prepare(
+            &root, &home, &settings, &scope, managed, &token, &progress,
+        ));
+        wake.wake();
+    });
+    world.resource_mut::<Preparations>().0.insert(
+        agent,
+        Preparation {
+            cancel,
+            result: Mutex::new(receiver),
+            stage,
+            checking: false,
+            last_stage: String::new(),
+        },
+    );
+    world.write_message(Notice::info(agent, "Preparing Python. /python close cancels. New preparation is adopted at the next call boundary; existing variables will reset."));
+}
+
+fn prepare(
+    dir: &Path,
+    home: &Path,
+    settings: &PythonSettings,
+    scope: &str,
+    managed: bool,
+    cancel: &Cancellation,
+    progress: &Arc<Mutex<String>>,
+) -> Result<String, String> {
+    let (python, uv) = toolchain::ensure(home, &settings.executable, managed, cancel, progress)?;
     let root = dir.join(".vivy/workbench");
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -143,14 +173,16 @@ fn prepare(dir: &Path, settings: &PythonSettings, cancel: &Cancellation) -> Resu
         .clone()
         .unwrap_or_else(|| root.join("native-memory"));
     let code = format!(
-        "import sys,os,json;sys.path.insert(0,{});from vivy_workbench.prepare import prepare;print(prepare({}, {}, python=sys.executable, skills=json.loads(os.environ['VIVY_WORKBENCH_SKILLS']), native_memory={}, memory_root={}))",
+        "import sys,os,json;sys.path.insert(0,{});from vivy_workbench.prepare import prepare;prepare({}, {}, python=sys.executable, skills=json.loads(os.environ['VIVY_WORKBENCH_SKILLS']), native_memory={}, memory_root={},scope={},uv={})",
         json!(source),
         json!(root),
         json!(lock),
         if settings.memory { "True" } else { "False" },
-        json!(memory_root)
+        json!(memory_root),
+        json!(scope),
+        json!(uv)
     );
-    let mut command = vivy_process::command(&settings.executable);
+    let mut command = vivy_process::command(&python);
     // Preparation is noninteractive. Inheriting stdin can block spawning while
     // the JSON input reader owns Rust's stdin lock, and would expose user input.
     command
@@ -160,33 +192,31 @@ fn prepare(dir: &Path, settings: &PythonSettings, cancel: &Cancellation) -> Resu
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let mut child = OwnedChild::spawn(&mut command).map_err(|e| e.to_string())?;
-    cancel.bind(child.control());
-    let errors = child.child.stderr.take().ok_or("missing prepare stderr")?;
-    let drain = std::thread::spawn(move || worker::diagnostic_tail(errors));
-    let mut output = child.child.stdout.take().ok_or("missing prepare stdout")?;
-    std::io::copy(&mut output, &mut std::io::sink()).map_err(|e| e.to_string())?;
-    let status = child.child.wait().map_err(|e| e.to_string())?;
-    let diagnostic = drain.join().unwrap_or_default();
-    if !status.success() {
-        return Err(format!(
-            "Python preparation failed ({status}); previous environment preserved. {diagnostic}"
-        ));
-    }
-    Ok("Python environment prepared. /python reset adopts it; installed packages and live bindings are separate.".into())
+    toolchain::run(&mut command, cancel, progress, 1800)?;
+    Ok(
+        "Python environment prepared and validated. The next cell adopts it with fresh variables."
+            .into(),
+    )
 }
 
 fn poll(
     mut jobs: ResMut<Preparations>,
     agents: Query<(), With<Agent>>,
     mut notices: MessageWriter<Notice>,
+    init: Option<ResMut<initialization::Initialization>>,
 ) {
+    let mut init = init;
     let Preparations(running, failures, revision) = &mut *jobs;
     failures.retain(|agent| agents.contains(*agent));
     running.retain(|agent, job| {
         if !agents.contains(*agent) {
             job.cancel.stop();
             return false;
+        }
+        let stage = job.stage.lock().unwrap_or_else(|e| e.into_inner()).clone();
+        if !job.checking && stage != job.last_stage {
+            notices.write(Notice::info(*agent, format!("Python preparation: {stage}")));
+            job.last_stage = stage;
         }
         match job
             .result
@@ -197,7 +227,12 @@ fn poll(
             Ok(Ok(text)) => {
                 *revision = revision.wrapping_add(1);
                 failures.remove(agent);
-                notices.write(Notice::info(*agent, text));
+                if let Some(init) = init.as_deref_mut() {
+                    init.complete(job.checking, Ok(text.clone()), false);
+                }
+                if !job.checking {
+                    notices.write(Notice::info(*agent, text));
+                }
                 false
             }
             Ok(Err(text)) => {
@@ -205,10 +240,28 @@ fn poll(
                 if !job.cancel.cancelled.load(Ordering::SeqCst) {
                     failures.insert(*agent);
                 }
-                notices.write(Notice::error(*agent, text));
+                let cancelled = job.cancel.cancelled.load(Ordering::SeqCst);
+                if let Some(init) = init.as_deref_mut() {
+                    init.complete(job.checking, Err(text.clone()), cancelled);
+                }
+                notices.write(if cancelled {
+                    Notice::info(
+                        *agent,
+                        "Python initialization cancelled; previous environment preserved.",
+                    )
+                } else {
+                    Notice::error(*agent, text)
+                });
                 false
             }
             Err(mpsc::TryRecvError::Disconnected) => {
+                if let Some(init) = init.as_deref_mut() {
+                    init.complete(
+                        job.checking,
+                        Err("Initialization worker exited".into()),
+                        false,
+                    );
+                }
                 failures.insert(*agent);
                 notices.write(Notice::error(*agent, "Python preparation worker exited."));
                 false

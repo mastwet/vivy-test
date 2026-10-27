@@ -6,6 +6,7 @@ pub(super) fn publish(
     settings: Res<PythonSettings>,
     jobs: Res<Preparations>,
     workers: Res<Workbenches>,
+    initialization: Option<Res<initialization::Initialization>>,
     agents: Query<(Entity, Option<&WorkbenchStatus>), With<Agent>>,
     mut cached: Local<Option<(PathBuf, u64, PythonState)>>,
     mut commands: Commands,
@@ -54,6 +55,30 @@ pub(super) fn publish(
                 PythonState::Preparing
             };
         }
+        if let Some(init) = &initialization {
+            use vivy_basics::setup::OutcomeState;
+            if init.report.outcome == OutcomeState::Error {
+                next.python = PythonState::Error;
+            }
+            if settings.memory && next.memory != MemoryState::Error {
+                next.memory = if init.report.outcome == OutcomeState::Error {
+                    MemoryState::Error
+                } else if init.memory_ready {
+                    MemoryState::Ready
+                } else {
+                    MemoryState::Unchecked
+                };
+            }
+            if let Some(job) = jobs.0.get(&agent) {
+                if !job.cancel.cancelled.load(Ordering::SeqCst) {
+                    next.python = if job.checking {
+                        PythonState::Checking
+                    } else {
+                        PythonState::Preparing
+                    };
+                }
+            }
+        }
         if previous != Some(&next) {
             commands.entity(agent).insert(next);
         }
@@ -99,6 +124,9 @@ mod tests {
             Preparation {
                 cancel: Arc::default(),
                 result: Mutex::new(receive),
+                stage: Arc::default(),
+                checking: false,
+                last_stage: String::new(),
             },
         );
         app.update();

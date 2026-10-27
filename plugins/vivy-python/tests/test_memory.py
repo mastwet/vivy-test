@@ -14,6 +14,13 @@ from vivy_workbench.memory import Memory, MemoryConflict, MemoryIncomplete
 
 @unittest.skipUnless(os.environ.get('VIVY_MEMORY_TEST_ROOT'), 'explicit native-memory acceptance environment required')
 class MemoryTests(unittest.IsolatedAsyncioTestCase):
+    async def test_preparation_probe_searches_reopens_and_cleans_its_palace(self):
+        from vivy_workbench.memory import probe
+        directory = Path(os.environ['VIVY_MEMORY_TEST_ROOT']) / 'probes'
+        before = set(directory.iterdir()) if directory.exists() else set()
+        await asyncio.to_thread(probe, os.environ['VIVY_MEMORY_TEST_ROOT'])
+        self.assertEqual(set(directory.iterdir()), before)
+
     async def asyncSetUp(self):
         self.memory = Memory(os.environ['VIVY_MEMORY_TEST_ROOT'])
         self.source = 'synthetic-' + uuid.uuid4().hex

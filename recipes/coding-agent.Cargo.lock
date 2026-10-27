@@ -4581,6 +4581,7 @@ dependencies = [
  "serde",
  "serde-saphyr",
  "serde_json",
+ "sha2",
  "vivy-process",
 ]
 
@@ -4598,6 +4599,7 @@ dependencies = [
  "toml",
  "toml_edit",
  "url",
+ "vivy-basics",
  "vivy-process",
 ]
 

@@ -12,6 +12,7 @@ pub enum PythonState {
     Running,
     Ready,
     Preparing,
+    Checking,
     Error,
 }
 
