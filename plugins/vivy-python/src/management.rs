@@ -2,6 +2,7 @@
 use super::*;
 use std::path::Path;
 use vivy_basics::skills::{TrustedSkillInventory, refresh_inventory};
+mod status;
 
 const CORE: &str = include_str!("../requirements-core.lock");
 const MEMORY: &str = include_str!("../requirements-memory.lock");
@@ -11,12 +12,16 @@ struct Preparation {
     result: Mutex<mpsc::Receiver<Result<String, String>>>,
 }
 #[derive(Resource, Default)]
-struct Preparations(HashMap<Entity, Preparation>);
+struct Preparations(
+    HashMap<Entity, Preparation>,
+    std::collections::HashSet<Entity>,
+    u64,
+);
 
 pub(super) fn install(app: &mut App) {
     app.init_resource::<Preparations>()
         .add_command("python", "Python status | prepare | reset | close", command)
-        .add_systems(First, poll)
+        .add_systems(First, (poll, status::publish).chain())
         .add_systems(
             Last,
             stop_preparations
@@ -60,6 +65,13 @@ pub(super) fn prepared_python(root: &Path) -> Result<Option<String>, String> {
 fn command(In(args): In<CommandArgs>, world: &mut World) {
     let action = args.args.trim();
     let root = world.resource::<ProjectRoot>().0.clone();
+    if matches!(action, "reset" | "close" | "prepare" | "status" | "") {
+        let mut jobs = world.resource_mut::<Preparations>();
+        jobs.2 = jobs.2.wrapping_add(1);
+        if matches!(action, "reset" | "close" | "prepare") {
+            jobs.1.remove(&args.agent);
+        }
+    }
     if action == "reset" || action == "prepare" {
         if world.contains_resource::<TrustedSkillInventory>() {
             refresh_inventory(world);
@@ -169,7 +181,9 @@ fn poll(
     agents: Query<(), With<Agent>>,
     mut notices: MessageWriter<Notice>,
 ) {
-    jobs.0.retain(|agent, job| {
+    let Preparations(running, failures, revision) = &mut *jobs;
+    failures.retain(|agent| agents.contains(*agent));
+    running.retain(|agent, job| {
         if !agents.contains(*agent) {
             job.cancel.stop();
             return false;
@@ -181,14 +195,21 @@ fn poll(
             .try_recv()
         {
             Ok(Ok(text)) => {
+                *revision = revision.wrapping_add(1);
+                failures.remove(agent);
                 notices.write(Notice::info(*agent, text));
                 false
             }
             Ok(Err(text)) => {
+                *revision = revision.wrapping_add(1);
+                if !job.cancel.cancelled.load(Ordering::SeqCst) {
+                    failures.insert(*agent);
+                }
                 notices.write(Notice::error(*agent, text));
                 false
             }
             Err(mpsc::TryRecvError::Disconnected) => {
+                failures.insert(*agent);
                 notices.write(Notice::error(*agent, "Python preparation worker exited."));
                 false
             }

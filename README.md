@@ -278,6 +278,15 @@ or committed memories. Dependency changes require another explicit prepare.
 Old and failed environment directories are retained; remove only unused ones
 after all workers have closed. No live-resource migration or automatic replay.
 
+The terminal's right footer alternates telemetry and Python/memory status every
+five seconds. Preparation and infrastructure errors pin the workbench page;
+recovery stays visible for five seconds. `Py prepared` means a published interpreter
+exists, while `Py ready` means a live initialized worker; `Mem unchecked` waits for
+worker initialization, and `Mem ready` reflects its native-memory binding, not a
+periodic database health query. `/python status` refreshes the environment check.
+Rotation never installs dependencies or starts Python. Activity, PLAN and stop
+hints remain visible; a recipe without Python has no workbench page or timer.
+
 Cancellation and timeout interrupt the running cell, allow bounded unwinding,
 then terminate its owned process tree. Ordinary exceptions preserve variables.
 Compaction retains the live worker; separate agents, forks, session switches,

@@ -1,6 +1,7 @@
 use super::*;
 use rig_harness_test_support::{MemoryStore, app_on, first_agent};
 use rig_tui::{Editor, MainEditor, Side, StatusItem, StatusItems, Theme, Tone, TuiTestScreen};
+use std::time::Instant;
 
 fn screen_app() -> (App, Entity) {
     let (mut app, _) = app_on(&MemoryStore::default());
@@ -31,6 +32,121 @@ fn screen_app() -> (App, Entity) {
 
 fn text(app: &App) -> String {
     app.world().resource::<TuiTestScreen>().rows().join("\n")
+}
+
+#[test]
+fn workbench_footer_rotates_without_mutating_telemetry_or_input() {
+    use crate::workbench_status::{MemoryState, PythonState, WorkbenchStatus};
+    let (mut app, agent) = screen_app();
+    app.world_mut().entity_mut(agent).insert(WorkbenchStatus {
+        python: PythonState::Prepared,
+        memory: MemoryState::Unchecked,
+    });
+    app.world_mut()
+        .get_mut::<StatusItems>(agent)
+        .unwrap()
+        .show(StatusItem::new("context", Side::Right, 40, 5).says("ctx 12%", Tone::Dim));
+    app.update();
+    assert!(text(&app).lines().last().unwrap().contains("ctx 12%"));
+    let footer = app
+        .world_mut()
+        .query_filtered::<Entity, With<footer::Rotation>>()
+        .single(app.world())
+        .unwrap();
+    assert_eq!(footer::INTERVAL, Duration::from_secs(5));
+    assert!(app.world().get::<WakeAt>(footer).is_some());
+    app.world_mut()
+        .get_mut::<footer::Rotation>(footer)
+        .unwrap()
+        .next = Instant::now();
+    app.update();
+    let screen = text(&app);
+    let line = screen.lines().last().unwrap();
+    assert!(
+        line.contains("Py prepared") && line.contains("Mem unchecked"),
+        "{line}"
+    );
+    assert!(line.contains("PLAN") && line.contains("idle") && !line.contains("ctx 12%"));
+    assert!(
+        app.world()
+            .get::<StatusItems>(agent)
+            .unwrap()
+            .iter()
+            .any(|i| i.text == "ctx 12%")
+    );
+    // New telemetry while hidden must appear on the next page, not a stale cache.
+    app.world_mut()
+        .get_mut::<StatusItems>(agent)
+        .unwrap()
+        .show(StatusItem::new("context", Side::Right, 40, 5).says("ctx 23%", Tone::Dim));
+    app.world_mut()
+        .get_mut::<footer::Rotation>(footer)
+        .unwrap()
+        .next = Instant::now();
+    app.update();
+    assert!(text(&app).lines().last().unwrap().contains("ctx 23%"));
+    assert!(!text(&app).lines().last().unwrap().contains("Py "));
+    app.world_mut()
+        .entity_mut(agent)
+        .remove::<WorkbenchStatus>();
+    app.update();
+    assert!(app.world().get::<WakeAt>(footer).is_none());
+}
+
+#[test]
+fn workbench_footer_pins_errors_and_preparation_then_holds_recovery() {
+    use crate::workbench_status::{MemoryState, PythonState, WorkbenchStatus};
+    let (mut app, agent) = screen_app();
+    app.world_mut().entity_mut(agent).insert(WorkbenchStatus {
+        python: PythonState::Preparing,
+        memory: MemoryState::Unchecked,
+    });
+    app.update();
+    let footer = app
+        .world_mut()
+        .query_filtered::<Entity, With<footer::Rotation>>()
+        .single(app.world())
+        .unwrap();
+    assert!(text(&app).lines().last().unwrap().contains("Py preparing"));
+    app.world_mut()
+        .get_mut::<footer::Rotation>(footer)
+        .unwrap()
+        .next = Instant::now();
+    app.update();
+    assert!(text(&app).lines().last().unwrap().contains("Py preparing"));
+    app.world_mut()
+        .get_mut::<WorkbenchStatus>(agent)
+        .unwrap()
+        .python = PythonState::Error;
+    app.update();
+    assert!(text(&app).lines().last().unwrap().contains("Py error"));
+    app.world_mut()
+        .get_mut::<WorkbenchStatus>(agent)
+        .unwrap()
+        .python = PythonState::Ready;
+    app.update();
+    assert!(text(&app).lines().last().unwrap().contains("Py ready"));
+    assert!(
+        app.world().get::<footer::Rotation>(footer).unwrap().next
+            > Instant::now() + Duration::from_secs(4)
+    );
+    app.world_mut()
+        .get_mut::<WorkbenchStatus>(agent)
+        .unwrap()
+        .memory = MemoryState::Error;
+    app.insert_resource(TuiTestScreen::new(50, 20));
+    app.insert_resource(TerminalSize(Rect::new(0, 0, 50, 20)));
+    app.update();
+    let line = text(&app).lines().last().unwrap().to_owned();
+    assert!(
+        line.contains("Py ready") && line.contains("PLAN") && line.contains("idle"),
+        "{line}"
+    );
+    // Switching to an agent without Python must not inherit the previous alarm/error.
+    app.insert_resource(ShownAgent(None));
+    app.update();
+    assert!(app.world().get::<WakeAt>(footer).is_none());
+    assert!(!text(&app).contains("Mem error"));
 }
 
 #[test]

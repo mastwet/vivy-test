@@ -15,11 +15,12 @@ use rig_tui::ratatui::{
 use rig_tui::{
     AsideRenderer, Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus,
     KeyInput, MainEditor, MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw,
-    StatusItems, StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
+    StatusItems, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
     TranscriptSource, TuiFrame, TuiKeys, TuiPanel, TuiSystems, TuiTestScreen, TuiViewPlugin,
     crossterm::event::{Event, MouseEventKind},
 };
 
+mod footer;
 mod looks;
 
 /// The wheel reported to us, in SGR form, and nothing else about the mouse:
@@ -42,7 +43,7 @@ impl Plugin for VivyTuiPlugin {
         let world = app.world_mut();
         world.spawn((
             Name::new("vivy-test:footer"),
-            StatusLine::default(),
+            footer::Rotation::default(),
             TuiPanel::new(Placement::BelowInput(Constraint::Length(1))),
         ));
         world.spawn((
@@ -58,6 +59,7 @@ impl Plugin for VivyTuiPlugin {
             MainPane,
             PaneKeys,
         ));
+        footer::install(app);
         app.add_systems(Startup, ask_for_wheel)
             // Written after the frame, before the view lets the terminal go
             // and before the exit-time title restore that ends the output.

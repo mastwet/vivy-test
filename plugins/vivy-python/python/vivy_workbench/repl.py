@@ -679,7 +679,8 @@ async def _handle_execute(req: dict[str, Any], ns: dict[str, Any]) -> None:
             _send({"event": "result", "id": cell_id, "text": result_text})
         if error is not None:
             _send(error)
-        _send({"event": "done", "id": cell_id, "status": status})
+        from .capabilities import memory_status
+        _send({"event": "done", "id": cell_id, "status": status, "memory": memory_status(ns)})
     finally:
         execution.owner = None
         execution.finished.set()
@@ -1068,9 +1069,9 @@ def main() -> None:
     signal.signal(signal.SIGINT, _sigint_handler)
     threading.Thread(target=_read_requests, args=(stdin_fd, queue), daemon=True).start()
 
-    from .capabilities import bootstrap
+    from .capabilities import bootstrap, memory_status
     inventory = bootstrap(user_module.__dict__, json.loads(os.environ.get('VIVY_WORKBENCH_SKILLS', '[]')))
-    _send({"event": "ready", "protocol": PROTOCOL_VERSION, "python": platform.python_version(), "skills": inventory})
+    _send({"event": "ready", "protocol": PROTOCOL_VERSION, "python": platform.python_version(), "skills": inventory, "memory": memory_status(user_module.__dict__)})
 
     _serve_task = _loop.create_task(_serve(queue, user_module.__dict__))
     # On the loop, so re-attached shells can deliver their completion notices.

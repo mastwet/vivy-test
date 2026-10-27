@@ -67,6 +67,23 @@ class Workbench:
         return save(value, media_type)
 
 
+def memory_status(namespace):
+    """Observe the current binding only; never query the database for the footer."""
+    if not os.environ.get('VIVY_WORKBENCH_MEMORY_ROOT'):
+        return 'off'
+    try:
+        from .memory import Memory
+        memory = namespace.get('memory')
+        # Users may rebind names. Observation must not invoke their descriptors
+        # or change the success/failure of the code cell being reported.
+        if type(memory) is not Memory:
+            return 'error'
+        closed = object.__getattribute__(memory, '__dict__').get('closed')
+        return 'closed' if closed is True else 'ready' if closed is False else 'error'
+    except Exception:
+        return 'error'
+
+
 def bootstrap(namespace, skills):
     from . import mcp
     import asyncio

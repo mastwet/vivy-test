@@ -23,6 +23,7 @@ use vivy_process::{Control, OwnedChild};
 
 mod management;
 mod worker;
+use vivy_basics::workbench_status::{MemoryState, PythonState, WorkbenchStatus};
 use worker::Worker;
 
 #[derive(Resource, Clone, Deserialize)]
@@ -167,6 +168,7 @@ fn stop_workers(workers: Res<Workbenches>) {
 
 #[derive(Default)]
 struct Workbench {
+    status: Mutex<WorkbenchStatus>,
     worker: Mutex<Option<Worker>>,
     control: Mutex<Option<Control>>,
     active_cancel: Mutex<Option<Arc<Cancellation>>>,
@@ -189,6 +191,7 @@ impl Workbench {
         }
     }
     fn stop(&self) {
+        self.stopped_status(PythonState::Stopped);
         if let Some(cancel) = self
             .active_cancel
             .lock()
@@ -210,6 +213,14 @@ impl Workbench {
             .as_ref()
         {
             control.kill();
+        }
+    }
+
+    fn stopped_status(&self, python: PythonState) {
+        let mut status = self.status.lock().unwrap_or_else(|e| e.into_inner());
+        status.python = python;
+        if status.memory != MemoryState::Off {
+            status.memory = MemoryState::Unchecked;
         }
     }
 }
@@ -351,6 +362,15 @@ impl PythonTool {
             }
             *active = Some(cancellation.clone());
         }
+        let error = |why| {
+            self.state
+                .stopped_status(if cancellation.cancelled.load(Ordering::SeqCst) {
+                    PythonState::Stopped
+                } else {
+                    PythonState::Error
+                });
+            error(why)
+        };
         let generation = vivy_process::credential_policy_generation();
         if self.state.policy_generation.load(Ordering::Acquire) != generation {
             *slot = None;
@@ -362,11 +382,22 @@ impl PythonTool {
             *slot = None;
         }
         let fresh = slot.is_none();
+        if fresh {
+            self.state
+                .status
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .python = PythonState::Starting;
+        }
         let mut worker = match slot.take() {
             Some(worker) => worker,
             None => Worker::start(&self.settings, &self.dir, cancellation).map_err(error)?,
         };
         cancellation.bind(worker.process.control());
+        *self.state.status.lock().unwrap_or_else(|e| e.into_inner()) = WorkbenchStatus {
+            python: PythonState::Running,
+            memory: *worker.memory.lock().unwrap_or_else(|e| e.into_inner()),
+        };
         *self.state.control.lock().unwrap_or_else(|e| e.into_inner()) =
             Some(worker.process.control());
         let timeout = Duration::from_secs(args.timeout_secs.unwrap_or(60).max(1));
@@ -382,6 +413,10 @@ impl PythonTool {
             if self.state.retired.load(Ordering::SeqCst) || !cancellation.finish() {
                 return Err(error("call cancelled; worker closed".into()));
             }
+            *self.state.status.lock().unwrap_or_else(|e| e.into_inner()) = WorkbenchStatus {
+                python: PythonState::Ready,
+                memory: *worker.memory.lock().unwrap_or_else(|e| e.into_inner()),
+            };
             *slot = Some(worker);
             *active = None;
         }
@@ -412,6 +447,33 @@ impl PythonTool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn status_tracks_real_worker_failure_recovery_and_memory_unavailability() {
+        use vivy_basics::workbench_status::{MemoryState, PythonState};
+        let mut tool = PythonTool::for_directory(std::env::temp_dir());
+        tool.settings.memory = true;
+        tool.settings.memory_root =
+            Some(std::env::temp_dir().join(format!("vivy-missing-assets-{}", std::process::id())));
+        call(&tool, "value=42", None).unwrap();
+        let observed = *tool.state.status.lock().unwrap();
+        assert_eq!(observed.python, PythonState::Ready);
+        assert_eq!(observed.memory, MemoryState::Error);
+        assert!(call(&tool, "def broken(", None).is_err());
+        assert_eq!(tool.state.status.lock().unwrap().memory, MemoryState::Error);
+        assert!(call(&tool, "class UserObject:\n @property\n def closed(self): raise RuntimeError('status side effect')\nmemory=UserObject()\n42", None).unwrap().contains("42"));
+        assert!(call(&tool, "raise ValueError('ordinary error')", None).is_err());
+        assert_eq!(tool.state.status.lock().unwrap().python, PythonState::Ready);
+        assert!(call(&tool, "import os;os._exit(7)", None).is_err());
+        assert_eq!(tool.state.status.lock().unwrap().python, PythonState::Error);
+        call(&tool, "42", None).unwrap();
+        assert_eq!(tool.state.status.lock().unwrap().python, PythonState::Ready);
+        tool.state.stop();
+        assert_eq!(
+            tool.state.status.lock().unwrap().python,
+            PythonState::Stopped
+        );
+    }
+
     #[test]
     fn closing_a_workbench_rejects_already_bound_queued_handlers() {
         let tool = PythonTool::for_directory(std::env::temp_dir());

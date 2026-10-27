@@ -100,6 +100,17 @@ pub(super) struct Worker {
     directory: PathBuf,
     generation: u64,
     sequence: u64,
+    pub memory: Arc<Mutex<MemoryState>>,
+}
+
+fn memory_state(event: &Value) -> MemoryState {
+    match event["memory"].as_str() {
+        Some("ready") => MemoryState::Ready,
+        Some("off") => MemoryState::Off,
+        Some("closed") => MemoryState::Closed,
+        Some("error") => MemoryState::Error,
+        _ => MemoryState::Unchecked,
+    }
 }
 
 impl Worker {
@@ -186,6 +197,8 @@ impl Worker {
         let pending: Arc<Mutex<Option<Pending>>> = Arc::default();
         let failure = Arc::new(Mutex::new(None));
         let (ready_send, ready) = mpsc::channel();
+        let memory = Arc::new(Mutex::new(MemoryState::Unchecked));
+        let reported_memory = memory.clone();
         let (active, failed, writer, control, settings) = (
             pending.clone(),
             failure.clone(),
@@ -229,6 +242,8 @@ impl Worker {
                         .write_all(&bytes)
                         .map_err(|e| format!("artifact write failed: {e}"))?;
                     if kind == "ready" {
+                        *reported_memory.lock().unwrap_or_else(|e| e.into_inner()) =
+                            memory_state(&event);
                         let _ = ready_send.send(event);
                         continue;
                     }
@@ -245,6 +260,11 @@ impl Worker {
                         continue;
                     }
                     if kind == "done" {
+                        // Early syntax/dispatch failures do not include a fresh observation.
+                        if event.get("memory").is_some() {
+                            *reported_memory.lock().unwrap_or_else(|e| e.into_inner()) =
+                                memory_state(&event);
+                        }
                         call.text.flush().map_err(|e| e.to_string())?;
                         journal.flush().map_err(|e| e.to_string())?;
                         let mut reply = std::mem::take(&mut call.tail);
@@ -316,6 +336,7 @@ impl Worker {
             directory,
             generation,
             sequence: 0,
+            memory,
         })
     }
 

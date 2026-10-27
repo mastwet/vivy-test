@@ -11,6 +11,31 @@ sys.path.insert(0, str(Path(__file__).parents[1] / 'python'))
 
 
 class CapabilityTests(unittest.TestCase):
+    def test_memory_status_reports_actual_binding_and_close_without_a_probe(self):
+        from vivy_workbench.capabilities import memory_status
+        from vivy_workbench.memory import Memory
+        with patch.dict(os.environ, {'VIVY_WORKBENCH_MEMORY_ROOT': 'unused'}):
+            self.assertEqual(memory_status({}), 'error')
+            memory = object.__new__(Memory)
+            memory.closed = False
+            self.assertEqual(memory_status({'memory': memory}), 'ready')
+            memory.closed = True
+            self.assertEqual(memory_status({'memory': memory}), 'closed')
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(memory_status({}), 'off')
+
+    def test_memory_status_never_executes_a_rebound_objects_property(self):
+        from vivy_workbench.capabilities import memory_status
+        touched = []
+        class UserObject:
+            @property
+            def closed(self):
+                touched.append(True)
+                raise RuntimeError('must not run during status observation')
+        with patch.dict(os.environ, {'VIVY_WORKBENCH_MEMORY_ROOT': 'unused'}):
+            self.assertEqual(memory_status({'memory': UserObject()}), 'error')
+            self.assertEqual(touched, [])
+
     def test_complete_artifact_round_trip_and_no_silent_cap(self):
         from vivy_workbench import artifacts
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {'VIVY_WORKBENCH_ARTIFACTS': directory}):

@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import threading
+import time
 from http.server import ThreadingHTTPServer
 from mock_gateway import Handler, text_of
 from plan_tui import View, command
@@ -43,18 +44,43 @@ def main():
             terminal=Terminal([str(Path(sys.argv[1]).resolve())],root,env)
             view=View(terminal)
             view.wait('terminal ready',lambda t:'idle' in t)
+            # Idle clock wakeups must rotate the footer without a keypress or a model call.
+            view.wait('idle footer switches to Python',lambda t:'Py unprepared' in t.splitlines()[-1])
+            switched = time.monotonic()
+            view.wait('idle footer returns to telemetry',lambda t:'Py ' not in t.splitlines()[-1])
+            assert 4 <= time.monotonic() - switched <= 7, 'footer rotation should take five seconds'
+            terminal.type('DRAFT_KEEP',enter=False)
+            view.wait('rotation keeps input draft',lambda t:'DRAFT_KEEP' in t and 'Py unprepared' in t.splitlines()[-1])
+            terminal.type(b'\x15',enter=False)  # Ctrl+U clears the draft without submitting.
             command(terminal,view,'/python status')
             view.wait('Python status visible',lambda t:'prepared=false' in t)
             terminal.type('STATE')
             view.wait('Python output visible',lambda t:'PYTHON_STATE_READY' in t and 'idle' in t.splitlines()[-1])
+            view.wait('live worker footer',lambda t:'Py ready' in t.splitlines()[-1] and 'Mem off' in t.splitlines()[-1])
             terminal.type('WAIT')
             view.wait('Python awaiting cancellation',lambda t:'PYTHON_WAITING' in t and 'Esc stop' in t)
+            view.wait('running worker footer',lambda t:'Py running' in t.splitlines()[-1] and 'Esc stop' in t)
             terminal.type(b'\x1b',enter=False)
             view.wait('Python cancellation returns idle',lambda t:'idle' in t.splitlines()[-1] and 'Esc stop' not in t)
             terminal.type('FRESH')
             view.wait('cancelled Python starts fresh',lambda t:'PYTHON_FRESH_CONFIRMED' in t and 'idle' in t.splitlines()[-1])
             command(terminal,view,'/python reset')
             view.wait('reset visible',lambda t:'Python closed' in t)
+            command(terminal,view,'/quit')
+            terminal.read_for(2)
+            assert not terminal.process.isalive()
+            # Missing interpreter gives a deterministic preparation failure without network.
+            with (home/'settings.toml').open('a',encoding='utf-8') as settings:
+                settings.write('\n[python]\nexecutable="C:/nonexistent-vivy-fixture/python.exe"\n')
+            terminal=Terminal([str(Path(sys.argv[1]).resolve())],root,env)
+            view=View(terminal)
+            view.wait('failure fixture ready',lambda t:'idle' in t)
+            command(terminal,view,'/python prepare')
+            view.wait('preparation failure pins footer',lambda t:'Py error' in t.splitlines()[-1])
+            terminal.read_for(5.5)
+            assert 'Py error' in view.text().splitlines()[-1]
+            command(terminal,view,'/python reset')
+            view.wait('reset clears pinned error',lambda t:'Py unprepared' in t.splitlines()[-1])
             command(terminal,view,'/quit')
             terminal.read_for(2)
             assert not terminal.process.isalive()

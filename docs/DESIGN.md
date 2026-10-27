@@ -1,5 +1,33 @@
 # Decisions and assembly direction
 
+## Workbench footer rotation (owner-approved, 2026-10-28)
+
+Rotate the compact terminal's right-side telemetry and Python/memory status every
+five seconds. Preserve the model, activity, PLAN marker and stop/input hints.
+Preparation and infrastructure errors pin the workbench page; recovery remains
+visible for five seconds before normal rotation resumes. Missing preparation,
+an environment with no live worker, running code and a ready worker are distinct.
+Memory is unchecked until the worker reports its actual initialization result.
+No Python component means no workbench page or rotation timer. Narrow screens
+prioritize activity/PLAN, then Python, and drop memory before Python.
+
+More, Fast, Good, Frugal: reuse Rig's status fitting and WakeAt clock; project a
+display-only view without changing the telemetry owners' items. The Python
+component publishes a small typed status consumed by the footer. No new
+dependencies, installer, database query, or process per tick. Preparation remains
+explicit; this change makes its state visible and does not add auto-installation.
+
+Implementation plan (inline; one focused deliverable):
+- [ ] Add deterministic footer tests for five-second rotation, recovery, omitted
+  Python, agent switches, preserved telemetry and narrow-input rendering.
+- [ ] Publish lifecycle/preparation state without waiting on a running Python
+  call's mutex; report native-memory readiness through the existing protocol.
+- [ ] Render the two footer pages using existing status fitting and one clock
+  alarm tied to the footer. Test worker failure, cancellation and recovery.
+- [ ] Run focused Rust tests, Python protocol tests, build Coding and extend the
+  real Windows terminal smoke to observe automatic rotation without input.
+  Record verification and commit the explicit related paths.
+
 ## Python workbench implementation checkpoint (2026-10-28)
 
 The owned runtime now adapts Prime's persistent REPL and generic MCP lifecycle;

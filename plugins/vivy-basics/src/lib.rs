@@ -36,6 +36,7 @@ pub mod skills;
 pub mod subagents;
 pub mod templates;
 pub mod trust;
+pub mod workbench_status;
 
 #[cfg(feature = "tui")]
 pub mod tui;
