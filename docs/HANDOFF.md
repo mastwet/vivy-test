@@ -44,6 +44,13 @@ hit a Windows temporary-venv cleanup sharing error after its assertions; no
 fixture process remained, and the complete suite passed using a dedicated temp
 directory. Keep that environmental failure distinct from functional acceptance.
 
+After fast-forward integration, the main-checkout launcher and Coding binary were
+rebuilt. Root tests (22), the original launcher Coding smoke and the complete
+initialization terminal scenario pass on main, including automatic repair,
+explicit provider streaming/tools and cancellation preserving a prior failure.
+For another machine: pull main, run `build.cmd` then `start.cmd`, and follow the
+startup guide or `/setup`. MemPalace remains an explicit optional setup item.
+
 ## Footer rotation (2026-10-28)
 
 The terminal alternates right-side telemetry and Python/memory status every five
