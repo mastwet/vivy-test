@@ -1,4 +1,27 @@
+---
+id: architecture
+type: architecture-design
+title: Assembly, boundaries and decisions of the vivy-test species
+status: draft
+parent: goal
+---
+
 # Decisions and assembly direction
+
+This record is the project's architecture spec; the goal and non-goals live in
+[`goal-and-requirements.md`](../goal-and-requirements.md) (`goal`). Sections are
+dated and the newest record wins where two conflict.
+
+**In force:** *Accepted decisions*, *Separate durable and coding harnesses*,
+*Hybrid architecture and first-stage boundary*, *Assembly path*, and the
+*Ownership and reuse* table — the assembly pipeline, the module owners, the core
+boundary and the invariants the code enforces. Every other section, and every
+verification table, is evidence of a recorded run; evidence never establishes a
+capability the code does not have.
+
+Corrections made when this record became the spec node are marked in place. One
+so far: the operating-platform ruling in *Final review and implementation
+rulings* now states the owner's accepted platform goal instead of Windows-only.
 
 ## Automatic workbench preparation: agreed direction (2026-10-28)
 
@@ -231,7 +254,9 @@ Rulings carried from implementation and review:
   hybrid ranking and ingestion remain explicit future consumers of the full engine.
 - Respect the owner's deferred manual provider gate. Local fixtures are complete
   evidence only for local behavior; actual provider compatibility stays unverified.
-- Windows is the only platform accepted here. Additional platforms require runs.
+- Owner decision at spec adoption: Windows carries the only recorded runs;
+  Linux and macOS support is a product goal, and each platform's claim waits for
+  its own run rather than following from another platform's evidence.
 - Interrupted native writes remain uncertain rather than promising rollback;
   callers inspect the same source/event and do not automatically replay it.
 - Trusted Python/Skills/plugins are not sandboxed. Durable, replay, existing-palace
