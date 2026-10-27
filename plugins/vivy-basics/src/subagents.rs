@@ -11,6 +11,15 @@ mod ui;
 mod workflows;
 use roles::{AppliedRole, PreparedTask};
 
+/// The subagents plugin's stage systems, for others to order against.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum SubagentSystems {
+    /// In [`Stage::Prepare`], in
+    /// [`PrepareSystems::Edit`](rig_harness::PrepareSystems::Edit): a
+    /// child's role and work directory go on its request.
+    Prepare,
+}
+
 #[derive(Default)]
 pub struct VivySubagentsPlugin;
 
@@ -35,7 +44,11 @@ impl Plugin for VivySubagentsPlugin {
             .keeps_saved::<WorkDir>()
             .add_observer(apply_prepared)
             .add_observer(roles::show_prompt)
-            .add_systems(AgentPass, roles::prepare.in_set(PrepareSystems::Edit))
+            .configure_sets(
+                AgentPass,
+                SubagentSystems::Prepare.in_set(PrepareSystems::Edit),
+            )
+            .add_systems(AgentPass, roles::prepare.in_set(SubagentSystems::Prepare))
             .add_command("roles", "List available subagent roles", roles::list_roles);
         RigHome::of(app.world_mut());
         workflows::add(app);

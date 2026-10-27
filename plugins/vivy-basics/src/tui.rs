@@ -1,8 +1,6 @@
 //! The recipe-selected terminal presentation, on Rig's public widgets.
 //! The native editor, scrolling, questions and session lifecycle remain owners
 //! of their behavior. This plugin composes their screen and changes its looks.
-use std::sync::Arc;
-
 use bevy_ecs::message::MessageMutator;
 
 use rig_harness::prelude::*;
@@ -13,9 +11,9 @@ use rig_tui::ratatui::{
     widgets::{Block, Clear, Paragraph, Widget},
 };
 use rig_tui::{
-    AsideRenderer, Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus,
-    KeyInput, MainEditor, MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw,
-    StatusItems, StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
+    Editor, InlineStrip, InputAction, InputContext, InputSystems, KeyFocus, KeyInput, MainEditor,
+    MainPane, PaneKeys, PanelCanvas, PendingInput, Placement, RequestRedraw, StatusItems,
+    StatusLine, StatusSystems, TerminalSize, TerminalWrite, Theme, TranscriptPane,
     TranscriptSource, TuiFrame, TuiKeys, TuiPanel, TuiSystems, TuiTestScreen, TuiViewPlugin,
     crossterm::event::{Event, MouseEventKind},
 };
@@ -98,13 +96,7 @@ impl Plugin for VivyTuiPlugin {
 
 /// Keep the same terminal-derived palette, with quieter neutral surfaces.
 /// Compare before writing so an idle app does not redraw indefinitely.
-fn prepare(
-    mut theme: ResMut<Theme>,
-    size: Res<TerminalSize>,
-    mut width: Local<Option<u16>>,
-    mut asides: Query<&mut AsideRenderer>,
-    mut redraw: MessageWriter<RequestRedraw>,
-) {
+fn prepare(mut theme: ResMut<Theme>, mut redraw: MessageWriter<RequestRedraw>) {
     let mut next = *theme;
     next.user = theme.shade(0.06);
     next.input = theme.shade(0.08);
@@ -114,17 +106,6 @@ fn prepare(
     next.call_running = theme.shade(0.04);
     if *theme != next {
         *theme = next;
-        redraw.write(RequestRedraw);
-    }
-    let columns = size.0.width;
-    if *width != Some(columns) {
-        *width = Some(columns);
-        for mut renderer in &mut asides {
-            if renderer.kind == rig_basics::welcome::WELCOME {
-                renderer.render = Arc::new(move |view| looks::welcome(view, columns));
-            }
-        }
-        // The new renderer draws in the next frame, which a resize needs.
         redraw.write(RequestRedraw);
     }
 }

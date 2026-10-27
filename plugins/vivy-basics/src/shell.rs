@@ -9,16 +9,14 @@ impl rig_harness::prelude::Plugin for ShellTool {
         use rig_harness::prelude::*;
         use rig_harness::rig_tools::Shell;
         let processes = app.world_mut().get_resource_or_init::<Processes>().clone();
-        app.add_live_tool_per_call(Shell::default(), ToolOptions::default(), move |place| {
+        // Each call runs with the launcher in the agent's directory.
+        app.add_live_tool_per_call(
             Shell {
-                launcher: processes.launcher().in_dir(place.base),
-                workspace: place.workspace,
-                live: place.live,
-                spill: place.spill,
-                confine: place.confine,
+                launcher: processes.launcher(),
                 ..Shell::default()
-            }
-        });
+            },
+            ToolOptions::default(),
+        );
     }
 }
 
@@ -59,17 +57,12 @@ mod native {
             let executable = app.world().resource::<ShellSettings>().executable.clone();
             let processes = app.world_mut().get_resource_or_init::<Processes>().clone();
             app.add_live_tool_per_call(
-                NativeShell::for_directory(PathBuf::new()),
-                ToolOptions::default(),
-                move |place| NativeShell {
-                    dir: place.base,
-                    workspace: place.workspace,
-                    confine: place.confine,
-                    live: place.live,
-                    spill: place.spill,
-                    executable: executable.clone(),
-                    processes: processes.clone(),
+                NativeShell {
+                    executable,
+                    processes,
+                    ..NativeShell::for_directory(PathBuf::new())
                 },
+                ToolOptions::default(),
             );
         }
     }
@@ -94,6 +87,22 @@ mod native {
                 spill: None,
                 executable: String::new(),
                 processes: Processes::default(),
+            }
+        }
+    }
+
+    impl PerCallTool for NativeShell {
+        /// Each call runs in the agent's own directory, keeping the
+        /// configured shell and the process owner from the registration.
+        fn at(&self, place: CallPlace) -> Self {
+            Self {
+                dir: place.base,
+                workspace: place.workspace,
+                confine: place.confine,
+                live: place.live,
+                spill: place.spill,
+                executable: self.executable.clone(),
+                processes: self.processes.clone(),
             }
         }
     }

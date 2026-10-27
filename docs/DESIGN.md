@@ -710,7 +710,7 @@ text. A small tool renderer hides raw plan JSON during review and shows the plan
 and result as readable scrollback after settlement. The call and Ask records own
 the submitted content; no independent `.rig/plan.md` copy is created.
 
-References inspected: Rig's [Plan example](https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/corpus/shared/src/plan_mode.rs)
+References inspected: Rig's [Plan example](https://github.com/0xPlaygrounds/rig/blob/e1cd47d57f0bccb50ddffd6f45de2ac3365b271c/corpus/shared/src/plan_mode.rs)
 and DSH's [collaborative Plan implementation](https://github.com/deepseek-ai/deepseek-harness/blob/22ddee3792402c3e70ec5f86a63c3e3e895a2f60/packages/plan/plan-mode/src/index.ts).
 Rig supplies the loop, effects, saved state, commands, Ask and TUI. DSH is semantic
 reference material only. Verification commands and real terminal results for this
@@ -721,7 +721,7 @@ delivery are recorded in [HANDOFF.md](HANDOFF.md); earlier dated results remain 
 The owner approved a Codex-inspired visual refresh, English UI, consistent
 vivy-test branding and complete tool output with existing primary keybindings.
 The local Codex checkout at `970111f6cb` is presentation reference material only;
-no Codex code or runtime dependency is added. Rig remains pinned at `55cd481a`.
+no Codex code or runtime dependency is added. Rig remains pinned at `e1cd47d5`.
 
 `vivy_basics::tui::VivyTuiPlugin`, behind the existing `tui` feature, composes
 `TuiViewPlugin` with the native transcript, editor and question strip. A separate
@@ -777,5 +777,27 @@ last frame, leaves nothing for the view to compare. Both need one size source
 per frame — and, for the second, a frame that is not caused by an event — in
 rig-tui. They reproduced with the pre-fix binary as well.
 
-[rig-project]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/src/launcher/project.rs
-[rig-harness]: https://github.com/0xPlaygrounds/rig/blob/55cd481a2421fd5da468b5bd6afc6ac876883599/crates/rig-harness/README.md
+### Upstream Rig bump (2026-10-28)
+
+Rig moved one breaking commit ahead (`e1cd47d5`, "editor commands run through
+the shell, and their failures show"); the recipe, the three plugin manifests
+and the root launcher pin it, and the locks were regenerated from it. The
+migration stayed in this repository's plugin layer: renderers became
+`TranscriptRender` systems over a `RenderBatch` (tool calls, asides and the
+state markers are drawn in `RenderSystems::Edit`; the welcome replaces
+rig-basics' own), and each tool that builds calls for where they run now
+implements `PerCallTool::at` instead of passing a closure — Rig implements it
+for its own file tools and the shell, so `search`/`list` register directly. The
+Plan guidance moved into `PrepareSystems::Edit` (like upstream's Plan example)
+and a `SubagentSystems::Prepare` set orders a child's role before it, because
+the new `route_calls` sits in the same window and an unconstrained pair would
+be an ambiguous stage order.
+
+Verified with the new revision: 78 `vivy-basics` tests, the four `vivy-python`
+tests, the 20 root-workspace tests, and the real ConPTY scripts — compact screen
+at 120x40 and 50x20 (including the resize checkpoints), Plan mode's 20
+checkpoints, and the subagent acceptance. The Plan script's pre-existing
+"resumed terminal restores PLAN" failure remains, unchanged by this bump.
+
+[rig-project]: https://github.com/0xPlaygrounds/rig/blob/e1cd47d57f0bccb50ddffd6f45de2ac3365b271c/src/launcher/project.rs
+[rig-harness]: https://github.com/0xPlaygrounds/rig/blob/e1cd47d57f0bccb50ddffd6f45de2ac3365b271c/crates/rig-harness/README.md

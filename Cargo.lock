@@ -207,7 +207,7 @@ dependencies = [
 [[package]]
 name = "rig-harness-protocol"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 
 [[package]]
 name = "rustversion"

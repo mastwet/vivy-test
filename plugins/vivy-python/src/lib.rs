@@ -48,7 +48,6 @@ impl Plugin for PythonPlugin {
         app.add_tool_per_call(
             PythonTool::for_directory(PathBuf::new()),
             ToolOptions::default(),
-            |place| PythonTool::for_directory(place.base),
         );
         app.add_systems(AgentPass, bind_calls.in_set(PrepareSystems::Edit));
         app.add_systems(First, prune_workers);
@@ -189,6 +188,17 @@ impl PythonTool {
             settings: PythonSettings::default(),
             live: None,
             spill: None,
+        }
+    }
+}
+
+impl PerCallTool for PythonTool {
+    /// Each call runs in the calling agent's directory, sharing the worker
+    /// that keeps the namespaces between the calls of one agent.
+    fn at(&self, place: CallPlace) -> Self {
+        Self {
+            dir: place.base,
+            ..self.clone()
         }
     }
 }

@@ -1,5 +1,5 @@
 //! Collaborative Plan mode, adapted from Rig's `corpus/shared/plan_mode.rs`
-//! at 55cd481a. Like DSH's plan-mode at 22ddee3, guidance changes while the
+//! at e1cd47d5. Like DSH's plan-mode at 22ddee3, guidance changes while the
 //! tool catalog and existing permissions stay unchanged. Session state,
 //! model requests and terminal views use the same agent-owned component.
 
@@ -65,13 +65,14 @@ impl Plugin for PlanPlugin {
                 ToolOptions::default(),
                 submit,
             )
-            // After request edits, before compaction measures the final prompt.
+            // After request edits, before compaction measures the final prompt;
+            // a child's role goes on first, so this guidance follows it.
             .add_systems(
                 AgentPass,
                 prepare
                     .in_set(Stage::Prepare)
-                    .after(PrepareSystems::Edit)
-                    .before(PrepareSystems::Fit),
+                    .in_set(PrepareSystems::Edit)
+                    .after(crate::subagents::SubagentSystems::Prepare),
             )
             .add_systems(
                 AgentPass,
@@ -82,27 +83,14 @@ impl Plugin for PlanPlugin {
             .add_observer(turn_ended);
         #[cfg(feature = "tui")]
         {
-            use rig_tui::AppToolRenderersExt;
             app.add_systems(
                 PostUpdate,
                 terminal::show.in_set(rig_tui::StatusSystems::Show),
             )
-            .add_tool_renderer("exit_plan_mode", |call| {
-                let plan = call.argument("plan").unwrap_or_default();
-                let mut lines =
-                    vec![call.header("Plan submission", plan.lines().next().unwrap_or_default())];
-                // Keep raw JSON out of the transcript behind the review.
-                // Once settled, retain the readable plan in scrollback.
-                if call.result.is_some() {
-                    lines.extend(
-                        plan.lines()
-                            .skip(1)
-                            .map(|line| rig_tui::ratatui::text::Line::from(line.to_owned())),
-                    );
-                }
-                lines.extend(call.result_lines());
-                lines
-            });
+            .add_systems(
+                rig_tui::TranscriptRender,
+                terminal::draw_submission.in_set(rig_tui::RenderSystems::Render),
+            );
         }
     }
 }
@@ -350,8 +338,29 @@ fn finish_reviews(world: &mut World) {
 #[cfg(feature = "tui")]
 mod terminal {
     use super::*;
-    use rig_tui::{Side, StatusItem, StatusItems, Tone};
+    use rig_tui::{RenderBatch, Side, StatusItem, StatusItems, Tone};
     const ITEM: StatusItem = StatusItem::new("vivy-plan", Side::Left, 45, 26);
+
+    /// Draws a submission as its title and plan: the raw JSON behind the
+    /// review stays out of the transcript, and once settled the readable plan
+    /// is retained in scrollback.
+    pub(super) fn draw_submission(mut batch: ResMut<RenderBatch>) {
+        for (call, output) in batch.tools_mut("exit_plan_mode") {
+            let view = call.view();
+            let plan = view.argument("plan").unwrap_or_default();
+            let mut lines =
+                vec![view.header("Plan submission", plan.lines().next().unwrap_or_default())];
+            if call.result.is_some() {
+                lines.extend(
+                    plan.lines()
+                        .skip(1)
+                        .map(|line| rig_tui::ratatui::text::Line::from(line.to_owned())),
+                );
+            }
+            lines.extend(view.result_lines());
+            output.lines = lines;
+        }
+    }
 
     pub(super) fn show(
         mut agents: Query<(Entity, &PlanState, Option<&PendingMode>, &mut StatusItems)>,

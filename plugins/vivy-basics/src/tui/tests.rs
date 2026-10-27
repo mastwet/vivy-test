@@ -1,4 +1,5 @@
 use super::*;
+use crate::tui::looks;
 use rig_harness_test_support::{MemoryStore, app_on, first_agent};
 use rig_tui::{Editor, MainEditor, Side, StatusItem, StatusItems, Theme, Tone, TuiTestScreen};
 
@@ -163,26 +164,10 @@ fn theme_changes_preserve_diff_colors_and_adapt_the_input_surface() {
 }
 
 #[test]
-fn coding_renderer_adapter_preserves_every_output_row_and_failure_cause() {
+fn coding_look_marks_the_state_and_keeps_every_upstream_row_and_cause() {
     use rig_harness::rig_core::message::{ToolCall, ToolFunction, ToolName};
     use rig_harness::rig_core::tool::ToolResult;
-    use rig_tui::{CallState, ToolCallView, ToolRenderer};
-    let mut app = App::new();
-    app.insert_resource(Invoked::default())
-        .add_plugins((rig_basics::coding_tools::ReadTool, VivyTuiPlugin));
-    let renderer = |app: &mut App| {
-        let world = app.world_mut();
-        world
-            .query::<&ToolRenderer>()
-            .iter(world)
-            .find(|r| r.tool == "read")
-            .unwrap()
-            .render
-            .clone()
-    };
-    let original = renderer(&mut app);
-    app.finish();
-    let adapted = renderer(&mut app);
+    use rig_tui::{CallState, ToolCallView};
     let call = ToolCall::from_wire(
         "read-1",
         ToolFunction::new(
@@ -195,36 +180,41 @@ fn coding_renderer_adapter_preserves_every_output_row_and_failure_cause() {
         .collect::<Vec<_>>()
         .join("\n");
     let mut result = call.answer(&ToolResult::success(output.into()));
+    // What rig-basics' own look drew: our look edits it, it does not redraw it.
+    let drawn = |failed: bool| {
+        let mut lines = vec![Line::from("read file.rs 80 lines")];
+        lines.extend((0..80).map(|n| Line::from(format!("line {n}"))));
+        if failed {
+            lines.push(Line::from("read failed: permission denied"));
+        }
+        lines
+    };
+    let upstream = drawn(false);
     let view = ToolCallView::new(&call, Some(&result), CallState::Done);
-    let before = original(&view);
-    let after = adapted(&view);
+    let after = looks::call_look(&view, upstream.clone());
     assert!(after[0].to_string().starts_with("• "));
-    assert_eq!(after[1..], before[1..]);
+    assert_eq!(after[1..], upstream[1..]);
     assert!(after.last().unwrap().to_string().contains("line 79"));
+
     result.is_error = true;
-    let failed = adapted(&ToolCallView::new(&call, Some(&result), CallState::Done));
+    let failed = looks::call_look(
+        &ToolCallView::new(&call, Some(&result), CallState::Done),
+        drawn(true),
+    );
     assert!(failed[0].to_string().starts_with("× "));
-    assert!(failed[0].to_string().contains("failed"));
-    assert!(failed.last().unwrap().to_string().contains("line 79"));
+    assert!(
+        failed
+            .last()
+            .unwrap()
+            .to_string()
+            .contains("permission denied")
+    );
 }
 
 #[test]
-fn assembled_shell_and_search_have_readable_renderers_instead_of_raw_json() {
+fn local_shell_search_and_list_are_readable_instead_of_raw_json() {
     use rig_harness::rig_core::message::{ToolCall, ToolFunction, ToolName};
-    use rig_tui::{CallState, ToolCallView, ToolRenderer};
-    let (mut app, _) = app_on(&MemoryStore::default());
-    app.insert_resource(Invoked::default()).add_plugins((
-        crate::shell::ShellTool,
-        crate::search::SearchTools,
-        VivyTuiPlugin,
-    ));
-    app.finish();
-    let world = app.world_mut();
-    let mut renderers = world.query::<&ToolRenderer>();
-    let renderer = renderers
-        .iter(world)
-        .find(|r| r.tool == "shell")
-        .expect("the assembled shell needs a readable renderer");
+    use rig_tui::{CallState, ToolCallView};
     let call = ToolCall::from_wire(
         "shell-1",
         ToolFunction::new(
@@ -234,7 +224,7 @@ fn assembled_shell_and_search_have_readable_renderers_instead_of_raw_json() {
     );
     let mut view = ToolCallView::new(&call, None, CallState::Running(None));
     view.output = Some("ACTUAL-LIVE-OUTPUT\nlast live line");
-    let text = (renderer.render)(&view)
+    let text = looks::call_look(&view, Vec::new())
         .into_iter()
         .map(|line| line.to_string())
         .collect::<Vec<_>>()
@@ -244,8 +234,26 @@ fn assembled_shell_and_search_have_readable_renderers_instead_of_raw_json() {
         "{text}"
     );
     assert!(text.contains("ACTUAL-LIVE-OUTPUT") && text.contains("last live line"));
-    assert!(renderers.iter(world).any(|r| r.tool == "search"));
-    assert!(renderers.iter(world).any(|r| r.tool == "list"));
+    for (tool, argument) in [("search", "pattern"), ("list", "path")] {
+        let call = ToolCall::from_wire(
+            "c",
+            ToolFunction::new(
+                ToolName::new(tool).unwrap(),
+                serde_json::json!({argument: "src"}),
+            ),
+        );
+        let view = ToolCallView::new(&call, None, CallState::Done);
+        let text = looks::call_look(&view, Vec::new())
+            .into_iter()
+            .map(|line| line.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            text.starts_with("• ") && text.contains(tool),
+            "{tool}: {text}"
+        );
+        assert!(text.contains("src"), "{tool}: {text}");
+    }
 }
 
 #[test]

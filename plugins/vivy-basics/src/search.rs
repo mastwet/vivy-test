@@ -13,15 +13,9 @@ pub struct SearchTools;
 
 impl Plugin for SearchTools {
     fn build(&self, app: &mut App) {
-        app.add_tool_per_call(Search::default(), ToolOptions::default(), |place| Search {
-            workspace: place.workspace,
-            base: Some(place.base),
-            confine: place.confine,
-        });
-        app.add_tool_per_call(List::default(), ToolOptions::default(), |place| List {
-            workspace: place.workspace,
-            base: Some(place.base),
-            confine: place.confine,
-        });
+        // Both build each call for where it works: the workspace, the
+        // calling agent's directory and its confinement.
+        app.add_tool_per_call(Search::default(), ToolOptions::default());
+        app.add_tool_per_call(List::default(), ToolOptions::default());
     }
 }
