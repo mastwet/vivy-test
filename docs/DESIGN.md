@@ -153,33 +153,55 @@ implementation and system validation before starting the durable harness. This
 supersedes the earlier requirement to establish both harnesses first; their
 separate lifecycle responsibilities remain unchanged.
 
-The owner next requested Prime implementation research before selecting the
-workbench scope and acceptance task. Research section 19 in
-[the existing workbench investigation](research/2026-10-25-hybrid-agent-workbench-decisions.md#19-prime-workbench-investigation-and-proposed-closure-2026-10-27)
-records the runtime/host/Skills/MCP boundaries, 16 fresh Windows REPL tests and
-a proposed first scope with W1-W5 acceptance gates. The owner supports selective
-Prime reuse and explicitly includes Python-side tool loading in the investigation.
-Fresh-state restart and the separate native-memory consumer gate remain proposed
-details. No product implementation starts here.
-Research section 19.7 adds the component transplant map and concrete dependency
-cuts, including existing Python Skills. It refines the reuse proposal without
-selecting extra capabilities or changing the accepted execution boundaries.
-Section 19.8 traces installation, namespace binding, model discovery and reload
-separately. Include that complete loading lifecycle in the workbench design:
-trusted Python Skills, explicit library imports, selected host bridges and lazy
-MCP discovery, with honest availability and failure reporting.
-Section 19.9 consolidates the proposed closure/exclusion matrix and implementation
-ownership. It recommends a bounded native-memory consumer check after W1-W5;
-that recommendation does not expand the core workbench into a memory platform.
+Owner scope decision, 2026-10-27: accept the closure, exclusions and implementation
+ownership in [research section 19.9](research/2026-10-25-hybrid-agent-workbench-decisions.md#199-closure-scope-and-implementation-ownership-2026-10-27).
+This supersedes the earlier proposal status for that scope. Sections 19.7 and
+19.8 retain the donor audit and Python-side loading evidence. Detailed adapter
+contracts and the implementation plan remain to be written; this record does
+not claim the replacement workbench has been implemented or validated.
+
+The first workbench must close environment preparation/delivery, persistent
+execution, bidirectional host communication, capability loading/discovery,
+generic MCP over stdio and Streamable HTTP, complete results/artifacts,
+cancellation/cleanup, per-agent state boundaries, and diagnostics/system
+acceptance. Loading includes trusted Python Skills, explicit library imports,
+selected host bridges and lazy MCP discovery with honest availability/errors.
+Keep YAML compile-time plugin selection and the accepted direct coding tools.
+
+Adapt Prime's bounded REPL core, protocol/Python bridge, Skill import helpers
+and generic MCP lifecycle; adapt its environment preparation workflow. Retain
+Rig's discovery/output facilities and `vivy-process`. Locally implement the
+Rust dispatcher/Rig integration, packaging/configuration, availability and
+conflict handling, result mapping, lifecycle escalation and integration checks.
+Transplantation requires deliberate dependency cuts and verification; replacing
+only the Python worker is incompatible with the current Rust protocol.
+
+Restart starts fresh Python state, preserves explicit file artifacts and tells
+the model what was reset; do not replay cells automatically. Skill code updates
+take effect at an explicit worker restart boundary; MCP connections have their
+own reload/close lifecycle. Normal compaction must preserve the intended live
+worker, while different agents must not share live namespaces.
+
+Omit Prime's second agent/model loop, factory/recursive tree, family routing,
+full daemon/continual harness/evolution, duplicate coding/shell tools, legacy
+per-service MCP wrappers, service marketplace/OAuth and a universal plugin SDK.
+Do not require every bundled Skill/library, CLI wrapper, a new UI or every MIME
+renderer. Defer automatic snapshots/hot reload/live-resource migration, durable
+scheduling/replay, full memory ingestion/sync, persona-memory redesign and extra
+platforms. These exclusions preserve existing native Rig delegation.
 
 1. Preserve the accepted coding path and use it as the first workbench consumer.
 2. Close a trimmed Prime-style capability loop: discover a Python capability,
    load its instructions, execute it, return a bounded useful result, handle
    failure/cancellation, and release owned resources. Define a bounded system
    acceptance case, validate the runtime independently and through coding, and
-   record the results before moving to durable. Exact acceptance scenarios and
-   the native-memory integration slice still need design.
-3. Establish the durable harness against pi-durable's lifecycle reference,
+   record W1-W5 results. Use the dataset-to-artifact scenario through Coding,
+   including failure/cancel/reset variants, resource cleanup and operating costs.
+3. Close the separate native MemPalace consumer gate: write/search/get/close/
+   reopen using isolated synthetic data, checking source identity, long content,
+   duplicate delivery and concurrent writers. Reuse the native engine with a
+   thin Vivy adapter; do not expand this gate into a memory-management platform.
+4. Establish the durable harness against pi-durable's lifecycle reference,
    then verify its integration with the validated workbench. A coding integration
    does not establish durable replay or recovery semantics.
 
@@ -204,8 +226,8 @@ Next close the workbench design and system validation described above. After
 that, establish durable admission deduplication, reopen from a committed
 checkpoint, sleep/wake and explicit abort, including its workbench boundary.
 Durable ACTMEM/Recap and full background companionship remain subsequent slices;
-native MemPalace capability validation can proceed within the workbench effort
-without introducing the durable lifecycle.
+the selected native MemPalace consumer validation precedes durable and does not
+introduce its lifecycle.
 
 Evidence: this clarification is a design decision, not a delivered second harness.
 The inspected sources are `.workspace/pi/packages/durable/README.md`, its

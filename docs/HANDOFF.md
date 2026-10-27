@@ -176,14 +176,14 @@ instructions before running its tooling. Keep product changes in `vivy-test`.
 
 ## Suggested next implementation task
 
-Latest scope instruction: investigate Prime's workbench first, then select the
-scope and closure. [Research section 19](research/2026-10-25-hybrid-agent-workbench-decisions.md#19-prime-workbench-investigation-and-proposed-closure-2026-10-27)
-now records the pinned source path, reuse alternatives, proposed runtime/Skills/
-MCP scope and W1-W5 acceptance loop. Sixteen upstream REPL tests passed on Windows;
-MCP transport and the Vivy adapter were not run. Next resolve that proposed
-scope into the workbench design; do not restart a broad inventory or ask the
-owner to invent a task before the scope is clear. The proposal is not a shipped
-workbench or an approved implementation specification.
+Owner decision, 2026-10-27: the workbench closure scope, exclusions and transplant/
+local implementation ownership in [research section 19.9](research/2026-10-25-hybrid-agent-workbench-decisions.md#199-closure-scope-and-implementation-ownership-2026-10-27)
+are accepted and recorded in DESIGN. Do not reopen the broad scope decision.
+Next turn the accepted boundary into concrete adapter contracts and an
+implementation plan. The sequence is core W1-W5 validation through Coding,
+then the bounded native MemPalace consumer gate, then durable. Scope acceptance
+is not runtime acceptance: sixteen upstream REPL tests passed on Windows, but
+MCP transport and the proposed Vivy adapter were not run.
 
 The subsequent component audit is in research section 19.7. It identifies the
 REPL/protocol/bridge, executable-Skill loading and generic MCP lifecycle as donor
@@ -198,9 +198,10 @@ loading contract. Resolve that contract in the design: installed packages,
 bound Python names and model-visible capabilities are distinct; Skill code
 updates and MCP connection reload have different lifecycles. Extend W2 with
 namespace conflicts, unavailable capabilities and update/removal behavior.
-Section 19.9 consolidates remaining closure, exclusions and transplant/local
-implementation ownership. Use it to finish the scope decision; the proposed
-native-memory consumer remains separate from W1-W5 and the durable lifecycle.
+The accepted restart policy is fresh Python state plus preserved explicit
+artifacts and a reset notice, without automatic cell replay. Skill code updates
+use a worker restart boundary; MCP connection reload is separate. The native
+memory consumer remains a separate gate from W1-W5 and the durable lifecycle.
 
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
 The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize
@@ -213,9 +214,10 @@ earlier Prime probes do not establish a delivered replacement.
 
 Define bounded acceptance scenarios for discovery/instructions, persistent
 resources, Python/MCP calls, correlated bounded results, failure, cancellation,
-reset and cleanup. The exact runtime subset, adapter contracts and native-memory
-slice remain design work. Keep future host integration explicit without adding
-a universal harness or moving authoritative task state into Python.
+reset and cleanup. Exact extraction boundaries, adapter contracts and test
+fixtures remain design work within the accepted scope. Keep future host
+integration explicit without adding a universal harness or moving authoritative
+task state into Python.
 
 After workbench validation, establish the pi-durable-referenced Rust harness
 and test its workbench integration under its own recovery/replay rules.

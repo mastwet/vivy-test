@@ -12,8 +12,11 @@ checkout and does not authorize implementation or change the accepted scope.
 Latest workbench investigation, 2026-10-27: section 19 traces the pinned Prime
 implementation, records a fresh Windows REPL test run, and proposes a bounded
 workbench scope and acceptance loop. The owner prioritizes workbench validation
-before durable. The owner subsequently supports the selective-reuse direction;
-the detailed implementation contract remains design work.
+before durable. The owner subsequently accepted section 19.9's closure scope,
+exclusions and transplant/local implementation ownership, including fresh-state
+restart and the separate native-memory consumer gate before durable. This
+supersedes earlier proposal labels for those choices; detailed adapter contracts
+and the implementation plan remain work to do, with no runtime acceptance implied.
 Section 19.7 adds the component-level transplant audit, including all nine
 Python-backed Skills found in this pinned checkout's top-level `skills/`.
 Section 19.8 adds Python-side tool loading, explicitly requested by the owner.
@@ -1704,10 +1707,12 @@ REPL passes are not evidence that these proposed loading gates have passed.
 
 ### 19.9 Closure scope and implementation ownership (2026-10-27)
 
-The owner asks what else must close, what can be omitted, and what requires
-local implementation versus transplantation. The following consolidates 19.4,
-19.7 and 19.8 into a recommended first release boundary. It is a scope proposal;
-the owner has supported selective reuse, not approved every detail below.
+Accepted by the owner on 2026-10-27 after reviewing required closure, omissions,
+deferrals and local implementation versus transplantation. This consolidates
+19.4, 19.7 and 19.8 into the selected first release boundary and supersedes their
+earlier proposal status for these choices. Detailed adapter contracts and the
+implementation plan remain to be written. No product implementation or runtime
+acceptance follows from recording this decision.
 "Adapt" means copying a bounded donor with dependency cuts, applicable notices
 and regression evidence; it never means replacing our worker executable alone.
 
@@ -1720,10 +1725,10 @@ and regression evidence; it never means replacing our worker executable alone.
 | MCP lifecycle | Real stdio and Streamable HTTP fixtures discover/describe/call, reuse connections and close on reload/cancel/exit; errors remain errors. | Adapt the generic connection registry and lifecycle tasks. Supply local configuration/credential adapters, preserve complete result envelopes and verify the selected SDK. Do not port the catalog/auth application. |
 | Results and artifacts | The model gets bounded useful output and honest errors; complete large results remain available as explicit artifacts. Mixed MCP content is retained and unsupported rendering is stated. | Reuse Rig output/spill facilities and selected Prime framing/buffering helpers. Locally implement envelope/projection and artifact/attachment mapping. Rich rendering of every MIME type is unnecessary. |
 | Cancellation and cleanup | Async cancellation, synchronous Windows hang, crash, reset and host exit all settle calls honestly and clean owned local resources; a fresh worker works afterward. | Retain `vivy-process` ownership. Adapt Python cooperative shutdown; locally implement bounded escalation, pending-call cleanup and stale-event rejection. A cancelled remote call may have uncertain effects; do not retry it silently. |
-| State boundaries | Workers are isolated per owning agent; normal compaction preserves the intended live worker; switch/fork/reset/restart behavior is explicit. | Extend existing per-agent worker ownership and Rig lifecycle integration. Recommend fresh state after process restart with preserved explicit artifacts and a visible notice; no automatic cell replay. |
+| State boundaries | Workers are isolated per owning agent; normal compaction preserves the intended live worker; switch/fork/reset/restart behavior is explicit. | Extend existing per-agent worker ownership and Rig lifecycle integration. Use fresh state after process restart with preserved explicit artifacts and a visible notice; no automatic cell replay. |
 | Diagnostics and system acceptance | Ready/busy/failed/reset state and actionable causes are visible through existing surfaces. Coding completes the dataset-to-artifact scenario and its failure/cancel/reset variants. Record cold/warm setup and execution cost plus repeated cleanup counts. | Reuse upstream focused tests and existing Rig logging/UI mechanisms. Write Vivy integration and lifecycle checks; no new dashboard or claim to trace arbitrary Python effects. Existing coding acceptance remains accepted. |
 
-Recommend a separate final consumer slice before moving to durable: native
+Close a separate final consumer slice before moving to durable: native
 MemPalace write/search/get/close/reopen against synthetic data in an isolated
 palace, including source identity, long content, duplicate delivery and competing
 writers. Reuse the native library and previously investigated adapter behavior
@@ -1757,7 +1762,7 @@ into ingestion policy, persona memory, taxonomy or Obsidian synchronization.
   product integrations and extra platforms. Each needs a concrete consumer
   requirement and its own evidence rather than blocking the first Windows loop.
 
-The recommended order is execution/protocol/lifecycle, then loading/environment,
+The selected order is execution/protocol/lifecycle, then loading/environment,
 then MCP/results, then combined Coding acceptance, then the bounded native-memory
 consumer. W1-W5 remain the core stopping gates. No additional feature inventory
 should become a prerequisite merely because Prime implements it. This synthesis
