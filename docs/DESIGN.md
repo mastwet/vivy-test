@@ -1,5 +1,61 @@
 # Decisions and assembly direction
 
+## Python workbench implementation checkpoint (2026-10-28)
+
+The owned runtime now adapts Prime's persistent REPL and generic MCP lifecycle;
+Rust owns protocol dispatch, process trees, preparation and Rig integration.
+The full pinned native MemPalace engine is an optional consumer through a thin
+async facade. This supersedes the earlier statements that the replacement and
+native facade were only proposals. Durable remains deferred. The delivery plan
+is [Python workbench integration](plans/2026-10-28-python-workbench.md); usage is
+in the README. System acceptance remains open until the actual gateway gate and
+the whole-branch review are closed.
+
+More, Fast, Good, Frugal guided the implementation: one embedded Python package,
+one existing Rig execution path, one shared trusted Skill inventory, existing
+vivy-process job ownership, and upstream MCP/MemPalace contracts. There is no
+new agent loop, dependency resolver, memory database or plugin SDK. Core and native
+memory dependencies are prepared separately. Runtime settings configure the
+compiled Python capability; omitting its YAML component still removes the crate.
+
+Important adaptation decisions: environments publish an atomic pointer without
+renaming venvs; owned temporary directories and uv cache avoid the observed Windows
+path-access failures; the upstream state-home seam is rebound to isolate locks
+because CONFIG_DIR alone is insufficient. Native collection search supplies the
+bounded semantic recall API, with source/wing/room filters; full upstream ingestion,
+hybrid orchestration and persona layers are not automatically enabled.
+
+Recorded verification on Windows, CPython 3.13.12, Rust 1.97.1 and pinned Rig:
+
+| Gate | Evidence and remaining limits |
+| --- | --- |
+| W1 runtime | 11 Rust workbench tests pass: persistent state, independent owners, Unicode, late output attribution, ordinary errors, queued/running cancellation, timeout, crash/idle-crash recovery and credential policy changes. |
+| W2 preparation/loading | Real uv prepare, cancel, retry and warm reuse pass through Coding JSON. Corrupt pointer repair, failed install preserving the old pointer and lock contention pass. Trusted callable/module/lazy Markdown and unavailable-binding cases are tested. |
+| W3 MCP | Actual stdio and Streamable HTTP pass, including pagination, repeated cursor failure, parallel lazy open, close during open, reload, call timeout, failed startup, filtered environment, full envelopes and isError. Joint integration caught and fixed the host connectionId contract. |
+| W4 Coding | Scripted gateway drives Skill discovery, actual MCP dataset, cross-cell processing, complete artifact, deliberate exception, retained state and reset. Headless Python workflow passes; omitted Python has no crate in the normal graph and no model tool. Windows terminal status/output/cancel/fresh/reset/exit passes. |
+| W5 lifecycle/cost | Twenty real worker + MCP + spawned-child cycles pass with no surviving owned PIDs after reset/close. Crash/timeout recovery and removed Skill refresh also pass. Compaction-specific retention and final measured close latency are being rechecked. |
+| M1/M2 native memory | Full Python suite: 32 tests pass, including 9 native tests with real assets/Chroma. Covers identity dedup/conflicts, distinct sources, complete long text/reopen, chunk loss, filters, noncreating reads, wrong stored dimension, competing writers, bounded foreign lock and cancelled waiter without replay. |
+| M3 joint model | Scripted Coding-to-native chain passes (125.03 s, including a 5,000-line memory write). Actual StepFun has not passed: both the agent and independent curl fail TLS handshake before a model response, via configured proxy and direct connection. Authorized credential was read from the owner's file without logging its value. |
+
+Supporting regression: root Cargo workspace tests and 60 vivy-basics tests pass;
+original Coding smoke, Plan Windows terminal, headless delegation and recipe
+without delegation pass. Source inspection alone is not platform acceptance.
+
+Initial measured costs, not an optimization claim: core prepared environment
+46,330,772 logical file bytes / 32 packages; full native environment 345,563,501
+bytes / 97 packages; pinned model cache 329,871,566 bytes. These are logical sizes,
+not physical allocated bytes (uv can share cached files). Cached preparation took
+8.05 s for the core fixture and 11.82 s for the native dependency environment;
+native assets/probe publication in the joint fixture took 18.41 s. The initial
+20-cycle run measured median cold Coding+Python+MCP call 1.15 s, warm call 0.105 s
+and worker RSS 60,411,904 bytes. Network/cache conditions affect preparation costs.
+
+One upstream limitation is visible: Chroma emits a legacy embedding-function
+deprecation, and MemPalace initially records dimension zero for the core embedder.
+The adapter performs the real 384-dimensional embeddinggemma probe, validates the
+prepared identity and stored dimension, and records the concrete identity on write.
+No fallback MiniLM model, server import, existing palace migration or L0 injection.
+
 Recorded on 2026-10-24. This is an experiment brief, not an implemented API or a
 production compatibility promise. The user's decisions are fixed below; the
 coding runtime integration choice was resolved in favor of Rig's harness (see the

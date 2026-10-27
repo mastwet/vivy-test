@@ -217,17 +217,115 @@ with an explicit message and leaves Plan enabled.
 ## Optional Python workbench
 
 The recipe's `python` component adds `python_repl(code, timeout_secs?)` alongside
-the existing tools. Variables/imports and top-level `await` persist across calls
-for one active agent. The default timeout is 60 seconds.
+the native coding tools. Each live agent owns a persistent Python namespace and
+asyncio loop, including top-level `await` and tasks that survive cell completion.
+The default timeout is 60 seconds. Background output keeps its original call ID;
+unattributable native/thread output is retained in the event journal.
 
-Cancellation or timeout stops the worker and its descendants and resets
-variables. Ordinary Python exceptions retain existing variables. Exit, session
-switching, and resumed processes start a fresh namespace. There are no state
-snapshots, automatic package installations, or background task service. Python
-and shell run with the user's permissions; neither is a security sandbox.
+Use `/python prepare` to explicitly create an environment with `uv`, install the
+hash-locked dependencies and trusted Python Skills, and probe it before publishing
+`.vivy/workbench/current.json`. Preparation is cancellable with `/python close`.
+Concurrent preparation reports busy. Failed preparation preserves the previous
+environment; ordinary Python calls never install anything. `uv` and an installed
+Python 3.11+ must be on PATH (Windows acceptance uses CPython 3.13.12).
+
+`/python status` reports preparation/allocation. `/python reset` refreshes trusted
+Skill discovery and starts fresh on next use, adopting a prepared environment.
+`/python close` releases this agent's worker. Neither command removes artifacts
+or committed memories. Dependency changes require another explicit prepare.
+Old and failed environment directories are retained; remove only unused ones
+after all workers have closed. No live-resource migration or automatic replay.
+
+Cancellation and timeout interrupt the running cell, allow bounded unwinding,
+then terminate its owned process tree. Ordinary exceptions preserve variables.
+Compaction retains the live worker; separate agents, forks, session switches,
+process resumes and exit have separate/fresh namespaces. Python, trusted Skills
+and shell run with the user's permissions; these are not sandboxes.
+
+The trusted inventory is shared with Rig's Skill prompt. Markdown instructions
+remain lazy: `workbench.list_skills()` and `workbench.instructions(name)`. A Skill
+directory with `pyproject.toml` is installed during prepare and imported before
+the first cell. Its module defaults to the project name with `-` changed to `_`.
+`[tool.vivy.skill]` can declare `module`, `binding`, and `requires_host` (only
+`mcp.config` and `mcp.list_connections` currently exist). A module's callable `run`
+becomes a callable binding; otherwise the binding is the module. Broken imports,
+missing host handlers, collisions and reserved names are reported as unavailable
+without hiding other Skills. `workbench.readiness` distinguishes installed MCP
+and prepared native memory from unavailable capabilities. Explicit library
+imports are ordinary Python imports.
+
+Configure MCP in user settings, using environment-variable references for secrets:
+
+```toml
+[python.connections.dataset]
+type = "stdio"
+command = "C:/tools/dataset/.venv/Scripts/python.exe"
+args = ["C:/tools/dataset/server.py"]
+env = { DATASET_TOKEN = { env = "MY_DATASET_TOKEN" } }
+startupTimeoutMs = 20000
+callTimeoutMs = 60000
+
+[python.connections.remote]
+type = "http" # MCP Streamable HTTP
+url = "https://example.com/mcp"
+headers = { Authorization = { env = "MY_MCP_AUTHORIZATION" } }
+```
+
+`await mcp.list_connections()` returns `connectionId` entries without secrets.
+Use `list_tools(connection)`, `search_tools(query, connection_id=...)`,
+`describe_tool(connection, tool)`, `call_tool(connection, tool, arguments)`,
+`reload(connection)` and `close()`. Connections open lazily and are reused.
+Reload closes the selected generation; close ends the registry until worker reset.
+Calls return complete MCP envelopes, including `content`, `structuredContent`
+and `isError`. `McpToolError.result` retains an error envelope. Calls are never
+automatically retried. OAuth, marketplaces and service-specific wrappers are absent.
+
+Complete text, oversized repr/errors, MCP envelopes and MIME displays are saved
+under `.vivy/workbench/artifacts`, partitioned by session, agent, generation and
+call. Tool views are bounded; descriptors report path, bytes, media type and
+completeness. `workbench.artifact(value, media_type)` saves explicit output;
+use `application/json` for structured objects. A 256 MiB per-artifact/event-journal
+limit and disk failures are explicit errors, never successful complete descriptors.
+Reset retains files, but a process crash can leave an incomplete journal.
+
+Native memory is optional:
+
+```toml
+[python]
+memory = true
+# memory_root = "C:/my-workspace/native-memory" # default: .vivy/workbench/native-memory
+```
+
+Then `/python prepare` installs the full pinned upstream MemPalace and Chroma
+engine and explicitly downloads/probes pinned multilingual embeddinggemma ONNX
+assets. Normal memory calls stay offline. Configuration, state/locks, model cache,
+temporary files and palace data live under `memory_root`; no existing user palace
+is imported. Preparation probes use separate synthetic palaces under `probes/`.
+
+```python
+record = await memory.remember("Dataset sum: 42", source_id="dataset-a", event_id="run-1",
+                               wing="coding", room="analysis")
+hits = await memory.search("dataset total", wing="coding", room="analysis", limit=5)
+complete = await memory.get(record["id"])  # or source_id=..., event_id=...
+await memory.close()  # reset the worker to reopen
+```
+
+Same source/event/content/partition deduplicates; changed content or partition
+conflicts. Identical content from different sources remains distinct. Inputs are
+limited to 1 MiB per explicit event; complete reads validate ordered chunks and
+their content hash. The facade uses the native drawers collection's vector search
+with explicit source/wing/room filters, not MemPalace's broader ingestion or hybrid
+search orchestration. Each worker serializes synchronous engine work off the
+asyncio loop; cross-process locking surrounds open, operation and close, including
+reads. Lock contention fails before writing. Interrupted synchronous writes can
+have committed: inspect the same source/event explicitly; never replay blindly.
+No MemPalace MCP server or L0 persona is loaded. Durable and automatic ingestion
+remain outside this delivery.
 
 Remove the Python component and rebuild to exclude its crate and embedded worker.
-All component selection remains in [the recipe](recipes/coding-agent.yaml).
+Compilation selection remains in [the recipe](recipes/coding-agent.yaml).
+The owned runtime adapts Prime's bounded REPL/MCP mechanisms; see
+[NOTICE](plugins/vivy-python/NOTICE.md) for the donor pin and retained MIT license.
 
 ## Project notes
 

@@ -1,5 +1,35 @@
 # Handoff: continue the independent assembly experiment
 
+## Active workbench checkpoint (2026-10-28)
+
+Implementation is on `feat/python-workbench`, in `.workspace/python-workbench`,
+based on `66d1a8c`. The earlier 2026-10-27 sections below are historical: the new
+owned Python runtime, Rust dispatcher, explicit environment preparation, trusted
+Skill loading, generic MCP, complete artifacts and native MemPalace facade now
+exist. Read DESIGN's latest checkpoint, README's workbench usage and the plan
+before continuing. Durable has not started.
+
+Verification commands belong to this repository: root `cargo test --workspace`,
+focused Cargo tests for `plugins/vivy-python` and `plugins/vivy-basics`, and
+`python -m unittest discover -s plugins/vivy-python/tests`. Native tests require
+an explicitly prepared isolated root in `VIVY_MEMORY_TEST_ROOT`; without it they
+are reported as skipped. The real memory acceptance venv and assets are ignored
+under the implementation worktree's `.workspace/memory-acceptance`.
+
+The new `scripts/workbench_smoke.py`, `workbench_lifecycle.py`,
+`workbench_optional.py` and `workbench_tui.py` provide Coding, 20-cycle ownership,
+recipe omission/headless and Windows terminal checks. The joint script's default
+gateway is scripted; `--real` uses an explicitly configured endpoint and credential
+and must never be reported as passing based on its default mode. Keep test data
+synthetic and separate from any existing user's palace or session directories.
+
+Outstanding at this checkpoint: whole-branch review, compaction-specific retention
+confirmation, final close-latency measurement and actual StepFun acceptance. The
+owner authorized `Desktop/keys.txt`; it identifies api.stepfun.com and
+step-3.7-flash. No key is committed or printed. TLS handshake currently fails with
+both agent and independent curl, through proxy and direct. A network-status question
+is pending; do not change endpoints, expose secrets or claim M3 complete.
+
 ## Goal and current state
 
 The owner wants a fast Rust experiment preserving Vivy's useful idea of a species

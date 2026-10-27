@@ -11,23 +11,41 @@ use rig_harness::prelude::*;
 #[derive(Default)]
 pub struct TrustedSkillsPlugin;
 
+/// One trusted discovery result, shared with optional capability consumers.
+#[derive(Resource, Default, Clone)]
+pub struct TrustedSkillInventory(pub Vec<Skill>);
+
+/// Refresh through the same discovery and trust policy used by the skills prompt.
+pub fn refresh_inventory(world: &mut World) {
+    let home = RigHome::of(world).root().to_path_buf();
+    let root = world.resource::<ProjectRoot>().0.clone();
+    let places: Vec<_> = roots(&root, &home)
+        .into_iter()
+        .filter(|place| crate::trust::allowed(world, place))
+        .collect();
+    let (skills, problems) = discover(&places);
+    for problem in problems {
+        warn!("{problem}");
+    }
+    let text = listing(&skills);
+    for (name, mut section) in world.query::<(&Name, &mut PromptSection)>().iter_mut(world) {
+        if name.as_str() == "prompt:skills" {
+            section.text = text.clone();
+        }
+    }
+    world.insert_resource(TrustedSkillInventory(skills));
+}
+
 impl Plugin for TrustedSkillsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ProjectRoot>();
+        app.init_resource::<ProjectRoot>()
+            .init_resource::<TrustedSkillInventory>();
     }
 
     fn finish(&self, app: &mut App) {
         let world = app.world_mut();
-        let home = RigHome::of(world).root().to_path_buf();
-        let root = world.resource::<ProjectRoot>().0.clone();
-        let places: Vec<_> = roots(&root, &home)
-            .into_iter()
-            .filter(|place| crate::trust::allowed(world, place))
-            .collect();
-        let (skills, problems) = discover(&places);
-        for problem in problems {
-            warn!("{problem}");
-        }
+        refresh_inventory(world);
+        let skills = world.resource::<TrustedSkillInventory>().0.clone();
         world.spawn((
             Name::new("prompt:skills"),
             PromptSection::new(

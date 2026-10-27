@@ -21,17 +21,37 @@ use std::sync::{
 use std::time::Instant;
 use vivy_process::{Control, OwnedChild};
 
-const WORKER: &str = include_str!("worker.py");
+mod management;
+mod worker;
+use worker::Worker;
 
 #[derive(Resource, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 struct PythonSettings {
     executable: String,
+    connections: HashMap<String, Value>,
+    memory: bool,
+    memory_root: Option<PathBuf>,
+    #[serde(skip)]
+    skills: Value,
+    #[serde(skip)]
+    agent: String,
+    #[serde(skip)]
+    project_root: PathBuf,
+    #[serde(skip)]
+    session: String,
 }
 impl Default for PythonSettings {
     fn default() -> Self {
         Self {
             executable: "python".into(),
+            connections: HashMap::new(),
+            memory: false,
+            memory_root: None,
+            skills: json!([]),
+            agent: "standalone".into(),
+            project_root: PathBuf::new(),
+            session: "unsaved".into(),
         }
     }
 }
@@ -45,13 +65,14 @@ impl Plugin for PythonPlugin {
     fn build(&self, app: &mut App) {
         app.add_setting::<PythonSettings>("python")
             .init_resource::<Workbenches>();
+        management::install(app);
         app.add_tool_per_call(
             PythonTool::for_directory(PathBuf::new()),
             ToolOptions::default(),
             |place| PythonTool::for_directory(place.base),
         );
         app.add_systems(AgentPass, bind_calls.in_set(PrepareSystems::Edit));
-        app.add_systems(First, prune_workers);
+        app.add_systems(First, (register_credentials, prune_workers).chain());
         app.add_systems(
             Last,
             stop_workers
@@ -73,6 +94,10 @@ fn bind_calls(
     wake: Res<Wake>,
     mut commands: Commands,
     scratch: Option<Res<Scratch>>,
+    skills: Option<Res<vivy_basics::skills::TrustedSkillInventory>>,
+    ids: Query<&AgentId>,
+    root: Res<ProjectRoot>,
+    paths: Option<Res<SessionPaths>>,
 ) {
     for (call, request, agent, mut handler) in &mut calls {
         if request.call.function.name.as_str() != PythonTool::NAME {
@@ -82,15 +107,45 @@ fn bind_calls(
         let state = workers.0.entry(agent.0).or_default().clone();
         let (output, live) = CallOutput::new(&wake);
         commands.entity(call).insert(output);
+        let mut configured = settings.clone();
+        configured.skills = management::skill_metadata(skills.as_deref());
+        configured.agent = ids
+            .get(agent.0)
+            .map(|id| id.0.clone())
+            .unwrap_or_else(|_| format!("{:?}", agent.0));
+        configured.project_root = root.0.clone();
+        configured.session = paths
+            .as_ref()
+            .and_then(|p| p.0.id())
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "unsaved".into());
         let tool = PythonTool {
             state,
             dir: place.base,
-            settings: settings.clone(),
+            settings: configured,
             live: Some(live),
             spill: scratch.as_ref().and_then(|scratch| scratch.spill()),
         };
         *handler = CallHandler(Handler(ErasedHandler::new(ToolAdapter::new(tool))));
     }
+}
+
+fn register_credentials(settings: Res<PythonSettings>) {
+    let names = settings
+        .connections
+        .values()
+        .flat_map(|connection| {
+            ["env", "headers"]
+                .into_iter()
+                .filter_map(move |key| connection.get(key).and_then(Value::as_object))
+        })
+        .flat_map(|map| {
+            map.values()
+                .filter_map(|value| value.get("env").and_then(Value::as_str))
+                .map(std::ffi::OsString::from)
+        })
+        .collect::<Vec<_>>();
+    vivy_process::register_credential_variables(&names);
 }
 
 fn prune_workers(mut workers: ResMut<Workbenches>, agents: Query<(), With<Agent>>) {
@@ -114,6 +169,7 @@ fn stop_workers(workers: Res<Workbenches>) {
 struct Workbench {
     worker: Mutex<Option<Worker>>,
     control: Mutex<Option<Control>>,
+    active_cancel: Mutex<Option<Arc<Cancellation>>>,
     policy_generation: AtomicU64,
 }
 impl Workbench {
@@ -128,6 +184,20 @@ impl Workbench {
         }
     }
     fn stop(&self) {
+        if let Some(cancel) = self
+            .active_cancel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+        {
+            cancel.stop();
+            return;
+        }
+        if let Ok(mut slot) = self.worker.try_lock() {
+            if let Some(mut worker) = slot.take() {
+                worker.close();
+            }
+        }
         if let Some(control) = self
             .control
             .lock()
@@ -147,6 +217,7 @@ impl Drop for Workbench {
 #[derive(Default)]
 struct Cancellation {
     control: Mutex<Option<Control>>,
+    target: Mutex<Option<(Arc<Mutex<ChildStdin>>, String)>>,
     cancelled: AtomicBool,
 }
 impl Cancellation {
@@ -158,15 +229,34 @@ impl Cancellation {
         *slot = Some(control);
     }
     fn stop(&self) {
+        let control = self.control.lock().unwrap_or_else(|e| e.into_inner());
         self.cancelled.store(true, Ordering::SeqCst);
-        if let Some(control) = self
-            .control
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .as_ref()
-        {
-            control.kill();
+        if let Some(control) = control.as_ref() {
+            if let Some((input, id)) = self
+                .target
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref()
+            {
+                let mut input = input.lock().unwrap_or_else(|e| e.into_inner());
+                let _ = writeln!(input, "{}", json!({"type":"interrupt","id":id}));
+                let _ = input.flush();
+                let control = control.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(500));
+                    control.kill();
+                });
+            } else {
+                control.kill();
+            }
         }
+    }
+    fn finish(&self) -> bool {
+        let mut control = self.control.lock().unwrap_or_else(|e| e.into_inner());
+        let accepted = !self.cancelled.load(Ordering::SeqCst);
+        *control = None;
+        *self.target.lock().unwrap_or_else(|e| e.into_inner()) = None;
+        accepted
     }
 }
 struct CancelOnDrop(Arc<Cancellation>, bool);
@@ -210,7 +300,7 @@ impl Tool for PythonTool {
     type Output = String;
     type Error = ToolExecutionError;
     fn description(&self) -> String {
-        "Execute Python in a persistent, auxiliary workbench. Variables and imports persist between calls for this agent; top-level await works. Use the normal coding tools for file edits and Git Bash commands. Python state is NOT saved across exit/session switches. A timeout or cancellation stops the worker and all descendants and resets its variables. Default timeout: 60 seconds. No automatic package installation or background tasks.".into()
+        "Execute Python in a persistent, auxiliary workbench. Variables and imports persist between calls for this agent; top-level await works. Use the normal coding tools for file edits and Git Bash commands. Python state is NOT saved across exit/session switches. A timeout or cancellation stops the worker and all descendants and resets its variables. Default timeout: 60 seconds. No automatic package installation. Background tasks keep their original output identity. Use workbench.list_skills(), workbench.instructions(name), mcp.list_connections(), and workbench.artifact(value, media_type).".into()
     }
     fn parameters(&self) -> Value {
         json!({"type":"object", "properties":{"code":{"type":"string"},"timeout_secs":{"type":"integer","minimum":1}},"required":["code"],"additionalProperties":false})
@@ -234,12 +324,20 @@ impl PythonTool {
     fn execute(
         &self,
         args: PythonArgs,
-        cancellation: &Cancellation,
+        cancellation: &Arc<Cancellation>,
     ) -> Result<(String, bool), ToolExecutionError> {
         let error = |why| {
             ToolExecutionError::other(format!("Python workbench stopped; variables reset: {why}"))
         };
         let mut slot = self.state.worker.lock().unwrap_or_else(|e| e.into_inner());
+        if cancellation.cancelled.load(Ordering::SeqCst) {
+            return Err(error("call cancelled before execution".into()));
+        }
+        *self
+            .state
+            .active_cancel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = Some(cancellation.clone());
         let generation = vivy_process::credential_policy_generation();
         if self.state.policy_generation.load(Ordering::Acquire) != generation {
             *slot = None;
@@ -247,21 +345,30 @@ impl PythonTool {
                 .policy_generation
                 .store(generation, Ordering::Release);
         }
+        if slot.as_mut().is_some_and(Worker::stopped) {
+            *slot = None;
+        }
         let fresh = slot.is_none();
         let mut worker = match slot.take() {
             Some(worker) => worker,
-            None => {
-                Worker::start(&self.settings.executable, &self.dir, cancellation).map_err(error)?
-            }
+            None => Worker::start(&self.settings, &self.dir, cancellation).map_err(error)?,
         };
         cancellation.bind(worker.process.control());
         *self.state.control.lock().unwrap_or_else(|e| e.into_inner()) =
             Some(worker.process.control());
         let timeout = Duration::from_secs(args.timeout_secs.unwrap_or(60).max(1));
         let reply = worker
-            .execute(&args.code, timeout, self.live.as_ref())
+            .execute(&args.code, timeout, self.live.as_ref(), cancellation)
             .map_err(error)?;
+        if !cancellation.finish() {
+            return Err(error("call cancelled; worker closed".into()));
+        }
         *slot = Some(worker);
+        *self
+            .state
+            .active_cancel
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = None;
         let (kept, dropped) = OutputLimit::default().tail(&reply.0);
         let mut text = if fresh {
             "[Fresh Python workbench; previous process/session variables are not restored.]\n"
@@ -275,7 +382,10 @@ impl PythonTool {
                 let (path, mut file) = spill.create("python").map_err(|e| error(e.to_string()))?;
                 file.write_all(reply.0.as_bytes())
                     .map_err(|e| error(e.to_string()))?;
-                text.push_str(&format!("\n[full output: {}]", path.display()));
+                text.push_str(&format!(
+                    "\n[bounded tool view: {}; complete text path is above]",
+                    path.display()
+                ));
             } else {
                 text.push_str("\n[output truncated]");
             }
@@ -284,125 +394,101 @@ impl PythonTool {
     }
 }
 
-struct Worker {
-    process: OwnedChild,
-    input: ChildStdin,
-    events: mpsc::Receiver<Result<Value, String>>,
-    sequence: u64,
-}
-impl Worker {
-    fn start(
-        executable: &str,
-        dir: &std::path::Path,
-        cancellation: &Cancellation,
-    ) -> Result<Self, String> {
-        let mut command = vivy_process::command(executable);
-        command
-            .args(["-I", "-u", "-c", WORKER])
-            .current_dir(dir)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut process = OwnedChild::spawn(&mut command).map_err(|e| {
-            format!(
-                "could not start {executable}; install Python 3.11+ or set [python].executable: {e}"
-            )
-        })?;
-        cancellation.bind(process.control());
-        let input = process.child.stdin.take().ok_or("missing worker input")?;
-        let output = process.child.stdout.take().ok_or("missing worker output")?;
-        let mut stderr = process.child.stderr.take().ok_or("missing worker errors")?;
-        let (sender, events) = mpsc::sync_channel::<Result<Value, String>>(64);
-        let errors = sender.clone();
-        std::thread::spawn(move || {
-            let mut text = String::new();
-            let _ = stderr.by_ref().take(8192).read_to_string(&mut text);
-            if !text.trim().is_empty() {
-                let _ = errors.send(Err(text));
-            }
-        });
-        std::thread::spawn(move || {
-            let mut reader = BufReader::new(output);
-            loop {
-                let mut bytes = Vec::new();
-                match reader
-                    .by_ref()
-                    .take(2 * 1024 * 1024)
-                    .read_until(b'\n', &mut bytes)
-                {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        let event = serde_json::from_slice(&bytes)
-                            .map_err(|e| format!("invalid worker protocol: {e}"));
-                        if sender.send(event).is_err() {
-                            break;
-                        }
-                    }
-                    Err(e) => {
-                        let _ = sender.send(Err(e.to_string()));
-                        break;
-                    }
-                }
-            }
-        });
-        let ready = events
-            .recv_timeout(Duration::from_secs(10))
-            .map_err(|e| format!("worker startup failed: {e}"))??;
-        if ready["event"] != "ready"
-            || ready["python"][0].as_u64().unwrap_or(0) < 3
-            || (ready["python"][0] == 3 && ready["python"][1].as_u64().unwrap_or(0) < 11)
-        {
-            return Err("Python 3.11 or newer is required".into());
-        }
-        Ok(Self {
-            process,
-            input,
-            events,
-            sequence: 0,
-        })
-    }
-
-    fn execute(
-        &mut self,
-        code: &str,
-        timeout: Duration,
-        live: Option<&Live>,
-    ) -> Result<(String, bool), String> {
-        self.sequence += 1;
-        writeln!(self.input, "{}", json!({"id":self.sequence,"code":code}))
-            .and_then(|_| self.input.flush())
-            .map_err(|e| e.to_string())?;
-        let deadline = Instant::now() + timeout;
-        let mut output = String::new();
-        loop {
-            let remaining = deadline.saturating_duration_since(Instant::now());
-            if remaining.is_zero() {
-                return Err("execution timed out".into());
-            }
-            let event = self
-                .events
-                .recv_timeout(remaining)
-                .map_err(|e| format!("execution interrupted, timed out or worker exited: {e}"))??;
-            if event["id"].as_u64() != Some(self.sequence) {
-                return Err("worker response did not match the current call".into());
-            }
-            if event["event"] == "done" {
-                return Ok((output, event["ok"] != true));
-            }
-            if let Some(text) = event["text"].as_str() {
-                if output.len() < 10 * 1024 * 1024 {
-                    output.push_str(text);
-                    if let Some(live) = live {
-                        live.line(text);
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn an_idle_crash_starts_fresh_on_the_next_call() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        call(&tool, "value=42", None).unwrap();
+        {
+            let mut state = tool.state.worker.lock().unwrap();
+            let worker = state.as_mut().unwrap();
+            worker.process.control().kill();
+            worker.process.child.wait().unwrap();
+        }
+        let reply = call(
+            &tool,
+            "assert 'value' not in globals();print('RECOVERED_IDLE')",
+            None,
+        )
+        .unwrap();
+        assert!(reply.contains("RECOVERED_IDLE"));
+        assert!(reply.contains("Fresh Python"));
+    }
+    #[test]
+    fn cancellation_allows_the_running_cell_to_unwind_before_closing() {
+        use futures::{FutureExt, poll};
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        let marker = std::env::temp_dir().join(format!("vivy-unwind-{}", std::process::id()));
+        let started = marker.with_extension("started");
+        let _ = std::fs::remove_file(&marker);
+        let _ = std::fs::remove_file(&started);
+        let code = format!(
+            "import asyncio,pathlib\npathlib.Path({}).write_text('started')\ntry:\n await asyncio.sleep(60)\nfinally:\n pathlib.Path({}).write_text('unwound')",
+            json!(started),
+            json!(marker)
+        );
+        futures::executor::block_on(async {
+            let mut context = ToolContext::default();
+            let mut future = tool
+                .call(
+                    &mut context,
+                    PythonArgs {
+                        code,
+                        timeout_secs: None,
+                    },
+                )
+                .boxed();
+            assert!(poll!(future.as_mut()).is_pending());
+            let deadline = Instant::now() + Duration::from_secs(5);
+            while !started.exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            assert!(started.exists(), "cell did not start");
+            drop(future);
+        });
+        let deadline = Instant::now() + Duration::from_secs(3);
+        while !marker.exists() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(std::fs::read_to_string(&marker).unwrap(), "unwound");
+        std::fs::remove_file(marker).unwrap();
+        std::fs::remove_file(started).unwrap();
+    }
+    #[test]
+    fn late_output_cannot_complete_or_pollute_the_next_call() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        call(&tool, "import asyncio\nasync def later():\n await asyncio.sleep(.1)\n print('OLD_CALL_MARKER')\ntask=asyncio.create_task(later())", None).unwrap();
+        let reply = call(&tool, "await task\n'CURRENT_CALL_MARKER'", None).unwrap();
+        assert!(reply.contains("CURRENT_CALL_MARKER"));
+        assert!(!reply.contains("OLD_CALL_MARKER"));
+    }
+
+    #[test]
+    fn cancelling_a_queued_call_does_not_execute_it_or_stop_active_state() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        call(&tool, "answer=42", None).unwrap();
+        let cancellation = Arc::<Cancellation>::default();
+        cancellation.stop();
+        assert!(
+            tool.execute(
+                PythonArgs {
+                    code: "answer=0".into(),
+                    timeout_secs: None
+                },
+                &cancellation
+            )
+            .is_err()
+        );
+        assert!(call(&tool, "answer", None).unwrap().contains("42"));
+    }
+
+    #[test]
+    fn crashed_worker_recovers_on_the_next_call() {
+        let tool = PythonTool::for_directory(std::env::temp_dir());
+        assert!(call(&tool, "import os;os._exit(7)", None).is_err());
+        assert!(call(&tool, "42", None).unwrap().contains("42"));
+    }
     #[test]
     fn credential_policy_change_restarts_persistent_workers() {
         if std::env::var_os("VIVY_POLICY_TEST_CHILD").is_none() {
