@@ -12,6 +12,9 @@ target/
 *.local.yaml
 *.local.yml
 
+# Local tool state.
+/.workbuddy/
+
 # Editor / OS state.
 .DS_Store
 Thumbs.db
