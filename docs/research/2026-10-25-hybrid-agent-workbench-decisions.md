@@ -1701,3 +1701,65 @@ connection reuse and reload; W4 checks the combined route through Coding.
 This follow-up inspected source and documentation only. It did not install
 packages, run loading/MCP tests or change product code. The earlier 16 upstream
 REPL passes are not evidence that these proposed loading gates have passed.
+
+### 19.9 Closure scope and implementation ownership (2026-10-27)
+
+The owner asks what else must close, what can be omitted, and what requires
+local implementation versus transplantation. The following consolidates 19.4,
+19.7 and 19.8 into a recommended first release boundary. It is a scope proposal;
+the owner has supported selective reuse, not approved every detail below.
+"Adapt" means copying a bounded donor with dependency cuts, applicable notices
+and regression evidence; it never means replacing our worker executable alone.
+
+| Required closure | Observable stopping point | Implementation ownership |
+| --- | --- | --- |
+| Environment and delivery | A clean supported Windows setup prepares the declared runtime/Skills; warm reuse works; missing dependencies and interrupted/competing setup have explicit outcomes. Normal execution does not silently install packages. | Adapt Prime's venv/install workflow. Locally implement package layout, dependency selection, configuration, setup ownership and launch integration. Keep project build environments separate. |
+| Persistent execution | Sequential cells share values; top-level await and managed resources work across cells; a code error does not poison later cells. | Adapt the REPL execution/event-loop core. Remove factory, harness and shell coupling deliberately; do not independently rebuild the entire REPL. |
+| Host protocol | Versioned ready/execute/output/error/done and host request/reply work in both directions, including replies during an awaiting cell. Old-worker events cannot complete a new call. | Adapt protocol types and Python bridge. Rework the existing Rust reader/dispatcher and Rig tool adapter for call, worker-generation and agent ownership. The present protocol is incompatible. |
+| Capability loading | Trusted Skill discovery, preparation, imports, model guidance, failure reporting and update/removal all agree. Libraries and MCP use their separate loading paths. | Extend existing Vivy/Rig discovery; adapt Prime's metadata/import/callable helpers. Locally implement conflict rules, actual availability reporting and minimal host-handler wiring. |
+| MCP lifecycle | Real stdio and Streamable HTTP fixtures discover/describe/call, reuse connections and close on reload/cancel/exit; errors remain errors. | Adapt the generic connection registry and lifecycle tasks. Supply local configuration/credential adapters, preserve complete result envelopes and verify the selected SDK. Do not port the catalog/auth application. |
+| Results and artifacts | The model gets bounded useful output and honest errors; complete large results remain available as explicit artifacts. Mixed MCP content is retained and unsupported rendering is stated. | Reuse Rig output/spill facilities and selected Prime framing/buffering helpers. Locally implement envelope/projection and artifact/attachment mapping. Rich rendering of every MIME type is unnecessary. |
+| Cancellation and cleanup | Async cancellation, synchronous Windows hang, crash, reset and host exit all settle calls honestly and clean owned local resources; a fresh worker works afterward. | Retain `vivy-process` ownership. Adapt Python cooperative shutdown; locally implement bounded escalation, pending-call cleanup and stale-event rejection. A cancelled remote call may have uncertain effects; do not retry it silently. |
+| State boundaries | Workers are isolated per owning agent; normal compaction preserves the intended live worker; switch/fork/reset/restart behavior is explicit. | Extend existing per-agent worker ownership and Rig lifecycle integration. Recommend fresh state after process restart with preserved explicit artifacts and a visible notice; no automatic cell replay. |
+| Diagnostics and system acceptance | Ready/busy/failed/reset state and actionable causes are visible through existing surfaces. Coding completes the dataset-to-artifact scenario and its failure/cancel/reset variants. Record cold/warm setup and execution cost plus repeated cleanup counts. | Reuse upstream focused tests and existing Rig logging/UI mechanisms. Write Vivy integration and lifecycle checks; no new dashboard or claim to trace arbitrary Python effects. Existing coding acceptance remains accepted. |
+
+Recommend a separate final consumer slice before moving to durable: native
+MemPalace write/search/get/close/reopen against synthetic data in an isolated
+palace, including source identity, long content, duplicate delivery and competing
+writers. Reuse the native library and previously investigated adapter behavior
+where compatible; write the small Vivy-facing Python adapter and integration
+checks. Prime's workbench does not supply this memory implementation. This
+consumer gate is separate from generic runtime acceptance and does not expand
+into ingestion policy, persona memory, taxonomy or Obsidian synchronization.
+
+#### Omit from this workbench; retain existing capabilities where applicable
+
+- Do not transplant Prime's second agent/model loop, factory/recursive agent
+  tree, family-message routing, full daemon, continual harness or evolution.
+  Keep native Rig delegation; this exclusion does not remove it.
+- Do not add a second read/edit/shell implementation or Prime's persistent bash
+  system. Keep the working direct coding tools and process owner.
+- Do not add both generic MCP and legacy per-service `McpIntegration` wrappers,
+  the service catalog/marketplace, OAuth/login system, a universal plugin SDK or
+  a second manually maintained capability catalog.
+- Do not require all nine bundled Python Skills, all default scientific
+  packages, CLI wrappers, a new workbench UI or comprehensive MIME rendering.
+  Select libraries and concrete tools when the accepted scenario needs them.
+
+#### Defer without abandoning the later product direction
+
+- Automatic namespace snapshots, transparent module hot reload and live Python
+  resource migration. First close explicit restart and artifact recovery.
+- Durable checkpoint/replay, autonomous jobs, Cron/webhook wakeups and work
+  surviving host death. These belong to the next harness phase; persistent MCP
+  connections and managed cross-cell tasks still belong in this workbench.
+- Full memory ingestion/synchronization, Laputa/ACTMEM redesign, image/search
+  product integrations and extra platforms. Each needs a concrete consumer
+  requirement and its own evidence rather than blocking the first Windows loop.
+
+The recommended order is execution/protocol/lifecycle, then loading/environment,
+then MCP/results, then combined Coding acceptance, then the bounded native-memory
+consumer. W1-W5 remain the core stopping gates. No additional feature inventory
+should become a prerequisite merely because Prime implements it. This synthesis
+uses the inspected code and previous evidence; no new runtime verification or
+product implementation occurred in this follow-up.

@@ -198,6 +198,9 @@ loading contract. Resolve that contract in the design: installed packages,
 bound Python names and model-visible capabilities are distinct; Skill code
 updates and MCP connection reload have different lifecycles. Extend W2 with
 namespace conflicts, unavailable capabilities and update/removal behavior.
+Section 19.9 consolidates remaining closure, exclusions and transplant/local
+implementation ownership. Use it to finish the scope decision; the proposed
+native-memory consumer remains separate from W1-W5 and the durable lifecycle.
 
 The 2026-10-27 scope clarification takes precedence over older sequencing below.
 The classic-Pi coding path has passed owner-run real-task acceptance. Prioritize

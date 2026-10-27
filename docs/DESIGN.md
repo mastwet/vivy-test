@@ -168,6 +168,9 @@ Section 19.8 traces installation, namespace binding, model discovery and reload
 separately. Include that complete loading lifecycle in the workbench design:
 trusted Python Skills, explicit library imports, selected host bridges and lazy
 MCP discovery, with honest availability and failure reporting.
+Section 19.9 consolidates the proposed closure/exclusion matrix and implementation
+ownership. It recommends a bounded native-memory consumer check after W1-W5;
+that recommendation does not expand the core workbench into a memory platform.
 
 1. Preserve the accepted coding path and use it as the first workbench consumer.
 2. Close a trimmed Prime-style capability loop: discover a Python capability,
