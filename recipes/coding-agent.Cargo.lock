@@ -3106,7 +3106,7 @@ dependencies = [
 [[package]]
 name = "rig-basics"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "async-channel",
  "bevy_app",
@@ -3132,7 +3132,7 @@ dependencies = [
 [[package]]
 name = "rig-cassette"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "base64",
  "futures",
@@ -3145,7 +3145,7 @@ dependencies = [
 [[package]]
 name = "rig-core"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "async-stream",
  "base64",
@@ -3178,7 +3178,7 @@ dependencies = [
 [[package]]
 name = "rig-derive"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "convert_case 0.11.0",
  "proc-macro-crate",
@@ -3190,7 +3190,7 @@ dependencies = [
 [[package]]
 name = "rig-ecs"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
@@ -3213,7 +3213,7 @@ dependencies = [
 [[package]]
 name = "rig-harness"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "bevy",
  "bevy_app",
@@ -3238,12 +3238,12 @@ dependencies = [
 [[package]]
 name = "rig-harness-protocol"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 
 [[package]]
 name = "rig-http"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "bytes",
  "futures",
@@ -3258,7 +3258,7 @@ dependencies = [
 [[package]]
 name = "rig-memory"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "base64",
  "memchr",
@@ -3272,7 +3272,7 @@ dependencies = [
 [[package]]
 name = "rig-reqwest"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "bytes",
  "futures",
@@ -3288,7 +3288,7 @@ dependencies = [
 [[package]]
 name = "rig-tools"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "base64",
  "futures",
@@ -3308,7 +3308,7 @@ dependencies = [
 [[package]]
 name = "rig-tui"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "base64",
  "bevy_app",
@@ -3337,7 +3337,7 @@ dependencies = [
 [[package]]
 name = "rig-tungstenite"
 version = "0.46.0-rc.1"
-source = "git+https://github.com/0xPlaygrounds/rig?rev=55cd481a2421fd5da468b5bd6afc6ac876883599#55cd481a2421fd5da468b5bd6afc6ac876883599"
+source = "git+https://github.com/0xPlaygrounds/rig?rev=e1cd47d57f0bccb50ddffd6f45de2ac3365b271c#e1cd47d57f0bccb50ddffd6f45de2ac3365b271c"
 dependencies = [
  "futures",
  "rig-http",

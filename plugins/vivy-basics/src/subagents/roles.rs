@@ -1,5 +1,5 @@
 //! Role snapshots adapt the corpus AgentProfiles pattern to Vivy's existing trust.
-//! Reference: Rig 55cd481a, corpus/base/src/agent_profiles.rs (MIT licensed).
+//! Reference: Rig e1cd47d5, corpus/base/src/agent_profiles.rs (MIT licensed).
 
 use bevy_ecs::system::SystemParam;
 use rig_basics::subagents::SpawnSubagent;

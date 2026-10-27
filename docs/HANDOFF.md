@@ -1,5 +1,14 @@
 # Handoff: continue the independent assembly experiment
 
+## Footer rotation (2026-10-28)
+
+The terminal alternates right-side telemetry and Python/memory status every five
+seconds, pinning preparation/errors and holding recovery for five seconds.
+The existing runtime publishes per-agent observations; the display uses Rig's
+clock and fitting without launching Python, installing packages or querying the
+database. `/python status` refreshes the cached interpreter check. See DESIGN's
+footer section and `scripts/workbench_tui.py` for behavior and verification.
+
 ## Active workbench checkpoint (2026-10-28)
 
 Implementation is integrated into `main`, including the remote one-click build
@@ -204,8 +213,8 @@ git -C .workspace/pi fetch --depth 1 origin f321e5bdd26b3624bfb2ab182a334d0a5edb
 git -C .workspace/pi checkout --detach f321e5bdd26b3624bfb2ab182a334d0a5edb698a
 
 git clone --depth 1 https://github.com/0xPlaygrounds/rig.git .workspace/rig
-git -C .workspace/rig fetch --depth 1 origin 55cd481a2421fd5da468b5bd6afc6ac876883599
-git -C .workspace/rig checkout --detach 55cd481a2421fd5da468b5bd6afc6ac876883599
+git -C .workspace/rig fetch --depth 1 origin e1cd47d57f0bccb50ddffd6f45de2ac3365b271c
+git -C .workspace/rig checkout --detach e1cd47d57f0bccb50ddffd6f45de2ac3365b271c
 ```
 
 These ordinary source pins identify what was inspected. They do not introduce a

@@ -3,7 +3,7 @@
 Source baseline: [earendil-works/pi][pi], revision
 `f321e5bdd26b3624bfb2ab182a334d0a5edb698a`, coding-agent package `1.4.0`, inspected
 2026-10-24. Rig comparison revision:
-`55cd481a2421fd5da468b5bd6afc6ac876883599` (`0.46.0-rc.1`).
+`e1cd47d57f0bccb50ddffd6f45de2ac3365b271c` (`0.46.0-rc.1`).
 
 The user requested the complete coding-agent capability range, then prioritized
 a minimal working experiment with gateway access and no standalone SDK or species

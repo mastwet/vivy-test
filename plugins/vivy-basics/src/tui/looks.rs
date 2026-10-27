@@ -1,65 +1,62 @@
-//! Presentation adapters retain the upstream renderers' full output and diffs.
-use std::sync::Arc;
-
+//! Our own looks for the terminal transcript: the welcome banner and the
+//! local shell/search/list calls, which have no upstream look of their own,
+//! keep the upstream renderers' output and diffs, and mark each call's state.
 use rig_harness::prelude::*;
 use rig_tui::ratatui::{
     style::{Color, Style, Stylize},
     text::{Line, Span},
 };
-use rig_tui::{
-    AppToolRenderersExt, AsideRenderer, AsideView, CallState, ToolCallView, ToolRenderer,
-};
+use rig_tui::{AsideView, CallState, RenderBatch, RenderSystems, ToolCallView, TranscriptRender};
+
+/// The calls our own look draws: the local wrappers, which the upstream
+/// renderers leave to the default.
+const OURS: [&str; 3] = ["shell", "search", "list"];
+
+/// The calls whose first row carries the state marker, after their look drew
+/// it.
+const MARKED: [&str; 6] = ["read", "edit", "write", "shell", "search", "list"];
 
 pub(super) fn install(app: &mut App) {
-    // Local shell/search wrappers register tools, but have no upstream look.
-    // Discover their presence from the assembled runtime, then fill only gaps.
-    let world = app.world_mut();
-    let selected: Vec<_> = world
-        .query::<&ToolDef>()
-        .iter(world)
-        .map(|tool| tool.0.name.to_string())
-        .collect();
-    let rendered: Vec<_> = world
-        .query::<&ToolRenderer>()
-        .iter(world)
-        .map(|renderer| renderer.tool.clone())
-        .collect();
-    for name in selected {
-        if matches!(name.as_str(), "shell" | "search" | "list") && !rendered.contains(&name) {
-            app.add_tool_renderer(&name, basic_tool);
-        }
+    // After the upstream renderers drew their lines, and after decorations.
+    app.add_systems(TranscriptRender, look.in_set(RenderSystems::Edit));
+}
+
+fn look(mut batch: ResMut<RenderBatch>) {
+    // The pane's width, before the requests borrow the batch.
+    let width = batch.width;
+    for (aside, output) in batch.asides_mut(rig_basics::welcome::WELCOME) {
+        output.lines = welcome(&aside.view(), width);
     }
-    let world = app.world_mut();
-    for mut renderer in world.query::<&mut AsideRenderer>().iter_mut(world) {
-        if renderer.kind == rig_basics::welcome::WELCOME {
-            renderer.render = Arc::new(|view| welcome(view, 80));
-        }
+    for (call, output) in batch.calls_mut() {
+        output.lines = call_look(&call.view(), std::mem::take(&mut output.lines));
     }
-    for mut renderer in world.query::<&mut ToolRenderer>().iter_mut(world) {
-        if !matches!(
-            renderer.tool.as_str(),
-            "read" | "edit" | "write" | "shell" | "search" | "list"
-        ) {
-            continue;
-        }
-        let original = renderer.render.clone();
-        renderer.render = Arc::new(move |view| {
-            let mut lines = original(view);
-            if let Some(header) = lines.first_mut() {
-                let (mark, style) = if view.failed() {
-                    ("× ", Style::new().red().bold())
-                } else {
-                    match view.state {
-                        CallState::Done => ("• ", Style::new().dim()),
-                        _ => ("• ", Style::new().yellow()),
-                    }
-                };
-                // Keep every original span (including exit/timeout causes).
-                header.spans.insert(0, Span::styled(mark, style));
+}
+
+/// `drawn`, as the upstream look drew it, as one call shows: our own look for
+/// the local wrappers, and the state marker on the first row.
+pub(super) fn call_look(view: &ToolCallView<'_>, drawn: Vec<Line<'static>>) -> Vec<Line<'static>> {
+    let name = view.name();
+    let mut lines = if OURS.contains(&name) {
+        basic_tool(view)
+    } else {
+        drawn
+    };
+    if !MARKED.contains(&name) {
+        return lines;
+    }
+    if let Some(header) = lines.first_mut() {
+        let (mark, style) = if view.failed() {
+            ("× ", Style::new().red().bold())
+        } else {
+            match view.state {
+                CallState::Done => ("• ", Style::new().dim()),
+                _ => ("• ", Style::new().yellow()),
             }
-            lines
-        });
+        };
+        // Keep every original span (including exit/timeout causes).
+        header.spans.insert(0, Span::styled(mark, style));
     }
+    lines
 }
 
 fn basic_tool(view: &ToolCallView<'_>) -> Vec<Line<'static>> {

@@ -1,11 +1,26 @@
 use rig_harness::prelude::*;
 use rig_tui::ratatui::text::Line;
-use rig_tui::{AppToolRenderersExt, ToolCallView};
+use rig_tui::{RenderBatch, ToolCallView};
 use serde_json::Value;
 
 pub(super) fn add(app: &mut App) {
-    app.add_tool_renderer("task_parallel", draw)
-        .add_tool_renderer("task_chain", draw);
+    app.add_systems(
+        rig_tui::TranscriptRender,
+        draw_calls.in_set(rig_tui::RenderSystems::Render),
+    );
+}
+
+/// Draws both workflows with the same look.
+fn draw_calls(mut batch: ResMut<RenderBatch>) {
+    for (call, output) in batch.calls_mut() {
+        if !matches!(
+            call.call.function.name.as_str(),
+            "task_parallel" | "task_chain"
+        ) {
+            continue;
+        }
+        output.lines = draw(&call.view());
+    }
 }
 
 fn draw(view: &ToolCallView<'_>) -> Vec<Line<'static>> {
