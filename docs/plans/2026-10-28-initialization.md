@@ -54,4 +54,21 @@ installer service, agent loop or production memory writes.
 
 ## Implementation record
 
-In progress. No automatic initialization behavior is claimed verified yet.
+Tasks 1–6 are implemented and their local acceptance is complete. The final
+independent review's three Important findings were reproduced and fixed with
+regressions: validate local scope/publication before interpreter startup, close
+owned descendants before draining installer pipes, and include extra package
+indexes in consent scope. Explicit preparation also takes over a startup check.
+
+Verification: root workspace 22 tests, basics 82, gateway 34, Python Rust 20 and
+Python/native 43. Windows initialization, provider CRUD/protocols, footer,
+branding and Plan terminal tests pass. Omitted-Python/headless builds, managed
+Windows toolchain download, scripted Coding/Skill/MCP/native-memory joint scenario
+and 20 lifecycle cycles with zero orphans pass. HANDOFF records measurements and
+the temporary-file cleanup failure followed by a complete successful rerun.
+
+More, Fast, Good, Frugal is preserved through existing Rig dialogs/connectors,
+fixed preparation/probe scripts, atomic publication and shared status; no second
+agent runtime or installer service was introduced. Integration uses the owner's
+existing main/push authorization. Actual external-provider acceptance remains
+deferred to the owner's selected provider; durable has not started.

@@ -13,7 +13,7 @@ import threading
 import tomllib
 from http.server import ThreadingHTTPServer
 from branding_tui import View
-from plan_tui import command
+from plan_tui import command, skip_initialization
 from providers_smoke import Gateway
 from tui import Terminal, ENTER
 
@@ -42,6 +42,7 @@ def scenario(binary, cols, rows):
             terminal = Terminal([binary], work, env, rows=rows, cols=cols)
             resources.callback(close, terminal)
             view = View(terminal, cols, rows)
+            skip_initialization(terminal, view)
             view.wait("empty home starts", lambda s: "vivy-test" in s and "›" in s)
 
             def choose(label, title):
@@ -72,7 +73,7 @@ def scenario(binary, cols, rows):
                 value("1000", "Edit model")
                 choose("Save model to draft", "Provider models")
                 choose("Back to provider", "Edit provider")
-                choose("Save provider", "Provider")
+                choose("Save only", "Provider")
                 view.wait("provider persisted", lambda _: instance in tomllib.loads((home / "settings.toml").read_text()).get("providers", {}).get("instances", {}))
 
             add("OpenAI", "chat", f"http://127.0.0.1:{server.server_port}/chat/v1", "VIVY_CHAT_KEY")
@@ -104,7 +105,8 @@ def scenario(binary, cols, rows):
             choose("Edit provider and models", "Edit provider")
             choose("Name:", "Current:")
             value("Message account", "Edit provider")
-            choose("Save provider", "Provider")
+            choose("Save only", "Provider")
+            view.wait("edited provider name persisted", lambda _: tomllib.loads((home / "settings.toml").read_text())["providers"]["instances"]["messages"].get("name") == "Message account")
             assert tomllib.loads((home / "settings.toml").read_text())["providers"]["instances"]["messages"]["name"] == "Message account"
             terminal.type(b"\x1b", enter=False)
             terminal.read_for(0.3)

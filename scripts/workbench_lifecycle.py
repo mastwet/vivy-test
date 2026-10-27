@@ -109,13 +109,13 @@ def main():
     agent = JsonAgent(binary, root, preparation_env)
     try:
         agent.send('/python prepare')
-        agent.until(lambda e: 'Preparing a new' in e.get('text',''))
+        agent.until(lambda e: 'Preparing Python.' in e.get('text',''))
         agent.send('/python close')
         agent.until(lambda e: 'Python closed' in e.get('text',''))
         agent.send('/python prepare')
-        agent.until(lambda e: 'Python environment prepared.' in e.get('text',''), timeout=180)
+        agent.until(lambda e: 'Python environment prepared and validated.' in e.get('text',''), timeout=180)
         agent.send('/python prepare')
-        agent.until(lambda e: 'Python environment prepared.' in e.get('text',''), timeout=180)
+        agent.until(lambda e: 'Python environment prepared and validated.' in e.get('text',''), timeout=180)
     finally:
         agent.close()
         (root/'prepare-events.json').write_text(json.dumps(agent.events, indent=2), encoding='utf-8')
@@ -148,6 +148,7 @@ def main():
             if iteration == 0:
                 agent.send('/compact')
                 agent.until(lambda e: 'Compacted' in e.get('text',''))
+                agent.until(lambda e:e['type']=='turn_end' and e.get('error')=='compacted')
             start = time.monotonic()
             agent.send('WARM')
             agent.until(lambda e:e['type']=='turn_end')

@@ -33,8 +33,8 @@ download/verify model assets, open the isolated native engine, perform synthetic
 write/read/semantic-search checks in a separate probe palace, close resources,
 then publish the ready environment. Report structured progress and completion
 to the host, which owns cancellation, errors, confirmation UI and status updates.
-The current probe already checks write/read; semantic search must join this
-initialization gate. With the current embedded library architecture, successful
+The probe checks write/read, semantic search, close and reopen. With the current
+embedded library architecture, successful
 "connection" means verified local engine/model/storage readiness, not a remote
 MemPalace service or merely a successful import.
 
@@ -63,9 +63,20 @@ and waits for explicit retry or changed scope. Fixed script stages cover managed
 toolchain, candidate environment, locked packages, trusted Skill bindings, optional
 assets/native probe and atomic publication. The scope hashes lock contents,
 interpreter configuration, bootstrap source, package-index overrides and trusted
-Skill pyprojects; grants contain hashes, not credentials. Detection does not import
-previously installed Skills when the current trust/scope differs. A new pointer
+Skill pyprojects; grants contain hashes, not credentials. Source identity includes
+extra package indexes and Python download mirrors; unsafe integrity and target
+overrides are removed from the installer environment. Successful preparation
+records the publication hash in user state, separately from installation consent.
+Rust checks both scope and this local validation record before starting a published
+interpreter: even isolated Python runs venv `.pth` files before application code.
+Legacy or copied environments require explicit preparation once; unvalidated
+publications cannot be reused as preparation candidates. Local checks verify
+memory asset hashes as well as imports and versions. A new pointer
 replaces a live worker only at the next cell boundary; no cell is replayed.
+
+Preparation kills remaining owned descendants before joining output readers,
+including after a successful parent exit, so inherited pipes cannot bypass its
+deadline. An explicit preparation request cancels a pending read-only check.
 
 Windows x64 bootstrap pins uv 0.11.7 to the official release archive SHA256
 `fe0c7815acf4fc45f8a5eff58ed3cf7ae2e15c3cf1dceadbd10c816ec1690cc1`, then installs

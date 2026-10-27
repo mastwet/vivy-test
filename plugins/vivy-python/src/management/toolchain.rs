@@ -74,6 +74,9 @@ pub(super) fn run(
         }
         std::thread::sleep(Duration::from_millis(50));
     };
+    // A finished parent may leave a descendant holding the pipes. Terminate the
+    // owned tree before joining readers, including on successful parent exit.
+    child.control().kill();
     let result = output.join().unwrap_or(Value::Null);
     let diagnostic = errors.join().unwrap_or_default();
     if !status.success() {
@@ -129,4 +132,21 @@ pub(super) fn ensure(
             .ok_or("Bootstrap did not return uv")?
             .into(),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn parent_exit_cannot_leave_a_descendant_holding_initialization_pipes() {
+        let mut command = vivy_process::command("python");
+        command.args(["-I", "-c", "import subprocess,sys;subprocess.Popen([sys.executable,'-I','-c','import time;time.sleep(4)']);print('{}',flush=True)"]);
+        let start = Instant::now();
+        run(&mut command, &Cancellation::default(), &Arc::default(), 1).unwrap();
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "A descendant outlived the preparation deadline: {:?}",
+            start.elapsed()
+        );
+    }
 }

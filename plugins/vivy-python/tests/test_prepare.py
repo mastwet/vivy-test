@@ -3,12 +3,46 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import hashlib
+import subprocess
 
 sys.path.insert(0, str(Path(__file__).parents[1] / 'python'))
 from vivy_workbench import prepare
 
 
 class PreparationTests(unittest.TestCase):
+    def test_unvalidated_publication_is_not_executed_when_reuse_is_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root/'empty.lock'
+            lock.write_text('', encoding='utf-8')
+            first = prepare.prepare(root, lock, offline=True)
+            site = Path(subprocess.check_output([first['executable'], '-I', '-c', 'import sysconfig;print(sysconfig.get_path("purelib"))'], text=True).strip())
+            marker = root/'untrusted-started'
+            (site/'untrusted.pth').write_text('import pathlib;pathlib.Path(' + repr(str(marker)) + ').touch()\n', encoding='utf-8')
+            second = prepare.prepare(root, lock, offline=True, reuse=False)
+            self.assertNotEqual(first['executable'], second['executable'])
+            self.assertFalse(marker.exists())
+
+    def test_memory_detection_rejects_equal_size_asset_corruption(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            lock = root/'empty.lock'
+            lock.write_text('', encoding='utf-8')
+            current = prepare.prepare(root, lock, offline=True, scope='native-fixture')
+            current['memory_ready'] = True
+            (root/'current.json').write_text(json.dumps(current), encoding='utf-8')
+            memory = root/'native-memory'
+            memory.mkdir()
+            asset = memory/'fixture.onnx'
+            asset.write_bytes(b'original')
+            (memory/'embedding.json').write_text(json.dumps({'files':[{'path':str(asset),'bytes':8,'sha256':hashlib.sha256(b'original').hexdigest()}]}), encoding='utf-8')
+            self.assertEqual(prepare.check(root, scope='native-fixture', native_memory=True)['outcome'], 'ready')
+            asset.write_bytes(b'modified')
+            result = prepare.check(root, scope='native-fixture', native_memory=True)
+            self.assertEqual(result['outcome'], 'error')
+            self.assertIn('hash mismatch', result['detail'])
+
     def test_import_failure_repairs_instead_of_republishing_broken_environment(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

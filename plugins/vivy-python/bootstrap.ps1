@@ -5,6 +5,9 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
+foreach ($name in @('UV_CONFIG_FILE', 'UV_PROJECT', 'UV_WORKING_DIR', 'UV_SYSTEM_PYTHON')) {
+    [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+}
 $rootPath = [IO.Path]::GetFullPath($Root)
 [IO.Directory]::CreateDirectory($rootPath) | Out-Null
 $lock = $null

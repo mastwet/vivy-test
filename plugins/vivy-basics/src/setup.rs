@@ -58,6 +58,7 @@ pub struct Decision {
     pub managed: bool,
     pub failed_scope: String,
     pub last_error: Option<String>,
+    pub environment: Option<String>,
 }
 impl Decision {
     pub fn permits(&self, scope: &str) -> bool {

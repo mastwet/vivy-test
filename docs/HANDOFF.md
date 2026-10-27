@@ -12,17 +12,37 @@ explicit streaming/tool verification with cancellation and a deadline. MemPalace
 remains opt-in. Do not restart durable or the deferred StepFun acceptance.
 
 Verified during implementation: root workspace tests (18+1+2+1), basics 82,
-gateway 13+1+6+14, Python Rust 17, and Python/native 40 before the final repair
-regression was added. The new Windows `scripts/initialization_tui.py` passes
+gateway 13+1+6+14, Python Rust 20 and all 43 Python/native tests (44.403s).
+The new Windows
+`scripts/initialization_tui.py` passes
 ordered prompts, remembered skips, manual preparation, approved repair after a
 missing interpreter, no automatic provider requests, explicit streaming/tools
-and pinned provider failure. A real isolated managed-toolchain download verified
+and pinned provider failure, including cancellation that preserves the earlier
+error. A real isolated managed-toolchain download verified
 the pinned uv archive and installed Python 3.13.12 without system registration.
 The complete scripted Coding/Skill/MCP/native-memory workflow passes in 85.774s
 (33.006s candidate preparation); it is not real-provider verification.
 
-Final branch review and remaining terminal/omission regressions are in progress.
-Read the latest verification update before claiming this checkpoint complete.
+One independent whole-branch review found three Important issues, reproduced
+and fixed: interpreter startup before scope validation, descendants retaining
+installer pipes after parent exit, and an extra package index omitted from the
+consent scope. Startup now checks both scope and a locally recorded publication
+hash in Rust before executing a prepared interpreter. Legacy/copied environments
+need `/setup python` or `/python prepare` once; automatic detection does not run
+them. This local validation record is separate from future installation consent.
+
+Windows initialization, workbench rotation/lifecycle, branding, Plan and provider
+terminal regressions pass, including 120x40 and 50x20 provider/branding screens.
+The headless workbench and recipe-omitted Python dependency checks pass. Twenty
+real workbench/child/MCP lifecycle cycles pass with zero orphans; cold/warm median
+calls were 0.835/0.066 seconds and maximum close plus confirmed exit was 0.164s.
+Queued-call cancellation, compaction retention, crash/timeout recovery and Skill
+removal also pass. The lifecycle harness now waits for compaction's own end event
+before submitting its warm-state check.
+Formatting, PowerShell parsing and diff checks pass. One preceding Python run
+hit a Windows temporary-venv cleanup sharing error after its assertions; no
+fixture process remained, and the complete suite passed using a dedicated temp
+directory. Keep that environmental failure distinct from functional acceptance.
 
 ## Footer rotation (2026-10-28)
 

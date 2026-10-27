@@ -78,17 +78,10 @@ pub(super) fn scope(world: &World) -> String {
     bytes.extend_from_slice(include_bytes!("../../bootstrap.ps1"));
     bytes.extend_from_slice(settings.executable.as_bytes());
     bytes.extend_from_slice(format!("{:?}", settings.memory_root).as_bytes());
-    let sources: std::collections::BTreeMap<_, _> = std::env::vars()
-        .filter(|(key, _)| {
-            key.starts_with("UV_INDEX")
-                || key.starts_with("PIP_INDEX")
-                || matches!(
-                    key.as_str(),
-                    "UV_DEFAULT_INDEX" | "UV_FIND_LINKS" | "UV_PYTHON_INSTALL_MIRROR"
-                )
-        })
-        .collect();
-    bytes.extend_from_slice(format!("{sources:?}").as_bytes());
+    let variables: Vec<_> = std::env::vars().collect();
+    bytes.extend_from_slice(
+        source_identity(variables.iter().map(|(k, v)| (k.as_str(), v.as_str()))).as_bytes(),
+    );
     for row in skills.as_array().into_iter().flatten() {
         if let Some(file) = row["file"].as_str() {
             let path = Path::new(file)
@@ -102,6 +95,32 @@ pub(super) fn scope(world: &World) -> String {
         }
     }
     setup::fingerprint(&bytes)
+}
+fn source_identity<'a>(variables: impl IntoIterator<Item = (&'a str, &'a str)>) -> String {
+    let sources: std::collections::BTreeMap<_, _> = variables
+        .into_iter()
+        .filter(|(key, _)| {
+            key.starts_with("UV_INDEX")
+                || (key.starts_with("PIP_")
+                    && (key.contains("INDEX") || key.ends_with("FIND_LINKS")))
+                || matches!(
+                    *key,
+                    "UV_DEFAULT_INDEX"
+                        | "UV_EXTRA_INDEX_URL"
+                        | "UV_FIND_LINKS"
+                        | "UV_NO_INDEX"
+                        | "UV_INSECURE_HOST"
+                        | "UV_PYTHON_INSTALL_MIRROR"
+                        | "UV_PYTHON_DOWNLOADS_JSON_URL"
+                )
+        })
+        .collect();
+    setup::fingerprint(format!("{sources:?}").as_bytes())
+}
+pub(super) fn publication_identity(root: &Path) -> Option<String> {
+    std::fs::read(root.join("current.json"))
+        .ok()
+        .map(|bytes| setup::fingerprint(&bytes))
 }
 pub(super) fn report(world: &World, _: Entity) -> Report {
     let init = world.resource::<Initialization>();
@@ -190,6 +209,11 @@ pub(super) fn tick(world: &mut World) {
         let result = setup::decision(world, "python").and_then(|mut decision| {
             decision.failed_scope = failure.as_ref().map(|f| f.0.clone()).unwrap_or_default();
             decision.last_error = failure.as_ref().map(|f| f.1.clone());
+            if failure.is_none() {
+                decision.environment = publication_identity(
+                    &world.resource::<ProjectRoot>().0.join(".vivy/workbench"),
+                );
+            }
             setup::remember(world, "python", &decision)
         });
         world.resource_mut::<Initialization>().blocked = failure;
@@ -216,6 +240,9 @@ pub(super) fn tick(world: &mut World) {
         let root = world.resource::<ProjectRoot>().0.join(".vivy/workbench");
         let settings = world.resource::<PythonSettings>().clone();
         let managed = managed(world);
+        let approved_environment = setup::decision(world, "python")
+            .ok()
+            .and_then(|d| d.environment);
         let cancel = Arc::<Cancellation>::default();
         let token = cancel.clone();
         let stage = Arc::new(Mutex::new("checking".into()));
@@ -223,7 +250,15 @@ pub(super) fn tick(world: &mut World) {
         let wake = world.resource::<Wake>().clone();
         let (sender, receiver) = mpsc::channel();
         std::thread::spawn(move || {
-            let result = detect(&root, &settings, &scope, managed, &token, &progress);
+            let result = detect(
+                &root,
+                &settings,
+                &scope,
+                managed,
+                approved_environment.as_deref(),
+                &token,
+                &progress,
+            );
             let _ = sender.send(result);
             wake.wake();
         });
@@ -264,9 +299,26 @@ fn detect(
     settings: &PythonSettings,
     scope: &str,
     managed: bool,
+    approved_environment: Option<&str>,
     cancel: &Cancellation,
     progress: &Arc<Mutex<String>>,
 ) -> Result<String, String> {
+    // Do this in Rust: even `python -I` executes venv .pth files before Python
+    // code can compare trust/scope. A repository copy cannot confer local consent.
+    let bytes = match std::fs::read(root.join("current.json")) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(e) => return Err(format!("Cannot inspect prepared environment: {e}")),
+    };
+    if !bytes.is_empty() {
+        let manifest: Value = serde_json::from_slice(&bytes)
+            .map_err(|e| format!("Invalid prepared environment: {e}"))?;
+        if manifest["scope"].as_str() != Some(scope)
+            || approved_environment != Some(setup::fingerprint(&bytes).as_str())
+        {
+            return Ok(json!({"outcome":"not_init", "detail":"Environment scope/local validation changed. Review /setup python before automatic detection can execute it."}).to_string());
+        }
+    }
     if settings.executable != "python" && !managed {
         let mut command = vivy_process::command(&settings.executable);
         command.args(["-I", "-c", "import sys; assert sys.version_info >= (3,11)"]);
@@ -380,6 +432,83 @@ fn open(world: &mut World, agent: Entity, memory: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn alternate_package_sources_change_the_authorized_scope() {
+        let a = source_identity([("UV_EXTRA_INDEX_URL", "https://one.invalid/simple")]);
+        let b = source_identity([("UV_EXTRA_INDEX_URL", "https://two.invalid/simple")]);
+        assert_ne!(a, b);
+        assert_ne!(
+            source_identity([("UV_FIND_LINKS", "C:/one")]),
+            source_identity([("UV_FIND_LINKS", "C:/two")])
+        );
+        assert_eq!(
+            source_identity([("UV_CACHE_DIR", "C:/one")]),
+            source_identity([("UV_CACHE_DIR", "C:/two")])
+        );
+    }
+    #[test]
+    fn mismatched_publication_is_not_executed_during_detection() {
+        let root =
+            std::env::temp_dir().join(format!("vivy-untrusted-detect-{}", std::process::id()));
+        let environment = root.join("venv");
+        let marker = root.join("untrusted-started");
+        std::fs::create_dir_all(&root).unwrap();
+        assert!(
+            vivy_process::command("python")
+                .args(["-I", "-m", "venv", "--without-pip"])
+                .arg(&environment)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let executable = environment.join(if cfg!(windows) {
+            "Scripts/python.exe"
+        } else {
+            "bin/python"
+        });
+        let output = vivy_process::command(&executable)
+            .args([
+                "-I",
+                "-c",
+                "import sysconfig;print(sysconfig.get_path('purelib'))",
+            ])
+            .output()
+            .unwrap();
+        let site = PathBuf::from(String::from_utf8(output.stdout).unwrap().trim());
+        std::fs::write(
+            site.join("untrusted.pth"),
+            format!("import pathlib;pathlib.Path({}).touch()\n", json!(marker)),
+        )
+        .unwrap();
+        std::fs::write(
+            root.join("current.json"),
+            json!({"executable":executable,"scope":"old-untrusted-scope","packages":{}})
+                .to_string(),
+        )
+        .unwrap();
+        for scope in ["current-trusted-scope", "old-untrusted-scope"] {
+            let result = detect(
+                &root,
+                &PythonSettings::default(),
+                scope,
+                false,
+                None,
+                &Cancellation::default(),
+                &Arc::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                serde_json::from_str::<Value>(&result).unwrap()["outcome"],
+                "not_init"
+            );
+        }
+        let executed = marker.exists();
+        std::fs::remove_dir_all(&root).unwrap();
+        assert!(
+            !executed,
+            "Detection executed an old environment before checking its scope"
+        );
+    }
     #[test]
     fn cancelled_retry_preserves_cause_and_success_clears_failure() {
         let mut init = Initialization::default();

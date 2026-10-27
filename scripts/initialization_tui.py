@@ -19,7 +19,9 @@ class Gateway(Handler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers['content-length'])))
         self.records.append(body)
-        self.block.wait(10)
+        if not self.block.is_set():
+            self.block.wait(10)
+            return  # Cancellation closes the client; no synthetic response is needed.
         if self.fail:
             self.send_error(401, 'synthetic authentication failure')
         elif body.get('tools'):

@@ -110,6 +110,18 @@ fn command(In(args): In<CommandArgs>, world: &mut World) {
 
 fn start_preparation(world: &mut World, agent: Entity) {
     let root = world.resource::<ProjectRoot>().0.clone();
+    let checking: Vec<_> = world
+        .resource::<Preparations>()
+        .0
+        .iter()
+        .filter(|(_, job)| job.checking)
+        .map(|(agent, _)| *agent)
+        .collect();
+    for checking in checking {
+        if let Some(job) = world.resource_mut::<Preparations>().0.remove(&checking) {
+            job.cancel.stop();
+        }
+    }
     if !world.resource::<Preparations>().0.is_empty() {
         world.write_message(Notice::info(
             agent,
@@ -125,13 +137,19 @@ fn start_preparation(world: &mut World, agent: Entity) {
     let wake = world.resource::<Wake>().clone();
     let home = RigHome::of(world).root().to_path_buf();
     let scope = initialization::scope(world);
+    let reuse = vivy_basics::setup::decision(world, "python")
+        .ok()
+        .and_then(|d| d.environment)
+        .is_some_and(|identity| {
+            Some(identity) == initialization::publication_identity(&root.join(".vivy/workbench"))
+        });
     let stage = Arc::new(Mutex::new("toolchain".to_owned()));
     let progress = stage.clone();
     let managed = initialization::managed(world);
     initialization::preparing(world);
     std::thread::spawn(move || {
         let _ = sender.send(prepare(
-            &root, &home, &settings, &scope, managed, &token, &progress,
+            &root, &home, &settings, &scope, managed, reuse, &token, &progress,
         ));
         wake.wake();
     });
@@ -154,6 +172,7 @@ fn prepare(
     settings: &PythonSettings,
     scope: &str,
     managed: bool,
+    reuse: bool,
     cancel: &Cancellation,
     progress: &Arc<Mutex<String>>,
 ) -> Result<String, String> {
@@ -173,14 +192,15 @@ fn prepare(
         .clone()
         .unwrap_or_else(|| root.join("native-memory"));
     let code = format!(
-        "import sys,os,json;sys.path.insert(0,{});from vivy_workbench.prepare import prepare;prepare({}, {}, python=sys.executable, skills=json.loads(os.environ['VIVY_WORKBENCH_SKILLS']), native_memory={}, memory_root={},scope={},uv={})",
+        "import sys,os,json;sys.path.insert(0,{});from vivy_workbench.prepare import prepare;prepare({}, {}, python=sys.executable, skills=json.loads(os.environ['VIVY_WORKBENCH_SKILLS']), native_memory={}, memory_root={},scope={},uv={},reuse={})",
         json!(source),
         json!(root),
         json!(lock),
         if settings.memory { "True" } else { "False" },
         json!(memory_root),
         json!(scope),
-        json!(uv)
+        json!(uv),
+        if reuse { "True" } else { "False" }
     );
     let mut command = vivy_process::command(&python);
     // Preparation is noninteractive. Inheriting stdin can block spawning while

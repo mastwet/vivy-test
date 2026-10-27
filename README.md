@@ -280,6 +280,12 @@ preparation command; it does not silently grant future automatic installation.
 `/python close` cancels. Concurrent preparation reports busy; failure preserves
 the old environment. Ordinary Python calls do not install packages.
 
+Automatic detection also requires a locally recorded successful validation of
+the published environment. After upgrading an older workbench or copying a
+repository, run `/setup python` or `/python prepare` once to establish that record.
+An unvalidated old environment is not executed by startup detection or reused
+by preparation; preparation creates a fresh candidate instead.
+
 On Windows x64, missing tools can be installed into `RIG_HOME/toolchains`:
 SHA256-verified uv 0.11.7 and managed CPython 3.13.12, without modifying PATH,
 registry or the system default Python. Suitable existing tools are reused. An

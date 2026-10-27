@@ -42,6 +42,12 @@ def environment_lock(root):
 
 def run(command, *, temporary=None, timeout=None):
     environment = dict(os.environ)
+    # These overrides change integrity, target directories or constraints outside
+    # the reviewed lock/Skill scope. Source/index overrides remain scope-hashed.
+    for name in ('UV_NO_VERIFY_HASHES', 'UV_SYSTEM_PYTHON', 'UV_CONFIG_FILE', 'UV_PROJECT',
+                 'UV_WORKING_DIR', 'UV_CONSTRAINT', 'UV_OVERRIDE', 'UV_EXCLUDE',
+                 'UV_BUILD_CONSTRAINT', 'UV_TORCH_BACKEND', 'UV_NO_SOURCES'):
+        environment.pop(name, None)
     environment['UV_NO_CONFIG'] = '1'
     environment['UV_PYTHON_DOWNLOADS'] = 'never'
     for name in list(environment):
@@ -106,6 +112,9 @@ def check(root, *, scope='', native_memory=False, memory_root=None):
                 path = Path(asset['path'])
                 if not path.is_file() or path.stat().st_size != asset['bytes']:
                     raise RuntimeError('Prepared memory assets are missing or incomplete')
+                with path.open('rb') as stream:
+                    if hashlib.file_digest(stream, 'sha256').hexdigest() != asset['sha256']:
+                        raise RuntimeError('Prepared memory asset hash mismatch')
             if not current.get('memory_ready'):
                 return {'outcome': 'not_init', 'detail': 'Memory functional validation is required'}
         return {'outcome': 'ready', 'detail': 'Local interpreter and dependencies verified'}
@@ -113,7 +122,7 @@ def check(root, *, scope='', native_memory=False, memory_root=None):
         return {'outcome': 'error', 'detail': str(exc)}
 
 
-def prepare(root, requirements, *, python=sys.executable, skills=(), offline=False, native_memory=False, memory_root=None, scope='', uv='uv'):
+def prepare(root, requirements, *, python=sys.executable, skills=(), offline=False, native_memory=False, memory_root=None, scope='', uv='uv', reuse=True):
     root, requirements = Path(root).resolve(), Path(requirements).resolve()
     memory_root = Path(memory_root).resolve() if memory_root else root / 'native-memory'
     temporary_directory = root / 'tmp'
@@ -132,7 +141,7 @@ def prepare(root, requirements, *, python=sys.executable, skills=(), offline=Fal
     stage('lock')
     with environment_lock(root):
         published = root / 'current.json'
-        if published.is_file():
+        if reuse and published.is_file():
             try:
                 current = json.loads(published.read_text(encoding='utf-8'))
                 if current['identity'] == identity and current.get('scope', '') == scope and Path(current['executable']).is_file():
