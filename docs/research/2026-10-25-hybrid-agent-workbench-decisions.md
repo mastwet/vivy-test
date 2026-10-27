@@ -1842,3 +1842,139 @@ was performed for this audit. The 16 earlier upstream REPL passes remain the
 only runtime evidence described in 19.6. The findings warrant detailed adapter
 contracts and a plan; they do not establish a compatible transplant or change
 the workbench-before-MemPalace-before-durable order.
+
+### 19.11 Workbench and native MemPalace integration research (2026-10-28)
+
+The owner requested focus on the workbench and MemPalace closure; do not begin
+durable research in this slice. This section develops testable integration
+questions within the accepted 19.9 scope. Interface names and strategies below
+are candidates, not implemented or additional owner decisions.
+
+#### Pinned upstream and actual native-library seam
+
+MemPalace source inspected read-only at `f41e8e75ddaadf5588d5127715fa531d79eadb45`
+(`mempalace` project version 3.12.0). This is the previously recorded upstream
+reference, not the original Vivy checkout, a product dependency, or live user
+data. Its package declares Python >=3.10 and core dependencies including
+ChromaDB >=1.5.4,<2; its multilingual model can be downloaded on first use.
+Prime's candidate runtime requires >=3.11. Merely installing a package does not
+prove the selected embedding model is present offline, or that a mismatched
+model can safely open an existing palace. The pinned `palace/collection.py`
+checks configured collection name and embedding identity; preserve those
+checks rather than bypassing them. Source: `pyproject.toml`,
+`mempalace/palace/collection.py` and `mempalace/searcher/query.py`.
+
+The machine's default interpreter reports installed MemPalace 3.5.0, ChromaDB
+1.5.8 and MCP 1.27.0. Those versions do not match the pinned 3.12.0 source or
+Prime's declared MCP >=2,<3. This was an import-spec/package-metadata check,
+not an import of the pinned engine or a behavioral test. Do not use that
+environment as evidence that the chosen integrated dependency set works. Prepare
+a dedicated environment and pin an actual tested package/version combination;
+verify both offline fixtures and the real configured embedding path.
+
+| Operation | What the inspected engine provides | Consequence for the Vivy-facing facade |
+| --- | --- | --- |
+| Open | `palace.get_collection(palace_path, collection_name=None, create=..., backend=..., read_only=...)` resolves the configured drawers collection, backend and embedding identity. | Pass an explicit isolated path and selected configuration; do not silently create a differently named collection invisible to search. Respect the backend's actual read-only behavior. |
+| Write | `mcp_server/tools_write.py::tool_add_drawer` validates input, calculates an ID, checks for an existing write, chunks large content, stores `parent_drawer_id`/`chunk_index`, uses a batch upsert and checks the inserted ID. These are MCP-handler semantics, not supplied by one generic collection `upsert`. | A direct facade must reuse suitable safe lower-level code or implement the missing bounded write semantics. Do not import `mempalace.mcp_server`: its initializer redirects process stdout and fd 1 and loads fragments into a shared namespace. Copying a fragment is not a standalone supported API. |
+| Search | `searcher.search_memories` accepts an explicit palace, optional wing/room/source filter and a result limit; vector and optional lexical strategies differ. It returns a dict and search hits, not an unconditional full logical document. | Return bounded hits with source and logical handles where available; keep retrieval status and any fallback/truncation explicit. Search relevance and exact-match correctness are different assertions. |
+| Full read | `tool_get_drawer` resolves logical groups and joins ordered chunk documents; it also handles single and legacy records. | A native adapter needs a compatible logical-get path that detects missing/duplicate/out-of-order chunks and does not present an incomplete record as complete. Check actual search-hit to logical-ID mapping. |
+| Close/reopen | `backends/chroma.py::close_palace` closes and evicts the cached client for the palace; `close` drains clients for that backend. | Establish who owns cached backend handles and whether search shares them before closing. Test a same-process reopen and a new-process reopen on Windows; do not assume dropping a Python variable releases a database lock. |
+
+#### Identity and write correctness
+
+Upstream `ids.make_drawer_id_from_content(wing, room, content)` and
+`tool_add_drawer` derive the logical ID from partition and content, not
+`source_file`. The handler's already-exists check can therefore collapse equal
+text from distinct sources in the same wing/room before the second source is
+recorded. Conversely, `make_drawer_id_from_chunk` uses source and chunk index
+with the partition in its ID. These are different upstream recipes, not a
+drop-in source-preserving `remember` API. Do not pretend this is fixed by using
+only a semantic room for each topic.
+
+Recommended contract to validate: each admitted source event has an explicit
+stable identity independent of text; retrying the same event with the same
+payload resolves to one logical record, while two source events with identical
+text remain separately attributable. A repeated event with changed content or
+partition must have an explicit conflict or revision policy, not silently
+overwrite another source. Evaluate using the upstream source/chunk ID helper
+and standard metadata versus an adapter-owned namespaced ID; whichever is
+selected must be tested against native search, logical get and close/reopen.
+This is an adapter design requirement, not a change to the upstream ID recipe.
+
+Upstream comments describe one batch upsert for chunks and infer completeness
+from its last row. Test the selected backend's actual behavior; do not infer a
+cross-operation transaction or crash-proof idempotency solely from that comment.
+The adapter should report an uncertain outcome when a worker is terminated
+during a write, then offer an explicit identity-based lookup before the caller
+decides whether to retry. Preserve a source ID, partition, ordered chunk
+metadata and complete content independently of model-facing output limits.
+
+`ChromaCollection` uses `mine_palace_lock` around mutations, and the lock is
+nonblocking and keyed from a normalized palace path; on Windows it locks byte 0
+with `msvcrt`. These mechanisms are important reusable engine behavior, not
+proof that two independently opened Python workers may hold Chroma handles or
+perform a multi-step check-then-write transaction safely. Test simultaneous
+processes, same-event and different-event writes, contention and retry, exit of
+the holder, read during a write, and reopen. Choose either a narrowly scoped
+single writer or an engine-supported lock boundary based on evidence; do not
+introduce a second Vivy database or claim exactly-once delivery.
+
+#### Workbench-to-memory contract to evaluate
+
+1. **Preparation:** recipe selects the Python workbench at build time; explicit
+   setup prepares the trimmed Prime-derived runtime plus a pinned MemPalace
+   distribution and required embedding assets. Record interpreter, package,
+   backend, model identity and preparation result. Normal cells do not install
+   packages or silently fetch a model. Define a clear offline-missing-asset error.
+2. **Discovery and admission:** expose one small trusted Python-backed memory
+   capability with instructions and actual readiness. The caller chooses an
+   admitted palace/wing/room and supplies source identity and content; no
+   automatic ingestion, ambient personal data scan or persona injection.
+   These partitions organize recall; they are not security ACLs.
+3. **Execution:** a cell invokes the in-process facade. Since the inspected
+   collection/search APIs are synchronous, a slow embedding or database call
+   can block Prime's single Python event loop. Evaluate an owned bounded executor
+   for blocking work, its cross-thread library safety, and shutdown behavior;
+   cancellation of an awaiting coroutine does not stop a running thread or undo
+   a commit. Windows process-kill escalation remains the final fallback.
+4. **Results:** `remember` returns explicit status and logical handle; `search`
+   returns bounded hits and source associations; `get` returns full content or
+   an explicit file artifact with completeness and errors. Exact names, data
+   shapes, retention and size policy remain design choices. Do not confuse a
+   search excerpt or truncated `repr` with the full stored content.
+5. **Lifecycle:** normal compaction should keep the live per-agent worker;
+   explicit restart/exit destroys it but not committed palace data or explicit
+   artifacts. Each process must close owned clients before graceful stop; forced
+   termination still needs a later reopen/lock-release test. Rig's inspected
+   `host/exit.rs` uses launcher-mediated exit/relaunch for session switch and
+   reload, and `vivy-python` currently kills workers on app exit. This supports
+   fresh state after these paths but is source evidence, not a run of each path.
+
+#### Small acceptance fixtures and unresolved choices
+
+Use only temporary synthetic data, no existing palace or credentials. First
+exercise the native adapter independently; then drive the same facade through
+the actual Python worker and Coding. Suggested fixtures:
+
+| Case | Observable result |
+| --- | --- |
+| Scoped write/search/get | Write synthetic source A under a chosen wing/room; search within that scope yields its handle/source; `get` returns exactly the original content. Another partition is excluded when filtered. |
+| Long content | Use Unicode and content crossing several chunks; search finds a hit, logical get joins all chunks in order, and file artifact/full content equals the original after reopen. |
+| Duplicate versus source identity | Repeat event A and confirm one logical event; write identical content as event B in the same wing/room and confirm both source associations survive. Changed content for event A follows the declared revision/conflict rule. |
+| Failure and competing writers | Run two isolated worker processes against one synthetic palace, test same and different events, contention, interruption during a write and post-failure inspection. An error or uncertain outcome is acceptable only when reported honestly and the palace remains readable. |
+| Lifecycle and integration | Close/reopen in-process and in a fresh process, verify Windows locks release; restart the workbench and confirm variables reset while previously committed memory is retrieved. Repeat through Coding and report cleanup and cold/warm time, disk and memory costs. |
+| Environment failures | Missing pinned package/model assets, embedding identity mismatch, denied path, corrupt/incomplete chunks and malformed IDs produce actionable errors without modifying a different palace or publishing incomplete content. |
+
+Resolve the exact source/event ID schema and revision policy; source-to-logical
+mapping and compatibility with upstream search; backend/lock and handle
+ownership; embedding model preparation and offline fixture strategy; executor
+and cancellation semantics; and the artifact size/retention contract before
+implementation. The accepted MemPalace consumer gate is bounded to these
+write/search/get/reopen behaviors; Obsidian synchronization and automatic
+ingestion remain separate, not implied by this test. Workbench W1-W5 still
+precede that consumer gate.
+
+This follow-up inspected pinned source and local package metadata only. No
+engine write, model download, package installation, new test palace, MCP server,
+memory benchmark or integrated workbench execution was run. Upstream test
+names and comments are design evidence, not successful local verification.

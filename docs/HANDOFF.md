@@ -193,6 +193,14 @@ cases. In particular, upstream `repr` and current Vivy collection can truncate
 before a spill, so the accepted complete-artifact contract needs producer-side
 design. This is source inspection only; no new runtime result or scope change.
 
+Owner focus, 2026-10-28: research and close the workbench plus bounded native
+MemPalace consumer; do not start durable research now. Research section 19.11
+maps the pinned MemPalace library seam, source-identity collision in the MCP
+content-derived ID, chunk/get and backend cleanup boundaries, Windows writer
+contention, embedding preparation and blocking-call cancellation. It proposes
+synthetic acceptance cases and records the installed/pinned version mismatch.
+No MemPalace runtime test or product implementation was performed.
+
 The subsequent component audit is in research section 19.7. It identifies the
 REPL/protocol/bridge, executable-Skill loading and generic MCP lifecycle as donor
 candidates, and maps all nine bundled Python Skills to their actual host or
