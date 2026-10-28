@@ -23,9 +23,12 @@ allows a bounded unwind, then kills the worker's owned process tree; ordinary
 exceptions preserve variables. A change to the credential filtering policy resets
 workers so a filtered environment is never stale.
 
-`management` holds the explicit lifecycle commands — `/python prepare`, `status`,
-`reset`, `close`. Preparation is a cancellable owned child, never a side effect of
-a call: it creates a `uv` environment, installs hash-locked dependencies and
+`management` holds the lifecycle commands — `/python prepare`, `status`, `reset`,
+`close` — and registers this component's entry with the shared setup coordinator.
+What the owner approved for automatic initialization, the consent it is keyed by
+and the outcomes it publishes belong to [`architecture`](../../docs/DESIGN.md)
+(*Automatic workbench preparation*) and are not restated here. Preparation itself
+stays a cancellable owned child, never a side effect of a model's call: it creates a `uv` environment, installs hash-locked dependencies and
 trusted Python Skills, probes the result, and only then publishes
 `.vivy/workbench/current.json`. A failed or cancelled preparation leaves the
 previous environment in place; concurrent preparation reports busy. Reset refreshes
