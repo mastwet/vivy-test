@@ -65,6 +65,13 @@ workbench; consult the recorded verification before claiming platform support.
     Commit explicit related paths as one focused deliverable using the configured
     responsible human identity; no AI authors/co-authors. Push only with user
     authorization, including authorization already given in the conversation.
+11. **Record the decision where the next agent will look.** Before changing what
+    this project does, read
+    [`.agents/skills/recording-decisions/SKILL.md`](.agents/skills/recording-decisions/SKILL.md):
+    it requires the owning spec to be updated in the same change, and it forbids
+    leaving a drifted spec looking true. Daily logs, plans and research notes are
+    input, never requirements. This rule applies to any agent working in this
+    repository, not only to the one that wrote the specs.
 
 These rules retain useful ideas from Vivy's instructions without importing its
 Go/Eino implementation rules, `just ci`, SDK gates, hash checks, release process,
